@@ -1,0 +1,18 @@
+services:
+  one-ui:
+    image: amro045/one-ui:latest
+    container_name: one-ui
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./oa_data:/app/data"
+      - "./logs:/app/logs"
+    networks:
+      - outline_admin
+    restart: unless-stopped
+
+networks:
+  outline_admin:
+    driver: bridge
