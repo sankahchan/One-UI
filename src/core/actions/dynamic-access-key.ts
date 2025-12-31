@@ -1,0 +1,208 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { DynamicAccessKey } from "@prisma/client";
+
+import prisma from "@/prisma/db";
+import {
+    DynamicAccessKeyStats,
+    DynamicAccessKeyWithAccessKeys,
+    DynamicAccessKeyWithAccessKeysCount,
+    EditDynamicAccessKeyRequest,
+    NewDynamicAccessKeyRequest
+} from "@/src/core/definitions";
+import { PAGE_SIZE } from "@/src/core/config";
+import { removeAccessKey } from "@/src/core/actions/access-key";
+
+export async function getDynamicAccessKeys(
+    filters?: { term?: string; skip?: number; take?: number },
+    withKeysCount: boolean = false
+): Promise<DynamicAccessKeyWithAccessKeysCount[]> {
+    const { skip = 0, take = PAGE_SIZE, term } = filters || {};
+
+    return prisma.dynamicAccessKey.findMany({
+        where: {
+            OR: term ? [{ name: { contains: term } }] : undefined
+        },
+        skip,
+        take,
+        orderBy: [{ id: "desc" }],
+        include: {
+            _count: withKeysCount ? { select: { accessKeys: true } } : undefined
+        }
+    });
+}
+
+export async function getDynamicAccessKeysCount(filters?: { term?: string }): Promise<number> {
+    const { term } = filters || {};
+
+    return prisma.dynamicAccessKey.count({
+        where: {
+            OR: term ? [{ name: { contains: term } }] : undefined
+        },
+        orderBy: [{ id: "desc" }]
+    });
+}
+
+export async function getDynamicAccessKeyById(
+    id: number,
+    withKeys: boolean = false
+): Promise<DynamicAccessKeyWithAccessKeys | null> {
+    return prisma.dynamicAccessKey.findFirst({
+        where: {
+            id
+        },
+        include: {
+            accessKeys: withKeys
+        }
+    });
+}
+
+export async function findDynamicAccessKeyById(id: number): Promise<DynamicAccessKey | null> {
+    return prisma.dynamicAccessKey.findFirst({
+        where: {
+            id
+        }
+    });
+}
+
+export async function getDynamicAccessKeyByPath(path: string): Promise<DynamicAccessKeyWithAccessKeys | null> {
+    return prisma.dynamicAccessKey.findFirst({
+        where: {
+            path
+        },
+        include: {
+            accessKeys: {
+                where: {
+                    server: {
+                        isAvailable: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+export async function syncDynamicAccessKeyAccessKeys(
+    dynamicAccessKeyId: number,
+    accessKeyIds: number[]
+): Promise<void> {
+    await prisma.dynamicAccessKey.update({
+        where: { id: dynamicAccessKeyId },
+        data: {
+            accessKeys: {
+                set: accessKeyIds.map((id) => ({ id }))
+            }
+        }
+    });
+
+    revalidatePath("/dynamic-access-keys");
+}
+
+export async function createDynamicAccessKey(data: NewDynamicAccessKeyRequest): Promise<void> {
+    await prisma.dynamicAccessKey.create({
+        data: {
+            name: data.name,
+            path: data.path,
+            loadBalancerAlgorithm: data.loadBalancerAlgorithm,
+            prefix: data.prefix,
+            expiresAt: data.expiresAt,
+            isSelfManaged: data.isSelfManaged,
+            serverPoolType: data.serverPoolType,
+            serverPoolValue: data.serverPoolValue,
+            dataLimit: data.dataLimit,
+            validityPeriod: data.validityPeriod?.toString() ?? null,
+            usageStartedAt: data.setUsageDateOnFirstConnection ? null : new Date()
+        }
+    });
+
+    revalidatePath("/dynamic-access-keys");
+}
+
+export async function updateDynamicAccessKey(data: EditDynamicAccessKeyRequest): Promise<void> {
+    await prisma.dynamicAccessKey.update({
+        where: { id: data.id },
+        data: {
+            name: data.name,
+            path: data.path,
+            loadBalancerAlgorithm: data.loadBalancerAlgorithm,
+            prefix: data.prefix,
+            expiresAt: data.expiresAt,
+            isSelfManaged: data.isSelfManaged,
+            serverPoolType: data.serverPoolType,
+            serverPoolValue: data.serverPoolValue,
+            dataLimit: data.dataLimit,
+            validityPeriod: data.validityPeriod?.toString() ?? null,
+            activeServerId: null // reset the active server
+        }
+    });
+
+    revalidatePath("/dynamic-access-keys");
+}
+
+export async function resetDynamicAccessKeyUsage(id: number): Promise<void> {
+    await prisma.dynamicAccessKey.update({
+        where: { id },
+        data: {
+            dataUsage: 0,
+            usageStartedAt: null
+        }
+    });
+
+    revalidatePath("/dynamic-access-keys");
+}
+
+export async function removeDynamicAccessKey(id: number): Promise<void> {
+    const dak = await prisma.dynamicAccessKey.findUnique({
+        where: { id }
+    });
+
+    if (!dak) {
+        return;
+    }
+
+    await removeSelfManagedDynamicAccessKeyAccessKeys(id);
+
+    await prisma.dynamicAccessKey.delete({
+        where: { id }
+    });
+
+    revalidatePath("/dynamic-access-keys");
+}
+
+export async function removeSelfManagedDynamicAccessKeyAccessKeys(id: number): Promise<void> {
+    const pattern = `self-managed-dak-access-key-${id}`;
+    const accessKeys = await prisma.accessKey.findMany({
+        where: {
+            name: { contains: pattern }
+        }
+    });
+
+    if (accessKeys.length > 0) {
+        for (const accessKey of accessKeys) {
+            await removeAccessKey(accessKey.serverId, accessKey.id, accessKey.apiId, false);
+        }
+    }
+}
+
+export async function getDynamicAccessKeyStatsByPath(path: string): Promise<DynamicAccessKeyStats | null> {
+    const dak = await prisma.dynamicAccessKey.findFirst({
+        where: {
+            path
+        }
+    });
+
+    if (!dak) return null;
+
+    return {
+        name: dak.name,
+        path: dak.path,
+        validityPeriod: dak.validityPeriod,
+        dataLimit: Number(dak.dataLimit),
+        dataUsage: Number(dak.dataUsage),
+        usageStartedAt: dak.usageStartedAt,
+        prefix: dak.prefix,
+        isSelfManaged: dak.isSelfManaged,
+        expiresAt: dak.expiresAt
+    };
+}

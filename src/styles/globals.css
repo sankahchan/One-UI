@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    :root {
+        --qr-code-text: #52525b;
+    }
+}
