@@ -5,17 +5,29 @@
     "outDir": "./dist",
     "rootDir": "./",
     "module": "CommonJS",
-    "target": "esnext",
+    "moduleResolution": "node",
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node"],
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [
-    "./scripts/**/*.ts"
+    "./scripts/**/*.ts",
+    "./prisma/db.ts",
+    "./src/core/logger.ts",
+    "./src/core/config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist"
   ]
 }

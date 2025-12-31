@@ -2,9 +2,9 @@ import { AccessKey, DynamicAccessKey } from "@prisma/client";
 
 import prisma from "@/prisma/db";
 import { createLogger } from "@/src/core/logger";
-import { LoggerContext } from "@/src/core/definitions";
-import { getDakExpiryDateBasedOnValidityPeriod } from "@/src/core/utils";
-import { removeSelfManagedDynamicAccessKeyAccessKeys } from "@/src/core/actions/dynamic-access-key";
+import { LoggerContext } from "./script-definitions";
+import { getDakExpiryDateBasedOnValidityPeriod } from "./script-utils";
+import { removeSelfManagedDynamicAccessKeyAccessKeys } from "./script-actions";
 
 let logger = createLogger(LoggerContext.DakJob);
 

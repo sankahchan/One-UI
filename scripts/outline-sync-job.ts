@@ -1,7 +1,7 @@
 import prisma from "@/prisma/db";
-import { OutlineSyncService } from "@/src/core/outline/outline-sync-service";
+import { OutlineSyncService } from "./script-sync-service";
 import { createLogger } from "@/src/core/logger";
-import { LoggerContext } from "@/src/core/definitions";
+import { LoggerContext } from "./script-definitions";
 
 let logger = createLogger(LoggerContext.OutlineSyncJob);
 

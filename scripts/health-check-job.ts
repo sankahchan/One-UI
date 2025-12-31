@@ -4,8 +4,8 @@ import crypto from "crypto";
 import prisma from "@/prisma/db";
 import { HEALTH_CHECK_DEFAULT_INTERVAL, HEALTH_CHECK_DEFAULT_NOTIFICATION_COOLDOWN } from "@/src/core/config";
 import { createLogger } from "@/src/core/logger";
-import { HealthCheckNotificationType, LoggerContext } from "@/src/core/definitions";
-import { sendNotificationViaTelegramChannel } from "@/src/core/actions/notification-channel";
+import { HealthCheckNotificationType, LoggerContext } from "./script-definitions";
+import { sendNotificationViaTelegramChannel } from "./script-actions";
 
 let logger = createLogger(LoggerContext.HealthCheckJob);
 
