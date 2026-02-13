@@ -1,0 +1,3 @@
+ALTER TABLE "inbounds"
+  ADD COLUMN IF NOT EXISTS "realityDest" TEXT,
+  ADD COLUMN IF NOT EXISTS "realitySpiderX" TEXT;

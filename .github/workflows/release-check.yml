@@ -1,0 +1,84 @@
+name: Release Check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release-check.yml'
+      - 'scripts/release-check.sh'
+      - 'scripts/release-preflight-reset.sh'
+      - 'scripts/smoke-core-api.sh'
+      - 'scripts/smoke-myanmar-hardening.sh'
+      - 'scripts/api-budget-check.sh'
+      - 'scripts/api-slo-check.sh'
+      - 'scripts/bootstrap-local.sh'
+      - 'scripts/dev-down.sh'
+      - 'backend/**'
+
+concurrency:
+  group: release-check-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-check:
+    name: Release Checklist (Script Wrapper)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: xray_panel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d xray_panel"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      SKIP_DOCKER_DB: "1"
+      DATABASE_URL_LOCAL: postgresql://postgres:postgres@127.0.0.1:5432/xray_panel
+      E2E_ADMIN_USERNAME: admin
+      E2E_ADMIN_PASSWORD: admin123
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Ensure scripts are executable
+        run: chmod +x scripts/*.sh
+
+      - name: Run release checklist
+        run: ./scripts/release-check.sh --bootstrap --teardown --quiet
+
+      - name: Upload release-check logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-check-logs
+          path: |
+            .run/release-check
+            .run/backend.log
+            .run/frontend.log
+          if-no-files-found: ignore

@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: one-ui-db
+    restart: always
+    environment:
+      POSTGRES_DB: xray_panel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - xray-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: one-ui-backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - xray-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  xray:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.xray
+      args:
+        XRAY_BASE_IMAGE: ${XRAY_BASE_IMAGE:-ghcr.io/xtls/xray-core:latest}
+    container_name: xray-core
+    restart: always
+    volumes:
+      - ./xray/config.json:/etc/xray/config.json
+      - xray_logs:/var/log/xray
+      - xray_certs:/certs
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      - backend
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: one-ui-prometheus
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+      - alertmanager
+    networks:
+      - xray-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: one-ui-alertmanager
+    restart: always
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --config.expand-env
+    environment:
+      ALERT_WEBHOOK_SECRET: ${ALERT_WEBHOOK_SECRET:-change_this_alert_secret}
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    depends_on:
+      - backend
+    networks:
+      - xray-network
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: one-ui-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - xray-network
+
+volumes:
+  postgres_data:
+  xray_logs:
+  xray_certs:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+
+
+networks:
+  xray-network:
+    driver: bridge

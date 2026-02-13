@@ -1,0 +1,11 @@
+{
+  "name": "one-ui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "verify": "./scripts/verify.sh",
+    "verify:quick": "./scripts/verify.sh --skip-e2e",
+    "verify:e2e": "./scripts/e2e-smoke.sh",
+    "verify:api": "./scripts/api-contract-smoke.sh"
+  }
+}

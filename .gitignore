@@ -1,0 +1,30 @@
+# Node
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Env files
+backend/.env
+frontend/.env.local
+
+# Logs
+*.log
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+
+# Runtime
+.run/
+
+# Temp files
+backend/.tmp_*
+backend/backups/
+
+# Frontend build
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+
+# OS
+.DS_Store
+Thumbs.db

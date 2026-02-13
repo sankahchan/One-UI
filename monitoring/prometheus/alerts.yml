@@ -1,0 +1,133 @@
+groups:
+  - name: one-ui-backend-alerts
+    rules:
+      - alert: OneUIBackendDown
+        expr: up{job="one-ui-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: one-ui-backend
+        annotations:
+          summary: "One-UI backend is down"
+          description: "Prometheus cannot scrape one-ui-backend for at least 1 minute."
+
+      - alert: OneUIHighHttp5xxRate
+        expr: |
+          (
+            sum(rate(oneui_http_request_errors_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(oneui_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High 5xx error ratio"
+          description: "5xx ratio is above 5% for at least 5 minutes."
+
+      - alert: OneUIHighHttpLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(oneui_http_request_duration_ms_bucket[5m])) by (le)
+          ) > 800
+        for: 5m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High HTTP latency p95"
+          description: "p95 request latency is above 800ms for at least 5 minutes."
+
+      - alert: OneUIHighHttpLatencyP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(oneui_http_request_duration_ms_bucket[5m])) by (le)
+          ) > 1500
+        for: 5m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High HTTP latency p99"
+          description: "p99 request latency is above 1500ms for at least 5 minutes."
+
+      - alert: OneUIHighDbLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(oneui_db_query_duration_ms_bucket[5m])) by (le)
+          ) > 250
+        for: 10m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High DB latency p95"
+          description: "p95 DB query latency is above 250ms for at least 10 minutes."
+
+      - alert: OneUIOnlineUsersDroppedToZero
+        expr: oneui_online_users == 0 and sum(rate(oneui_http_requests_total[10m])) > 0
+        for: 15m
+        labels:
+          severity: info
+          service: one-ui-backend
+        annotations:
+          summary: "Online users dropped to zero"
+          description: "Online user gauge stayed at zero while API traffic is active."
+
+      - alert: OneUIHighAuthFailureRate
+        expr: |
+          (
+            sum(rate(oneui_auth_failures_total[5m]))
+            /
+            clamp_min(sum(rate(oneui_auth_attempts_total[5m])), 0.001)
+          ) > 0.2
+          and
+          sum(rate(oneui_auth_attempts_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High authentication failure ratio"
+          description: "Auth failure ratio is above 20% for at least 10 minutes."
+
+      - alert: OneUIHighSubscriptionErrorRate
+        expr: |
+          (
+            sum(rate(oneui_subscription_errors_total[5m]))
+            /
+            clamp_min(sum(rate(oneui_subscription_requests_total[5m])), 0.001)
+          ) > 0.1
+          and
+          sum(rate(oneui_subscription_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "High subscription error ratio"
+          description: "Subscription endpoint error ratio is above 10% for at least 10 minutes."
+
+      - alert: OneUIXrayUpdateLockStuck
+        expr: oneui_xray_update_lock_active == 1 and oneui_xray_update_lock_age_seconds > 1200
+        for: 5m
+        labels:
+          severity: critical
+          service: one-ui-backend
+        annotations:
+          summary: "Xray update lock appears stuck"
+          description: "Xray update lock has stayed active for more than 20 minutes."
+
+      - alert: OneUIXrayUpdateLockStale
+        expr: oneui_xray_update_lock_stale == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: one-ui-backend
+        annotations:
+          summary: "Xray update lock marked stale"
+          description: "Xray update lock stale gauge is active."

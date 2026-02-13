@@ -1,0 +1,71 @@
+mixed-port: 7890
+allow-lan: false
+bind-address: '*'
+mode: rule
+log-level: info
+ipv6: true
+external-controller: 127.0.0.1:9090
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+proxies:
+  - name: VLESS-VLESS TLS
+    server: your.domain.com
+    port: 443
+    type: vless
+    uuid: 70fc2e72-c94f-4b81-874e-7f039bb8689d
+    tls: true
+    skip-cert-verify: false
+    servername: your.domain.com
+    network: ws
+    udp: true
+    flow: ''
+    ws-opts:
+      path: /vless
+      headers:
+        Host: your.domain.com
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - Auto
+      - VLESS-VLESS TLS
+      - DIRECT
+  - name: Auto
+    type: url-test
+    proxies:
+      - VLESS-VLESS TLS
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+  - name: Direct
+    type: select
+    proxies:
+      - DIRECT
+      - Proxy
+  - name: Reject
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+rules:
+  - DOMAIN-SUFFIX,local,Direct
+  - IP-CIDR,127.0.0.0/8,Direct
+  - IP-CIDR,172.16.0.0/12,Direct
+  - IP-CIDR,192.168.0.0/16,Direct
+  - IP-CIDR,10.0.0.0/8,Direct
+  - DOMAIN-SUFFIX,googlesyndication.com,Reject
+  - DOMAIN-SUFFIX,googleadservices.com,Reject
+  - GEOIP,CN,Direct
+  - MATCH,Proxy

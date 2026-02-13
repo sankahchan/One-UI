@@ -1,0 +1,55 @@
+{
+  "name": "one-ui-backend",
+  "version": "1.0.0",
+  "description": "Foundational backend API for One-UI",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "worker": "node src/worker/index.js",
+    "start:worker": "node src/worker/index.js",
+    "dev": "nodemon src/index.js",
+    "dev:worker": "nodemon src/worker/index.js",
+    "check:syntax": "find src prisma -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "prisma:validate": "prisma validate",
+    "check": "npm run prisma:validate && npm run check:syntax",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "axios": "^1.13.4",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "commander": "^14.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "envalid": "^8.0.0",
+    "express": "^4.22.1",
+    "express-rate-limit": "^7.4.0",
+    "express-validator": "^7.3.1",
+    "helmet": "^7.2.0",
+    "js-yaml": "^4.1.1",
+    "jsonwebtoken": "^9.0.3",
+    "jszip": "^3.10.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "node-telegram-bot-api": "^0.67.0",
+    "qrcode": "^1.5.4",
+    "uuid": "^9.0.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "prisma": "^5.22.0"
+  }
+}

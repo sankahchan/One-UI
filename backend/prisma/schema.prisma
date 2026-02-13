@@ -1,0 +1,548 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id                 Int            @id @default(autoincrement())
+  username           String         @unique
+  password           String
+  role               Role           @default(ADMIN)
+  email              String?
+  telegramId         BigInt?        @unique
+  lastLoginAt        DateTime?
+  failedLoginAttempts Int           @default(0)
+  lockedUntil        DateTime?
+  twoFactorEnabled   Boolean        @default(false)
+  twoFactorSecret    String?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  apiKeys            ApiKey[]
+  sessions           AdminSession[]
+  notificationAuditLogs NotificationSettingsAuditLog[]
+
+  @@map("admins")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  AGENT
+}
+
+model SubscriptionTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  type        String   @default("html") // html, json
+  content     String   @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("subscription_templates")
+}
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  email               String              @unique
+  uuid                String              @unique
+  password            String
+  subscriptionToken   String              @unique @db.VarChar(64)
+  dataLimit           BigInt              @default(0)
+  uploadUsed          BigInt              @default(0)
+  downloadUsed        BigInt              @default(0)
+  ipLimit             Int                 @default(0) // 0 = unlimited
+  deviceLimit         Int                 @default(0) // 0 = unlimited
+  trafficResetPeriod  TrafficResetPeriod  @default(NEVER)
+  trafficResetDay     Int                 @default(1) // Day of month (1-31) or day of week (1-7)
+  lastTrafficReset    DateTime?           // Last time traffic was reset
+  expireDate          DateTime
+  status              UserStatus          @default(ACTIVE)
+  note                String?
+  telegramUsername    String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  inbounds            UserInbound[]
+  groups              UserGroup[]
+  trafficLogs         TrafficLog[]
+  connectionLogs      ConnectionLog[]
+  subscriptionBranding SubscriptionBranding?
+  usageSnapshots      UsageSnapshot[]
+
+  @@index([status, expireDate])
+  @@index([email])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  EXPIRED
+  DISABLED
+  LIMITED
+}
+
+enum TrafficResetPeriod {
+  NEVER
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Inbound {
+  id                 Int              @id @default(autoincrement())
+  port               Int              @unique
+  protocol           Protocol
+  tag                String           @unique
+  remark             String?
+  enabled            Boolean          @default(true)
+  network            Network          @default(TCP)
+  security           Security         @default(NONE)
+  serverName         String?
+  serverAddress      String
+  alpn               String?
+  wsPath             String?
+  wsHost             String?
+  xhttpMode          String?
+  grpcServiceName    String?
+  cipher             String?
+  // REALITY fields
+  realityPublicKey   String?
+  realityPrivateKey  String?
+  realityShortIds    String[]         @default([])
+  realityServerNames String[]         @default([])
+  realityFingerprint String?          @default("chrome")
+  realityDest        String?
+  realitySpiderX     String?
+  // Wireguard fields
+  wgPrivateKey       String?
+  wgPublicKey        String?
+  wgAddress          String?
+  wgPeerPublicKey    String?
+  wgPeerEndpoint     String?
+  wgAllowedIPs       String?
+  wgMtu              Int?             @default(1420)
+  // Dokodemo-door fields
+  dokodemoTargetPort Int?
+  dokodemoNetwork    String?
+  dokodemoFollowRedirect Boolean @default(false)
+  // Fallbacks - JSON array of {dest, path, xver, alpn} objects
+  fallbacks          Json?            @default("[]")
+  // Additional domains for this inbound (multi-domain support)
+  domains            String[]         @default([])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  userInbounds       UserInbound[]
+  groupInbounds      GroupInbound[]
+  connectionLogs     ConnectionLog[]
+
+  @@index([enabled])
+  @@map("inbounds")
+}
+
+enum Protocol {
+  VLESS
+  VMESS
+  TROJAN
+  SHADOWSOCKS
+  SOCKS
+  HTTP
+  DOKODEMO_DOOR
+  WIREGUARD
+  MTPROTO
+}
+
+enum Network {
+  TCP
+  WS
+  GRPC
+  HTTP
+  HTTPUPGRADE
+  XHTTP
+}
+
+enum Security {
+  NONE
+  TLS
+  REALITY
+}
+
+model UserInbound {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  inboundId Int
+  enabled   Boolean  @default(true)
+  priority  Int      @default(100)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inbound   Inbound  @relation(fields: [inboundId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, inboundId])
+  @@map("user_inbounds")
+}
+
+model Group {
+  id         Int            @id @default(autoincrement())
+  name       String         @unique
+  remark     String?
+  isDisabled Boolean        @default(false)
+  dataLimit  BigInt?
+  expiryDays Int?
+  ipLimit    Int?
+  status     UserStatus?
+  trafficResetPeriod TrafficResetPeriod?
+  trafficResetDay Int?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  users      UserGroup[]
+  inbounds   GroupInbound[]
+  policySchedules GroupPolicySchedule[]
+  policyRollouts GroupPolicyRollout[]
+  subscriptionBranding SubscriptionBranding?
+
+  @@index([isDisabled])
+  @@map("groups")
+}
+
+model GroupPolicyTemplate {
+  id                 Int                @id @default(autoincrement())
+  name               String             @unique
+  description        String?
+  isDefault          Boolean            @default(false)
+  dataLimit          BigInt?
+  expiryDays         Int?
+  ipLimit            Int?
+  status             UserStatus?
+  trafficResetPeriod TrafficResetPeriod?
+  trafficResetDay    Int?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  schedules          GroupPolicySchedule[]
+  rollouts           GroupPolicyRollout[]
+
+  @@index([isDefault])
+  @@map("group_policy_templates")
+}
+
+model GroupPolicySchedule {
+  id             Int                 @id @default(autoincrement())
+  name           String
+  groupId        Int
+  templateId     Int?
+  cronExpression String
+  timezone       String              @default("UTC")
+  enabled        Boolean             @default(true)
+  dryRun         Boolean             @default(false)
+  targetUserIds  Int[]               @default([])
+  lastRunAt      DateTime?
+  lastStatus     GroupPolicyRunStatus?
+  lastError      String?
+  runCount       Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  group          Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  template       GroupPolicyTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  rollouts       GroupPolicyRollout[]
+
+  @@index([enabled, groupId])
+  @@index([templateId])
+  @@map("group_policy_schedules")
+}
+
+model GroupPolicyRollout {
+  id          Int                   @id @default(autoincrement())
+  groupId     Int
+  templateId  Int?
+  scheduleId  Int?
+  source      GroupPolicySource     @default(MANUAL)
+  status      GroupPolicyRunStatus
+  dryRun      Boolean               @default(false)
+  initiatedBy String?
+  summary     Json?
+  errorMessage String?
+  createdAt   DateTime              @default(now())
+  group       Group                 @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  template    GroupPolicyTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  schedule    GroupPolicySchedule?  @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([groupId, createdAt])
+  @@index([scheduleId, createdAt])
+  @@index([status, createdAt])
+  @@map("group_policy_rollouts")
+}
+
+enum GroupPolicySource {
+  MANUAL
+  SCHEDULED
+}
+
+enum GroupPolicyRunStatus {
+  SUCCESS
+  FAILED
+  DRY_RUN
+}
+
+model UserGroup {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  groupId   Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@map("user_groups")
+}
+
+model GroupInbound {
+  id        Int      @id @default(autoincrement())
+  groupId   Int
+  inboundId Int
+  enabled   Boolean  @default(true)
+  priority  Int      @default(100)
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inbound   Inbound  @relation(fields: [inboundId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, inboundId])
+  @@index([inboundId])
+  @@map("group_inbounds")
+}
+
+model TrafficLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  upload    BigInt
+  download  BigInt
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@map("traffic_logs")
+}
+
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  level     LogLevel
+  message   String
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  @@index([level, timestamp])
+  @@map("system_logs")
+}
+
+enum LogLevel {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+// API Keys for external authentication
+model ApiKey {
+  id          Int       @id @default(autoincrement())
+  name        String
+  key         String    @unique @db.VarChar(64)
+  adminId     Int
+  permissions String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  admin       Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@map("api_keys")
+}
+
+model AdminSession {
+  id         Int       @id @default(autoincrement())
+  adminId    Int
+  tokenHash  String
+  jti        String    @unique
+  ipAddress  String?
+  userAgent  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  admin      Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, revokedAt, expiresAt])
+  @@map("admin_sessions")
+}
+
+model NotificationSetting {
+  id                     Int      @id @default(1)
+  webhookEnabled         Boolean  @default(false)
+  webhookUrl             String   @default("")
+  webhookSecret          String   @default("")
+  timeoutMs              Int      @default(10000)
+  retryAttempts          Int      @default(3)
+  retryDelayMs           Int      @default(1000)
+  routeDefaultWebhook    Boolean  @default(true)
+  routeDefaultTelegram   Boolean  @default(false)
+  routeDefaultSystemLog  Boolean  @default(true)
+  routes                 Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+model NotificationSettingsAuditLog {
+  id            Int      @id @default(autoincrement())
+  adminId       Int?
+  adminUsername String?
+  requestIp     String?
+  userAgent     String?
+  action        String   @default("UPDATE")
+  changedKeys   String[] @default([])
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now())
+  admin         Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([adminId, createdAt])
+  @@map("notification_settings_audit_logs")
+}
+
+// Connection logs for monitoring
+model ConnectionLog {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  inboundId         Int
+  clientIp          String
+  deviceFingerprint String?  @db.VarChar(64)
+  userAgent         String?
+  action            String   // "connect" | "disconnect"
+  timestamp         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inbound           Inbound  @relation(fields: [inboundId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([userId, deviceFingerprint, timestamp])
+  @@index([clientIp])
+  @@index([timestamp])
+  @@map("connection_logs")
+}
+
+// Custom Xray configuration templates
+model XrayTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  content   String   @db.Text
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("xray_templates")
+}
+
+model WorkerLock {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  ownerId     String
+  heartbeatAt DateTime @default(now())
+  expiresAt   DateTime
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@map("worker_locks")
+}
+
+model SecurityRule {
+  id            Int                    @id @default(autoincrement())
+  name          String
+  enabled       Boolean                @default(true)
+  action        SecurityRuleAction
+  targetType    SecurityRuleTargetType
+  targetValue   String
+  priority      Int                    @default(100)
+  hitCount      BigInt                 @default(0)
+  lastMatchedAt DateTime?
+  note          String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([enabled, priority])
+  @@index([targetType, targetValue])
+  @@map("security_rules")
+}
+
+enum SecurityRuleAction {
+  ALLOW
+  BLOCK
+}
+
+enum SecurityRuleTargetType {
+  IP
+  CIDR
+  COUNTRY
+}
+
+model SubscriptionBranding {
+  id                 Int                      @id @default(autoincrement())
+  scope              SubscriptionBrandingScope @default(GLOBAL)
+  enabled            Boolean                  @default(true)
+  priority           Int                      @default(100)
+  name               String
+  appName            String?                  @default("One-UI")
+  logoUrl            String?
+  supportUrl         String?
+  primaryColor       String?
+  accentColor        String?
+  profileTitle       String?
+  profileDescription String?
+  customFooter       String?                  @db.Text
+  clashProfileName   String?
+  metadata           Json?
+  userId             Int?                     @unique
+  groupId            Int?                     @unique
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  user               User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group              Group?                   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([scope, enabled, priority])
+  @@map("subscription_branding")
+}
+
+enum SubscriptionBrandingScope {
+  GLOBAL
+  GROUP
+  USER
+}
+
+model UsageSnapshot {
+  id                  Int       @id @default(autoincrement())
+  userId              Int?
+  email               String?
+  uploadDelta         BigInt    @default(0)
+  downloadDelta       BigInt    @default(0)
+  totalDelta          BigInt    @default(0)
+  totalUsed           BigInt    @default(0)
+  dataLimit           BigInt    @default(0)
+  usagePercent        Float     @default(0)
+  remainingBytes      BigInt    @default(0)
+  estimatedDepletionAt DateTime?
+  isAnomaly           Boolean   @default(false)
+  anomalyScore        Float?
+  windowStart         DateTime
+  windowEnd           DateTime
+  createdAt           DateTime  @default(now())
+  user                User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([windowStart, windowEnd])
+  @@index([userId, createdAt])
+  @@index([isAnomaly, createdAt])
+  @@map("usage_snapshots")
+}

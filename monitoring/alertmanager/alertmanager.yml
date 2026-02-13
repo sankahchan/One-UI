@@ -1,0 +1,59 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: oneui-webhook
+  group_by: ['alertname', 'severity', 'service']
+  group_wait: 20s
+  group_interval: 2m
+  repeat_interval: 4h
+  routes:
+    - receiver: oneui-webhook
+      matchers:
+        - severity="info"
+      repeat_interval: 12h
+      mute_time_intervals:
+        - oneui-night-silence
+    - receiver: oneui-webhook
+      matchers:
+        - severity=~"warning|critical"
+      repeat_interval: 2h
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity=~"warning|info"
+    equal: ['alertname', 'service']
+  - source_matchers:
+      - severity="warning"
+    target_matchers:
+      - severity="info"
+    equal: ['alertname', 'service']
+  - source_matchers:
+      - alertname="OneUIBackendDown"
+    target_matchers:
+      - alertname=~"OneUIHighHttpLatencyP95|OneUIHighDbLatencyP95|OneUIHighHttp5xxRate"
+    equal: ['service']
+
+mute_time_intervals:
+  - name: oneui-night-silence
+    time_intervals:
+      - weekdays: ['monday:friday']
+        times:
+          - start_time: '00:00'
+            end_time: '06:00'
+      - weekdays: ['saturday:sunday']
+        times:
+          - start_time: '00:00'
+            end_time: '08:00'
+
+receivers:
+  - name: oneui-webhook
+    webhook_configs:
+      - url: http://backend:3000/api/system/alerts/webhook
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: ${ALERT_WEBHOOK_SECRET}
