@@ -12,6 +12,8 @@ export interface User {
   remainingPercent?: number;
   ipLimit: number; // 0 = unlimited
   deviceLimit: number; // 0 = unlimited
+  startOnFirstUse?: boolean;
+  firstUsedAt?: string | null;
   expireDate: string;
   daysRemaining?: number;
   status: 'ACTIVE' | 'EXPIRED' | 'DISABLED' | 'LIMITED';
@@ -478,6 +480,17 @@ export interface SubscriptionLinksData {
   token: string;
   links: SubscriptionLink[];
   shareUrl: string;
+  branding?: {
+    appName?: string;
+    logoUrl?: string | null;
+    primaryColor?: string | null;
+    accentColor?: string | null;
+    profileTitle?: string | null;
+    profileDescription?: string | null;
+    supportUrl?: string | null;
+    customFooter?: string | null;
+    metadata?: unknown;
+  } | null;
 }
 
 export interface UserCreatePayload {

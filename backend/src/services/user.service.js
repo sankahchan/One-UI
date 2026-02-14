@@ -400,7 +400,7 @@ async function reloadXrayIfEnabled(operation) {
 }
 
 class UserService {
-  async createUser({ email, dataLimit, expiryDays, inboundIds, note, ipLimit = 0, deviceLimit = 0 }) {
+  async createUser({ email, dataLimit, expiryDays, inboundIds, note, ipLimit = 0, deviceLimit = 0, startOnFirstUse = false }) {
     if (!email) {
       throw new ValidationError('email is required');
     }
@@ -433,6 +433,8 @@ class UserService {
         dataLimit: gbToBytes(dataLimit),
         ipLimit: safeIpLimit,
         deviceLimit: safeDeviceLimit,
+        startOnFirstUse: Boolean(startOnFirstUse),
+        firstUsedAt: null,
         expireDate,
         note,
         inbounds: {
@@ -536,7 +538,10 @@ class UserService {
     }
 
     const now = new Date();
-    const daysRemaining = Math.ceil((user.expireDate - now) / (1000 * 60 * 60 * 24));
+    const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
+    const daysRemaining = isDeferredExpiry
+      ? Math.max(1, Math.ceil((user.expireDate - user.createdAt) / (1000 * 60 * 60 * 24)))
+      : Math.ceil((user.expireDate - now) / (1000 * 60 * 60 * 24));
 
     return {
       ...user,
@@ -549,9 +554,20 @@ class UserService {
 
   async updateUser(id, updates) {
     const userId = parseId(id);
-    const { email, dataLimit, expiryDays, inboundIds, note, status, ipLimit, deviceLimit } = updates;
+    const { email, dataLimit, expiryDays, inboundIds, note, status, ipLimit, deviceLimit, startOnFirstUse } = updates;
 
     const data = {};
+    const requiresExistingUser = expiryDays !== undefined || startOnFirstUse !== undefined;
+    const existingUser = requiresExistingUser
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, createdAt: true, expireDate: true, startOnFirstUse: true, firstUsedAt: true }
+        })
+      : null;
+
+    if (requiresExistingUser && !existingUser) {
+      throw new NotFoundError('User not found');
+    }
 
     if (email !== undefined) data.email = email;
     if (dataLimit !== undefined) data.dataLimit = gbToBytes(dataLimit);
@@ -572,11 +588,31 @@ class UserService {
       data.deviceLimit = parsedDeviceLimit;
     }
 
+    const effectiveStartOnFirstUse = startOnFirstUse !== undefined
+      ? Boolean(startOnFirstUse)
+      : Boolean(existingUser?.startOnFirstUse);
+
+    if (startOnFirstUse !== undefined) {
+      if (existingUser?.firstUsedAt && effectiveStartOnFirstUse !== existingUser.startOnFirstUse) {
+        throw new ValidationError('startOnFirstUse cannot be changed after the user has connected');
+      }
+      data.startOnFirstUse = effectiveStartOnFirstUse;
+    }
+
     if (expiryDays !== undefined) {
-      const expireDate = new Date();
       const days = parsePositiveNumber(expiryDays, 0);
-      expireDate.setDate(expireDate.getDate() + days);
-      data.expireDate = expireDate;
+      const shouldDeferExpiry = effectiveStartOnFirstUse && !existingUser?.firstUsedAt;
+
+      if (shouldDeferExpiry) {
+        // For deferred users, "expiryDays" represents the duration that starts on first connect.
+        const expireDate = new Date(existingUser.createdAt);
+        expireDate.setDate(expireDate.getDate() + days);
+        data.expireDate = expireDate;
+      } else {
+        const expireDate = new Date();
+        expireDate.setDate(expireDate.getDate() + days);
+        data.expireDate = expireDate;
+      }
     }
 
     await prisma.user.update({
@@ -1119,6 +1155,7 @@ class UserService {
 
     const now = Date.now();
     const byFingerprint = new Map();
+    const inboundById = new Map();
 
     for (const log of logs) {
       const fingerprint = log.deviceFingerprint || `legacy-ip:${normalizeClientIp(log.clientIp) || 'unknown'}`;
@@ -1126,6 +1163,14 @@ class UserService {
 
       if (!existing) {
         const ageMs = now - new Date(log.timestamp).getTime();
+        if (log.inbound?.id) {
+          inboundById.set(log.inbound.id, {
+            id: log.inbound.id,
+            tag: log.inbound.tag,
+            protocol: log.inbound.protocol,
+            port: log.inbound.port
+          });
+        }
         byFingerprint.set(fingerprint, {
           fingerprint,
           shortFingerprint: shortFingerprint(fingerprint),
@@ -1151,14 +1196,50 @@ class UserService {
     }
 
     const activeInMemory = deviceTrackingService.getActiveDevices(userId);
+    const missingInboundIds = new Set();
+    for (const device of activeInMemory) {
+      if (Number.isInteger(device.inboundId) && device.inboundId > 0 && !inboundById.has(device.inboundId)) {
+        missingInboundIds.add(device.inboundId);
+      }
+    }
+
+    if (missingInboundIds.size > 0) {
+      const hydratedInbounds = await prisma.inbound.findMany({
+        where: {
+          id: {
+            in: Array.from(missingInboundIds)
+          }
+        },
+        select: {
+          id: true,
+          tag: true,
+          protocol: true,
+          port: true
+        }
+      });
+
+      for (const inbound of hydratedInbounds) {
+        inboundById.set(inbound.id, {
+          id: inbound.id,
+          tag: inbound.tag,
+          protocol: inbound.protocol,
+          port: inbound.port
+        });
+      }
+    }
+
     for (const device of activeInMemory) {
       const existing = byFingerprint.get(device.fingerprint);
       const lastSeenAt = device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : new Date().toISOString();
+      const inbound = Number.isInteger(device.inboundId) && device.inboundId > 0 ? inboundById.get(device.inboundId) : null;
       if (existing) {
         existing.online = true;
         existing.lastSeenAt = existing.lastSeenAt || lastSeenAt;
         existing.clientIp = existing.clientIp || normalizeClientIp(device.clientIp) || null;
         existing.userAgent = existing.userAgent || device.userAgent || null;
+        if (!existing.inbound && inbound) {
+          existing.inbound = inbound;
+        }
       } else {
         byFingerprint.set(device.fingerprint, {
           fingerprint: device.fingerprint,
@@ -1168,7 +1249,7 @@ class UserService {
           lastAction: 'connect',
           clientIp: normalizeClientIp(device.clientIp) || null,
           userAgent: device.userAgent || null,
-          inbound: null,
+          inbound,
           hitCount: 1
         });
       }

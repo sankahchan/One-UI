@@ -18,6 +18,7 @@ interface FormData {
   email: string;
   dataLimit: number;
   expiryDays: number;
+  startOnFirstUse: boolean;
   ipLimit: number;
   deviceLimit: number;
   inboundIds: string[];
@@ -44,6 +45,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       email: '',
       dataLimit: 50,
       expiryDays: 30,
+      startOnFirstUse: false,
       ipLimit: 0,
       deviceLimit: 0,
       inboundIds: [],
@@ -53,13 +55,22 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
 
   useEffect(() => {
     if (user) {
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
+      const expiryDaysValue = isDeferredExpiry
+        ? Math.max(
+            1,
+            Math.ceil(
+              (new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / msPerDay
+            )
+          )
+        : Math.max(1, Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / msPerDay));
+
       reset({
         email: user.email,
         dataLimit: Number(user.dataLimit) / 1024 ** 3,
-        expiryDays: Math.max(
-          1,
-          Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-        ),
+        expiryDays: expiryDaysValue,
+        startOnFirstUse: Boolean(user.startOnFirstUse),
         ipLimit: user.ipLimit ?? 0,
         deviceLimit: (user as any).deviceLimit ?? 0,
         inboundIds: user.inbounds?.map((userInbound) => String(userInbound.inboundId)) || [],
@@ -72,6 +83,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       email: '',
       dataLimit: 50,
       expiryDays: 30,
+      startOnFirstUse: false,
       ipLimit: 0,
       deviceLimit: 0,
       inboundIds: [],
@@ -86,7 +98,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       .map((value) => Number.parseInt(String(value), 10))
       .filter((value) => Number.isInteger(value) && value > 0);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       email: data.email,
       dataLimit: Number(data.dataLimit),
       expiryDays: Number(data.expiryDays),
@@ -95,6 +107,10 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       inboundIds,
       note: data.note || undefined
     };
+
+    if (!isEdit) {
+      payload.startOnFirstUse = Boolean(data.startOnFirstUse);
+    }
 
     try {
       if (isEdit && user) {
@@ -165,6 +181,24 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
               placeholder="30"
             />
           </div>
+
+          {!isEdit ? (
+            <div className="rounded-xl border border-line/70 bg-panel/40 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  {...register('startOnFirstUse')}
+                  className="mt-1 h-4 w-4 rounded border-line text-brand-500 focus:ring-brand-500/40"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Start expiry on first connect</p>
+                  <p className="mt-1 text-xs text-muted">
+                    The expiry timer begins when the user first connects (downloads subscription). Until then, the account stays active.
+                  </p>
+                </div>
+              </label>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input

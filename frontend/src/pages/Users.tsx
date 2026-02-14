@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import { Download, Plus, RefreshCw, Search, Users as UsersIcon } from 'lucide-react';
+import { ChevronDown, Download, MoreVertical, Plus, RefreshCw, Search, Users as UsersIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -451,11 +451,31 @@ export function Users() {
     setSelectedUserIds([]);
   };
 
+  const closeDropdownMenu = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    const details = element?.closest('details') as HTMLDetailsElement | null;
+    if (details) {
+      details.open = false;
+    }
+  };
+
+  const runBulkMenuAction = (event: MouseEvent<HTMLButtonElement>, action: (() => void) | undefined) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (action) {
+      action();
+    }
+    closeDropdownMenu(event.currentTarget);
+  };
+
   const refreshUsersAndSessions = async (options: { includeGroups?: boolean } = {}) => {
     const tasks: Array<Promise<unknown>> = [
-      usersQuery.refetch(),
-      userSessionsQuery.refetch()
+      usersQuery.refetch()
     ];
+
+    if (userSessionsQuery.streamStatus !== 'connected') {
+      tasks.push(userSessionsQuery.refetch());
+    }
 
     if (options.includeGroups) {
       tasks.push(groupsQuery.refetch());
@@ -1232,57 +1252,122 @@ export function Users() {
             </Button>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-xl border border-line/70 bg-panel/40 p-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                className="min-w-[180px] rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                value={selectedViewId}
-                onChange={(event) => applySavedView(event.target.value)}
-              >
-                <option value="">Saved views</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  void handleSaveCurrentView();
-                }}
-              >
-                Save View
-              </Button>
-              <Button size="sm" variant="ghost" onClick={removeSelectedView} disabled={!selectedViewId}>
-                Remove View
-              </Button>
-            </div>
+          <div className="rounded-xl border border-line/70 bg-panel/40 p-3">
+            <details className="group lg:hidden">
+              <summary className="flex list-none items-center justify-between gap-3 rounded-xl px-2 py-2 text-left text-sm font-medium text-foreground transition hover:bg-panel/50 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="truncate">Advanced controls</p>
+                  <p className="mt-0.5 text-xs font-normal text-muted">
+                    Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+              </summary>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
-                {(['auto', 'table', 'cards'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setViewMode(mode)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                      viewMode === mode
-                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
-                        : 'text-muted hover:text-foreground'
-                    }`}
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className="min-w-[180px] flex-1 rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    value={selectedViewId}
+                    onChange={(event) => applySavedView(event.target.value)}
                   >
-                    {mode.toUpperCase()}
-                  </button>
-                ))}
+                    <option value="">Saved views</option>
+                    {savedViews.map((view) => (
+                      <option key={view.id} value={view.id}>
+                        {view.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      void handleSaveCurrentView();
+                    }}
+                  >
+                    Save View
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={removeSelectedView} disabled={!selectedViewId}>
+                    Remove View
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
+                    {(['auto', 'table', 'cards'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setViewMode(mode)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                          viewMode === mode
+                            ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                            : 'text-muted hover:text-foreground'
+                        }`}
+                      >
+                        {mode.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
+                    {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                  </Button>
+                </div>
               </div>
-              <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-                {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
-              </Button>
-              <span className="text-xs text-muted">
-                Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
-              </span>
+            </details>
+
+            <div className="hidden items-center justify-between gap-3 lg:flex">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="min-w-[180px] rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                  value={selectedViewId}
+                  onChange={(event) => applySavedView(event.target.value)}
+                >
+                  <option value="">Saved views</option>
+                  {savedViews.map((view) => (
+                    <option key={view.id} value={view.id}>
+                      {view.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    void handleSaveCurrentView();
+                  }}
+                >
+                  Save View
+                </Button>
+                <Button size="sm" variant="ghost" onClick={removeSelectedView} disabled={!selectedViewId}>
+                  Remove View
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
+                  {(['auto', 'table', 'cards'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setViewMode(mode)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        viewMode === mode
+                          ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                          : 'text-muted hover:text-foreground'
+                      }`}
+                    >
+                      {mode.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
+                  {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                </Button>
+                <span className="text-xs text-muted">
+                  Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -1297,179 +1382,193 @@ export function Users() {
                 {selectedUsers.length > 0 ? ` (${selectedUsers.map((user) => user.email).slice(0, 2).join(', ')}${selectedUsers.length > 2 ? ', ...' : ''})` : ''}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    clearSelection();
-                  }}
-                  disabled={isBulkMutating}
-                >
-                  Clear
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void handleBulkResetTraffic();
-                  }}
-                  loading={bulkResetTrafficMutation.isPending}
-                  disabled={isBulkMutating}
-                >
-                  Reset Traffic
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void handleBulkExtendExpiry();
-                  }}
-                  loading={bulkExtendExpiryMutation.isPending}
-                  disabled={isBulkMutating}
-                >
-                  Extend Expiry
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void handleBulkRotateKeys();
-                  }}
-                  loading={bulkRotateKeysMutation.isPending}
-                  disabled={isBulkMutating}
-                >
-                  Rotate Keys
-                </Button>
-                {canRevokeUsers ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      void handleBulkRevokeKeys();
+                <details className="group relative">
+                  <summary
+                    className="list-none"
+                    onClick={(event) => {
+                      if (isBulkMutating) {
+                        event.preventDefault();
+                      }
                     }}
-                    loading={bulkRevokeKeysMutation.isPending}
-                    disabled={isBulkMutating}
                   >
-                    Revoke Access
-                  </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void handleBulkApplyMyanmarPriority();
-                  }}
-                  loading={bulkMyanmarPriorityMutation.isPending}
-                  disabled={isBulkMutating}
-                >
-                  Myanmar Priority
-                </Button>
-                {groups.length > 0 ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-line/70 bg-card/80 px-2 py-1">
-                    <select
-                      value={selectedGroupId}
-                      onChange={(event) => setSelectedGroupId(event.target.value)}
-                      className="max-w-[13rem] rounded-md border border-line/60 bg-card/80 px-2 py-1 text-xs text-foreground focus:border-brand-500/60 focus:outline-none"
-                      disabled={isBulkMutating || groupsQuery.isFetching}
-                    >
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        void handleBulkAssignToGroup();
-                      }}
-                      loading={assignGroupMutation.isPending}
-                      disabled={isBulkMutating || !selectedGroupId}
-                    >
-                      Assign
+                    <Button size="sm" variant="secondary" disabled={isBulkMutating}>
+                      <MoreVertical className="mr-2 h-4 w-4" />
+                      Bulk actions
+                      <ChevronDown className="ml-2 h-4 w-4 text-muted transition-transform group-open:rotate-180" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        void handleBulkMoveToGroup();
-                      }}
-                      loading={moveGroupUsersMutation.isPending}
-                      disabled={isBulkMutating || !selectedGroupId}
-                    >
-                      Move
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        void handleBulkRemoveFromGroup();
-                      }}
-                      loading={removeGroupUsersMutation.isPending}
-                      disabled={isBulkMutating || !selectedGroupId}
-                    >
-                      Remove
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        void handleBulkApplyGroupPolicy();
-                      }}
-                      loading={applyGroupPolicyMutation.isPending}
-                      disabled={isBulkMutating || !selectedGroupId}
-                    >
-                      Apply Policy
-                    </Button>
+                  </summary>
+
+                  <div className="absolute right-0 z-20 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-line/70 bg-panel/95 p-2 shadow-soft backdrop-blur">
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, clearSelection)}
+                        disabled={isBulkMutating}
+                      >
+                        Clear selection
+                      </button>
+
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkResetTraffic())}
+                        disabled={isBulkMutating}
+                      >
+                        Reset traffic
+                      </button>
+
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkExtendExpiry())}
+                        disabled={isBulkMutating}
+                      >
+                        Extend expiry
+                      </button>
+
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkRotateKeys())}
+                        disabled={isBulkMutating}
+                      >
+                        Rotate keys
+                      </button>
+
+                      {canRevokeUsers ? (
+                        <button
+                          type="button"
+                          className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={(event) => runBulkMenuAction(event, () => void handleBulkRevokeKeys())}
+                          disabled={isBulkMutating}
+                        >
+                          Revoke access
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkApplyMyanmarPriority())}
+                        disabled={isBulkMutating}
+                      >
+                        Myanmar priority reorder
+                      </button>
+                    </div>
+
+                    <div className="my-2 border-t border-line/60" />
+
+                    {groups.length > 0 ? (
+                      <div className="space-y-2 px-2 pb-1 pt-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Groups</p>
+                        <select
+                          value={selectedGroupId}
+                          onChange={(event) => setSelectedGroupId(event.target.value)}
+                          className="w-full rounded-xl border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                          disabled={isBulkMutating || groupsQuery.isFetching}
+                        >
+                          {groups.map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(event) => runBulkMenuAction(event, () => void handleBulkAssignToGroup())}
+                            loading={assignGroupMutation.isPending}
+                            disabled={isBulkMutating || !selectedGroupId}
+                          >
+                            Assign
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(event) => runBulkMenuAction(event, () => void handleBulkMoveToGroup())}
+                            loading={moveGroupUsersMutation.isPending}
+                            disabled={isBulkMutating || !selectedGroupId}
+                          >
+                            Move
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(event) => runBulkMenuAction(event, () => void handleBulkRemoveFromGroup())}
+                            loading={removeGroupUsersMutation.isPending}
+                            disabled={isBulkMutating || !selectedGroupId}
+                          >
+                            Remove
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(event) => runBulkMenuAction(event, () => void handleBulkApplyGroupPolicy())}
+                            loading={applyGroupPolicyMutation.isPending}
+                            disabled={isBulkMutating || !selectedGroupId}
+                          >
+                            Apply Policy
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-2 pb-1 pt-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full"
+                          onClick={(event) => runBulkMenuAction(event, () => navigate('/groups'))}
+                          disabled={groupsQuery.isFetching}
+                        >
+                          Create group
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="my-2 border-t border-line/60" />
+
+                    <div className="space-y-2 px-2 pb-1 pt-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Status</p>
+                      <select
+                        value={bulkStatus}
+                        onChange={(event) => setBulkStatus(event.target.value as UserStatus)}
+                        className="w-full rounded-xl border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                        disabled={isBulkMutating}
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="LIMITED">LIMITED</option>
+                        <option value="DISABLED">DISABLED</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkUpdateStatus())}
+                        loading={bulkUpdateStatusMutation.isPending}
+                        disabled={isBulkMutating}
+                      >
+                        Apply status
+                      </Button>
+                    </div>
+
+                    {canDeleteUsers ? (
+                      <>
+                        <div className="my-2 border-t border-line/60" />
+                        <button
+                          type="button"
+                          className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10 focus:outline-none focus:ring-2 focus:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={(event) => runBulkMenuAction(event, () => void handleBulkDelete())}
+                          disabled={isBulkMutating}
+                        >
+                          Delete selected
+                        </button>
+                      </>
+                    ) : null}
                   </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => navigate('/groups')}
-                    disabled={groupsQuery.isFetching}
-                  >
-                    Create Group
-                  </Button>
-                )}
-                <div className="flex items-center gap-2 rounded-lg border border-line/70 bg-card/80 px-2 py-1">
-                  <select
-                    value={bulkStatus}
-                    onChange={(event) => setBulkStatus(event.target.value as UserStatus)}
-                    className="rounded-md border border-line/60 bg-card/80 px-2 py-1 text-xs text-foreground focus:border-brand-500/60 focus:outline-none"
-                    disabled={isBulkMutating}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="LIMITED">LIMITED</option>
-                    <option value="DISABLED">DISABLED</option>
-                    <option value="EXPIRED">EXPIRED</option>
-                  </select>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      void handleBulkUpdateStatus();
-                    }}
-                    loading={bulkUpdateStatusMutation.isPending}
-                    disabled={isBulkMutating}
-                  >
-                    Apply Status
-                  </Button>
-                </div>
-                {canDeleteUsers ? (
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => {
-                      void handleBulkDelete();
-                    }}
-                    loading={bulkDeleteMutation.isPending}
-                    disabled={isBulkMutating}
-                  >
-                    Delete Selected
-                  </Button>
-                ) : null}
+                </details>
               </div>
             </div>
           </div>

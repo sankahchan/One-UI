@@ -307,6 +307,39 @@ class SubscriptionGenerator {
       throw new Error('Subscription expired or disabled');
     }
 
+    // Deferred expiry ("start on first use"): activate user on first successful subscription fetch.
+    if (user.startOnFirstUse && !user.firstUsedAt) {
+      const durationMs = Math.max(0, user.expireDate.getTime() - user.createdAt.getTime());
+      const activatedAt = new Date();
+      const nextExpireDate = new Date(activatedAt.getTime() + durationMs);
+
+      const updated = await prisma.user.updateMany({
+        where: {
+          id: user.id,
+          startOnFirstUse: true,
+          firstUsedAt: null
+        },
+        data: {
+          firstUsedAt: activatedAt,
+          expireDate: nextExpireDate
+        }
+      });
+
+      if (updated.count > 0) {
+        user.firstUsedAt = activatedAt;
+        user.expireDate = nextExpireDate;
+      } else {
+        const refreshed = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { firstUsedAt: true, expireDate: true }
+        });
+        if (refreshed) {
+          user.firstUsedAt = refreshed.firstUsedAt;
+          user.expireDate = refreshed.expireDate;
+        }
+      }
+    }
+
     if (new Date() > user.expireDate) {
       await prisma.user.update({
         where: { id: user.id },

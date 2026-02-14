@@ -15,6 +15,12 @@ import { QRCodeSVG } from 'qrcode.react';
 
 import apiClient from '../../api/client';
 import type { SubscriptionLinksData, SubscriptionLink } from '../../types';
+import {
+  detectPlatform,
+  resolveSubscriptionApps,
+  type Platform,
+  type SubscriptionBrandingMetadata
+} from '../../lib/subscriptionApps';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
 
@@ -70,6 +76,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
   const [copied, setCopied] = useState<string>('');
   const [expandedQr, setExpandedQr] = useState<Set<number>>(new Set());
   const [showShareQr, setShowShareQr] = useState(false);
+  const [platform, setPlatform] = useState<Platform>(() => detectPlatform());
 
   const { data, isLoading } = useQuery({
     queryKey: ['subscription-info', userId],
@@ -79,6 +86,10 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
     },
     enabled: Number.isInteger(userId) && userId > 0
   });
+
+  useEffect(() => {
+    setPlatform(detectPlatform());
+  }, []);
 
   const availableTabs = useMemo(() => {
     if (!data?.urls) return [];
@@ -125,6 +136,15 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
     anchor.click();
     URL.revokeObjectURL(url);
   };
+
+  const brandingMetadata = (data as any)?.branding?.metadata as SubscriptionBrandingMetadata | null | undefined;
+  const appsForPlatform = data?.urls
+    ? resolveSubscriptionApps({
+        platform,
+        urls: data.urls,
+        metadata: brandingMetadata
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -212,6 +232,90 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                 One-Click Import
               </Button>
             )}
+
+            {appsForPlatform.length > 0 ? (
+              <details className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                  Add to app (platform)
+                </summary>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(['android', 'ios', 'windows'] as Platform[]).map((entry) => (
+                    <button
+                      key={entry}
+                      onClick={() => setPlatform(entry)}
+                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        platform === entry
+                          ? 'bg-brand-500 text-white shadow-soft'
+                          : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
+                      }`}
+                    >
+                      {entry === 'android' ? 'Android' : null}
+                      {entry === 'ios' ? 'iOS' : null}
+                      {entry === 'windows' ? 'Desktop' : null}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {appsForPlatform.map((app) => {
+                    const copyKey = `app-${app.id}`;
+                    return (
+                      <div key={app.id} className="rounded-2xl border border-line/70 bg-card/65 p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line/70 bg-panel text-xl">
+                            {app.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground">{app.name}</p>
+                            <p className="mt-1 text-xs text-muted">{app.description}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-2">
+                          {app.importUrl ? (
+                            <Button className="w-full" onClick={() => { window.location.href = app.importUrl as string; }}>
+                              <Smartphone className="mr-2 h-4 w-4" />
+                              One-Click
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => copyToClipboard(app.manualUrl, `manual-${app.id}`)}
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy URL
+                            </Button>
+                          )}
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              className="flex-1 justify-center"
+                              onClick={() => copyToClipboard(app.manualUrl, copyKey)}
+                            >
+                              {copied === copyKey ? <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                              {copied === copyKey ? 'Copied' : 'Copy'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                if (!app.storeLink) return;
+                                window.open(app.storeLink, '_blank', 'noopener,noreferrer');
+                              }}
+                              disabled={!app.storeLink}
+                              aria-label="Open app download page"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            ) : null}
           </div>
         </div>
       )}

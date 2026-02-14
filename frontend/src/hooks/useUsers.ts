@@ -45,12 +45,17 @@ export const useUser = (id: number) => {
   });
 };
 
-export const useUserDevices = (id: number, windowMinutes = 60) => {
+export const useUserDevices = (
+  id: number,
+  windowMinutes = 60,
+  options: { refetchInterval?: number | false; staleTime?: number } = {}
+) => {
   return useQuery<ApiResponse<UserDeviceSessionResponse>>({
     queryKey: ['user-devices', id, windowMinutes],
     queryFn: () => usersApi.getUserDevices(id, windowMinutes),
     enabled: !!id,
-    staleTime: 15_000
+    staleTime: options.staleTime ?? 15_000,
+    refetchInterval: options.refetchInterval
   });
 };
 

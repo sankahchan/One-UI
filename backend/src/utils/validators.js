@@ -87,6 +87,7 @@ const userValidators = {
     body('note').optional().isString().isLength({ max: 500 }).withMessage('note max length is 500'),
     body('ipLimit').optional().isInt({ min: 0 }).withMessage('ipLimit must be 0 or greater (0 = unlimited)').toInt(),
     body('deviceLimit').optional().isInt({ min: 0 }).withMessage('deviceLimit must be 0 or greater (0 = unlimited)').toInt(),
+    body('startOnFirstUse').optional().isBoolean().withMessage('startOnFirstUse must be boolean').toBoolean(),
     body('status').optional().isIn(userStatusValues).withMessage('status is invalid')
   ],
   update: [
@@ -98,7 +99,8 @@ const userValidators = {
     body('note').optional().isString().isLength({ max: 500 }).withMessage('note max length is 500'),
     body('status').optional().isIn(userStatusValues).withMessage('status is invalid'),
     body('ipLimit').optional().isInt({ min: 0 }).withMessage('ipLimit must be 0 or greater (0 = unlimited)').toInt(),
-    body('deviceLimit').optional().isInt({ min: 0 }).withMessage('deviceLimit must be 0 or greater (0 = unlimited)').toInt()
+    body('deviceLimit').optional().isInt({ min: 0 }).withMessage('deviceLimit must be 0 or greater (0 = unlimited)').toInt(),
+    body('startOnFirstUse').optional().isBoolean().withMessage('startOnFirstUse must be boolean').toBoolean()
   ]
 };
 

@@ -90,6 +90,21 @@ should_use_screen() {
   return 1
 }
 
+wait_for_screen_session() {
+  local session_name="$1"
+  local timeout_seconds="${2:-4}"
+  local deadline=$((SECONDS + timeout_seconds))
+
+  while (( SECONDS < deadline )); do
+    if screen -ls 2>/dev/null | grep -E "[[:digit:]]+\\.${session_name}[[:space:]]" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.2
+  done
+
+  return 1
+}
+
 ensure_env_file() {
   if [[ ! -f "$BACKEND_DIR/.env" ]]; then
     cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
@@ -258,6 +273,7 @@ start_backend() {
     screen -S "$SCREEN_BACKEND_NAME" -X quit >/dev/null 2>&1 || true
     screen -dmS "$SCREEN_BACKEND_NAME" bash -lc "cd \"$BACKEND_DIR\" && exec env DATABASE_URL=\"$DATABASE_URL_LOCAL\" TELEGRAM_ENABLED=false JOBS_ENABLED=false BACKUP_ENABLED=false node src/index.js >> \"$RUN_DIR/backend.log\" 2>&1"
     echo "screen:$SCREEN_BACKEND_NAME" > "$RUN_DIR/backend.pid"
+    wait_for_screen_session "$SCREEN_BACKEND_NAME" 4 || true
   else
     (
       cd "$BACKEND_DIR"
@@ -279,6 +295,7 @@ start_frontend() {
     screen -S "$SCREEN_FRONTEND_NAME" -X quit >/dev/null 2>&1 || true
     screen -dmS "$SCREEN_FRONTEND_NAME" bash -lc "cd \"$FRONTEND_DIR\" && exec npm run dev -- --host 127.0.0.1 --port 5173 --strictPort >> \"$RUN_DIR/frontend.log\" 2>&1"
     echo "screen:$SCREEN_FRONTEND_NAME" > "$RUN_DIR/frontend.pid"
+    wait_for_screen_session "$SCREEN_FRONTEND_NAME" 4 || true
   else
     (
       cd "$FRONTEND_DIR"

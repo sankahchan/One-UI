@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const userService = require('../services/user.service');
 const groupService = require('../services/group.service');
 const webhookService = require('../services/webhook.service');
+const subscriptionBrandingService = require('../services/subscriptionBranding.service');
 const { buildProtocolUrl } = require('../subscription/formats/url-builder');
 const QRCode = require('qrcode');
 const ApiResponse = require('../utils/response');
@@ -304,29 +305,33 @@ async function getSubscriptionInfo(req, res, next) {
       }
     });
 
-    const links = [];
-    if (userWithInbounds) {
-      for (const userInbound of userWithInbounds.inbounds) {
-        const inbound = userInbound.inbound;
-        const url = buildProtocolUrl(inbound.protocol, user, inbound);
-        if (!url) {
-          continue;
-        }
+    const links = userWithInbounds
+      ? (
+          await Promise.all(
+            userWithInbounds.inbounds.map(async (userInbound) => {
+              const inbound = userInbound.inbound;
+              const url = buildProtocolUrl(inbound.protocol, user, inbound);
+              if (!url) {
+                return null;
+              }
 
-        const qrCode = await QRCode.toDataURL(url);
-        links.push({
-          inboundId: inbound.id,
-          remark: inbound.remark || `${user.email}-${inbound.protocol}`,
-          protocol: inbound.protocol,
-          network: inbound.network,
-          security: inbound.security || 'NONE',
-          url,
-          qrCode
-        });
-      }
-    }
+              const qrCode = await QRCode.toDataURL(url);
+              return {
+                inboundId: inbound.id,
+                remark: inbound.remark || `${user.email}-${inbound.protocol}`,
+                protocol: inbound.protocol,
+                network: inbound.network,
+                security: inbound.security || 'NONE',
+                url,
+                qrCode
+              };
+            })
+          )
+        ).filter(Boolean)
+      : [];
 
     const shareUrl = `${baseUrl}/user/${user.subscriptionToken}`;
+    const branding = await subscriptionBrandingService.resolveEffectiveBrandingForUser(user.id);
 
     return res.json(
       ApiResponse.success({
@@ -344,7 +349,20 @@ async function getSubscriptionInfo(req, res, next) {
         },
         token: user.subscriptionToken,
         links,
-        shareUrl
+        shareUrl,
+        branding: branding
+          ? {
+              appName: branding.appName || 'One-UI',
+              logoUrl: branding.logoUrl || null,
+              primaryColor: branding.primaryColor || null,
+              accentColor: branding.accentColor || null,
+              profileTitle: branding.profileTitle || null,
+              profileDescription: branding.profileDescription || null,
+              supportUrl: branding.supportUrl || null,
+              customFooter: branding.customFooter || null,
+              metadata: branding.metadata || null
+            }
+          : null
       })
     );
   } catch (error) {

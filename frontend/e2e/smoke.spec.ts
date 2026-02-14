@@ -289,13 +289,15 @@ test.describe('One-UI smoke flows', () => {
       await expect(row.getByText(/Online|Offline/i)).toBeVisible();
       await expect(page.getByText(/Session stream:/i)).toBeVisible();
 
+      await row.getByLabel('More actions').click();
       await row.getByRole('button', { name: 'Show QR' }).click();
       await expect(page.getByRole('heading', { name: 'Subscription QR' })).toBeVisible();
       await expect(page.getByText('/sub/')).toBeVisible();
       await page.locator('button[aria-label="Close"]').first().click();
       await expect(page.getByRole('heading', { name: 'Subscription QR' })).toBeHidden();
 
-      await row.getByRole('button', { name: 'Edit limits' }).click();
+      await row.getByLabel('More actions').click();
+      await row.getByRole('button', { name: 'Quick Edit' }).click();
       await expect(page.getByRole('heading', { name: 'Quick Edit' })).toBeVisible();
 
       const date = new Date();
@@ -436,7 +438,7 @@ test.describe('One-UI smoke flows', () => {
       const row = page.locator('tbody tr', { hasText: user.email }).first();
       await expect(row).toBeVisible();
 
-      await row.getByRole('button', { name: 'Open user' }).click();
+      await row.getByRole('button', { name: user.email }).click();
       await expect(page).toHaveURL(new RegExp(`/users/${user.id}$`));
 
       await page.goto('/users');

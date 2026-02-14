@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Copy, Download, Edit, Eye, FileCode2, Plus, Power, PowerOff, Shuffle, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Download, Edit, Eye, FileCode2, MoreVertical, Plus, Power, PowerOff, Shuffle, Sparkles, Trash2, Upload } from 'lucide-react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Badge } from '../components/atoms/Badge';
@@ -813,10 +813,12 @@ export const Inbounds: React.FC = () => {
   const hasBulkPending = bulkDeleteInbounds.isPending || bulkEnableInbounds.isPending || bulkDisableInbounds.isPending;
 
   const refreshInboundRelations = async (options: { includeUsersDirectory?: boolean } = {}) => {
-    const tasks = [
-      queryClient.invalidateQueries({ queryKey: ['inbounds'] }),
-      queryClient.invalidateQueries({ queryKey: ['user-sessions'] })
-    ];
+    const tasks = [queryClient.invalidateQueries({ queryKey: ['inbounds'] })];
+
+    // Avoid hammering the sessions endpoint while the SSE stream is healthy.
+    if (sessionsStream.streamStatus !== 'connected') {
+      tasks.push(queryClient.invalidateQueries({ queryKey: ['user-sessions'] }));
+    }
 
     if (options.includeUsersDirectory) {
       tasks.push(queryClient.invalidateQueries({ queryKey: ['inbounds-users-directory'] }));
@@ -936,6 +938,141 @@ export const Inbounds: React.FC = () => {
       }) as Record<Inbound['protocol'], string>,
     []
   );
+
+  const closeActionMenu = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    const details = element?.closest('details') as HTMLDetailsElement | null;
+    if (details) {
+      details.open = false;
+    }
+  };
+
+  const runMenuAction = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    action: (() => void) | undefined
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (action) {
+      action();
+    }
+    closeActionMenu(event.currentTarget);
+  };
+
+  const renderInboundActionMenu = (
+    inbound: Inbound,
+    options: { mobile?: boolean; includeRandomPort?: boolean } = {}
+  ) => {
+    const mobile = Boolean(options.mobile);
+    const menuItems: Array<{
+      key: string;
+      label: string;
+      icon?: React.ComponentType<{ className?: string }>;
+      tone?: 'default' | 'danger';
+      disabled?: boolean;
+      onClick?: () => void;
+    }> = [];
+
+    menuItems.push({
+      key: 'templates',
+      label: 'Client templates',
+      icon: FileCode2,
+      onClick: () => setProfileInbound(inbound)
+    });
+    menuItems.push({
+      key: 'details',
+      label: 'Inbound details',
+      icon: Eye,
+      onClick: () => setDrawerInbound(inbound)
+    });
+
+    if (options.includeRandomPort) {
+      const isRandomizing = Boolean(randomizeInboundPort.isPending && randomizingPortId === inbound.id);
+      menuItems.push({
+        key: 'random-port',
+        label: isRandomizing ? 'Assigning random port…' : 'Assign random free port',
+        icon: Shuffle,
+        disabled: isRandomizing,
+        onClick: () => randomizeInboundPort.mutate(inbound.id)
+      });
+    }
+
+    menuItems.push({
+      key: 'clone',
+      label: (cloningId === inbound.id && cloneInbound.isPending) ? 'Cloning…' : 'Clone inbound',
+      icon: Copy,
+      disabled: Boolean(cloningId === inbound.id && cloneInbound.isPending),
+      onClick: () => cloneInbound.mutate(inbound)
+    });
+    menuItems.push({
+      key: 'clone-edit',
+      label: 'Clone + edit',
+      icon: Plus,
+      onClick: () => openCloneEditor(inbound)
+    });
+    menuItems.push({
+      key: 'edit',
+      label: 'Edit inbound',
+      icon: Edit,
+      onClick: () => {
+        setDraftInbound(null);
+        setEditingInbound(inbound);
+      }
+    });
+
+    if (canDeleteInbounds) {
+      menuItems.push({
+        key: 'delete',
+        label: 'Delete inbound',
+        icon: Trash2,
+        tone: 'danger',
+        onClick: () => void handleDelete(inbound.id)
+      });
+    }
+
+    if (menuItems.length === 0) {
+      return null;
+    }
+
+    return (
+      <details className="relative">
+        <summary
+          className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
+            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
+          }`}
+          aria-label="More actions"
+          title="More actions"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span className="inline-flex items-center">
+            <MoreVertical className="h-4 w-4" />
+          </span>
+        </summary>
+        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  item.tone === 'danger'
+                    ? 'text-red-500 hover:bg-red-500/10'
+                    : 'text-foreground hover:bg-panel/70'
+                }`}
+                disabled={item.disabled}
+                onClick={(event) => runMenuAction(event, item.onClick)}
+              >
+                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
+    );
+  };
+
   const assignableUsers = useMemo(
     () =>
       [...inboundUsers]
@@ -1307,51 +1444,110 @@ export const Inbounds: React.FC = () => {
       </div>
 
       <Card className="p-3 sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="min-w-[180px] rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-              value={selectedViewId}
-              onChange={(event) => applySavedView(event.target.value)}
-            >
-              <option value="">Saved views</option>
-              {savedViews.map((view) => (
-                <option key={view.id} value={view.id}>
-                  {view.name}
-                </option>
-              ))}
-            </select>
-            <Button size="sm" variant="secondary" onClick={handleSaveCurrentView}>
-              Save View
-            </Button>
-            <Button size="sm" variant="ghost" onClick={removeSavedView} disabled={!selectedViewId}>
-              Remove View
-            </Button>
-          </div>
+        <div className="rounded-xl border border-line/70 bg-panel/40 p-3">
+          <details className="group lg:hidden">
+            <summary className="flex list-none items-center justify-between gap-3 rounded-xl px-2 py-2 text-left text-sm font-medium text-foreground transition hover:bg-panel/50 [&::-webkit-details-marker]:hidden">
+              <div className="min-w-0">
+                <p className="truncate">Advanced controls</p>
+                <p className="mt-0.5 text-xs font-normal text-muted">
+                  Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                </p>
+              </div>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+            </summary>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
-              {(['auto', 'table', 'cards'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode(mode)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                    viewMode === mode
-                      ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
-                      : 'text-muted hover:text-foreground'
-                  }`}
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="min-w-[180px] flex-1 rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                  value={selectedViewId}
+                  onChange={(event) => applySavedView(event.target.value)}
                 >
-                  {mode.toUpperCase()}
-                </button>
-              ))}
+                  <option value="">Saved views</option>
+                  {savedViews.map((view) => (
+                    <option key={view.id} value={view.id}>
+                      {view.name}
+                    </option>
+                  ))}
+                </select>
+                <Button size="sm" variant="secondary" onClick={handleSaveCurrentView}>
+                  Save View
+                </Button>
+                <Button size="sm" variant="ghost" onClick={removeSavedView} disabled={!selectedViewId}>
+                  Remove View
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
+                  {(['auto', 'table', 'cards'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setViewMode(mode)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        viewMode === mode
+                          ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                          : 'text-muted hover:text-foreground'
+                      }`}
+                    >
+                      {mode.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
+                  {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                </Button>
+              </div>
             </div>
-            <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-              {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
-            </Button>
-            <span className="text-xs text-muted">
-              Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
-            </span>
+          </details>
+
+          <div className="hidden items-center justify-between gap-3 lg:flex">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="min-w-[180px] rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                value={selectedViewId}
+                onChange={(event) => applySavedView(event.target.value)}
+              >
+                <option value="">Saved views</option>
+                {savedViews.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.name}
+                  </option>
+                ))}
+              </select>
+              <Button size="sm" variant="secondary" onClick={handleSaveCurrentView}>
+                Save View
+              </Button>
+              <Button size="sm" variant="ghost" onClick={removeSavedView} disabled={!selectedViewId}>
+                Remove View
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
+                {(['auto', 'table', 'cards'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      viewMode === mode
+                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                        : 'text-muted hover:text-foreground'
+                    }`}
+                  >
+                    {mode.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
+                {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+              </Button>
+              <span className="text-xs text-muted">
+                Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+              </span>
+            </div>
           </div>
         </div>
       </Card>
@@ -1686,58 +1882,8 @@ export const Inbounds: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-3 py-3">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setProfileInbound(inbound)}
-                                title="Client templates"
-                                aria-label="Open client templates"
-                              >
-                                <FileCode2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setDrawerInbound(inbound)}
-                                title="Open inbound details"
-                                aria-label="Open inbound details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => cloneInbound.mutate(inbound)}
-                                loading={cloningId === inbound.id}
-                                title="Clone inbound"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openCloneEditor(inbound)}
-                                title="Clone and edit inbound"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setDraftInbound(null);
-                                  setEditingInbound(inbound);
-                                }}
-                                title="Edit inbound"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              {canDeleteInbounds ? (
-                                <Button variant="ghost" size="sm" onClick={() => void handleDelete(inbound.id)} title="Delete inbound">
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              ) : null}
+                            <div className="flex justify-end">
+                              {renderInboundActionMenu(inbound)}
                             </div>
                           </td>
                         </tr>
@@ -1863,22 +2009,13 @@ export const Inbounds: React.FC = () => {
                         {inbound.enabled ? <PowerOff className="mr-1 h-4 w-4" /> : <Power className="mr-1 h-4 w-4" />}
                         {inbound.enabled ? 'Disable' : 'Enable'}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => randomizeInboundPort.mutate(inbound.id)} loading={randomizingPortId === inbound.id}>
-                        <Shuffle className="mr-1 h-4 w-4" />
-                        Random Port
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setProfileInbound(inbound)}>
-                        <FileCode2 className="h-4 w-4" />
-                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => setDrawerInbound(inbound)}>
                         <Eye className="h-4 w-4" />
                         Details
                       </Button>
-                      {canDeleteInbounds ? (
-                        <Button variant="ghost" size="sm" onClick={() => void handleDelete(inbound.id)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      ) : null}
+                      <div className="ml-auto flex items-center">
+                        {renderInboundActionMenu(inbound, { mobile: true, includeRandomPort: true })}
+                      </div>
                     </div>
                   </div>
                 </Card>

@@ -35,7 +35,10 @@ router.get('/me', portalAuth, async (req, res, next) => {
     const totalUsed = user.uploadUsed + user.downloadUsed;
     const remaining = user.dataLimit - totalUsed;
     const remainingPercent = user.dataLimit > 0n ? Number((remaining * 10000n) / user.dataLimit) / 100 : 0;
-    const daysRemaining = Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
+    const daysRemaining = isDeferredExpiry
+      ? Math.max(1, Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)))
+      : Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
     return res.json(
       ApiResponse.success({
@@ -47,6 +50,8 @@ router.get('/me', portalAuth, async (req, res, next) => {
         dataLimit: user.dataLimit,
         remaining,
         remainingPercent,
+        startOnFirstUse: Boolean(user.startOnFirstUse),
+        firstUsedAt: user.firstUsedAt,
         expireDate: user.expireDate,
         daysRemaining
       })

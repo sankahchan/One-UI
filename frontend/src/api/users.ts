@@ -19,6 +19,7 @@ interface CreateUserData {
   note?: string;
   ipLimit?: number;
   deviceLimit?: number;
+  startOnFirstUse?: boolean;
 }
 
 interface UpdateUserData {
@@ -30,6 +31,7 @@ interface UpdateUserData {
   status?: string;
   ipLimit?: number;
   deviceLimit?: number;
+  startOnFirstUse?: boolean;
 }
 
 interface GetUsersParams {

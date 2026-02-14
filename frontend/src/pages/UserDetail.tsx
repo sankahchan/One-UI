@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ArrowUpDown,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Edit,
   ExternalLink,
   FileCode2,
   GripVertical,
+  MoreVertical,
   Power,
   PowerOff,
   RefreshCw,
@@ -29,7 +30,6 @@ import { Skeleton } from '../components/atoms/Skeleton';
 import { UserFormModal } from '../components/organisms/UserFormModal';
 import { useToast } from '../hooks/useToast';
 import { useUserEffectiveInbounds, useUserEffectivePolicy } from '../hooks/useGroups';
-import { useOnlineUsers } from '../hooks/useXray';
 import {
   useDeleteUser,
   useResetTraffic,
@@ -38,7 +38,8 @@ import {
   useToggleUserInbound,
   useUpdateUserInboundPriority,
   useUser,
-  useUserDevices
+  useUserDevices,
+  useUserSessions
 } from '../hooks/useUsers';
 import { usersApi, type UserInboundPatternPreviewEntry } from '../api/users';
 import type { Inbound, UserInbound } from '../types';
@@ -49,9 +50,6 @@ const TrafficChart = React.lazy(() =>
 );
 const UserActivityTimeline = React.lazy(() =>
   import('../components/organisms/UserActivityTimeline').then((m) => ({ default: m.UserActivityTimeline }))
-);
-const SubscriptionPanel = React.lazy(() =>
-  import('../components/organisms/SubscriptionPanel').then((m) => ({ default: m.SubscriptionPanel }))
 );
 const SubscriptionLinksPanel = React.lazy(() =>
   import('../components/organisms/SubscriptionLinksPanel').then((m) => ({ default: m.SubscriptionLinksPanel }))
@@ -87,6 +85,9 @@ interface AccessKeyRow {
   priority: number;
   enabled: boolean;
   online: boolean;
+  lastSeenAt: string | null;
+  onlineDevices: number;
+  seenDevices: number;
   expirationDays: number;
 }
 
@@ -169,7 +170,10 @@ export const UserDetail: React.FC = () => {
 
   const userId = Number.parseInt(id || '', 10);
   const { data, isLoading, refetch } = useUser(userId);
-  const userDevicesQuery = useUserDevices(userId, 60);
+  const userDevicesQuery = useUserDevices(userId, 60, {
+    refetchInterval: refreshInterval === 0 ? false : refreshInterval,
+    staleTime: 5_000
+  });
   const effectiveInboundsQuery = useUserEffectiveInbounds(userId);
   const effectivePolicyQuery = useUserEffectivePolicy(userId);
   const resetTraffic = useResetTraffic();
@@ -178,13 +182,16 @@ export const UserDetail: React.FC = () => {
   const toggleUserInbound = useToggleUserInbound();
   const updateInboundPriority = useUpdateUserInboundPriority();
   const reorderUserInbounds = useReorderUserInbounds();
-  const {
-    data: onlineUsersData,
-    refetch: refetchOnlineUsers,
-    isFetching: isRefreshingOnline
-  } = useOnlineUsers({
-    refetchInterval: refreshInterval === 0 ? false : refreshInterval
-  });
+  const userSessionQuery = useUserSessions(
+    Number.isInteger(userId) && userId > 0 ? [userId] : [],
+    {
+      includeOffline: true,
+      live: refreshInterval !== 0,
+      refetchInterval: refreshInterval === 0 ? false : refreshInterval,
+      staleTime: 5_000,
+      streamInterval: 2000
+    }
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -196,12 +203,11 @@ export const UserDetail: React.FC = () => {
     };
   }, []);
 
-  const onlineUuidSet = useMemo(() => {
-    const users = onlineUsersData?.users || [];
-    return new Set(users.map((entry) => String(entry.uuid || '')));
-  }, [onlineUsersData?.users]);
-
   const user = data?.data ?? null;
+  const session = useMemo(
+    () => (userSessionQuery.data?.sessions || []).find((entry) => entry.userId === userId) || null,
+    [userSessionQuery.data?.sessions, userId]
+  );
   const effectiveInboundsPayload = effectiveInboundsQuery.data?.data;
   const effectivePolicyPayload = effectivePolicyQuery.data?.data;
   const dataLimit = Number(user?.dataLimit || 0);
@@ -214,22 +220,49 @@ export const UserDetail: React.FC = () => {
   const daysRemaining = Number(
     user?.daysRemaining ?? Math.ceil((new Date(user?.expireDate || nowTimestamp).getTime() - nowTimestamp) / (1000 * 60 * 60 * 24))
   );
+  const isDeferredExpiry = Boolean(user?.startOnFirstUse) && !user?.firstUsedAt;
 
-  const isUserOnline = user ? onlineUuidSet.has(user.uuid) : false;
-  const currentOnlineEntry = useMemo(() => {
-    if (!user?.uuid) {
-      return null;
+  const isUserOnline = Boolean(session?.online);
+  const lastSeenLabel = useMemo(
+    () => getRelativeLastSeenLabel(isUserOnline, session?.lastSeenAt ?? null, nowTimestamp),
+    [isUserOnline, nowTimestamp, session?.lastSeenAt]
+  );
+  const isRefreshingOnline = userSessionQuery.isFetching || userSessionQuery.streamStatus === 'connecting';
+  const userDevices = useMemo(() => userDevicesQuery.data?.data?.devices ?? [], [userDevicesQuery.data?.data?.devices]);
+  const inboundDeviceStats = useMemo(() => {
+    const stats = new Map<number, { onlineDevices: number; seenDevices: number; lastSeenAt: string | null }>();
+
+    for (const device of userDevices) {
+      const inboundId = Number(device?.inbound?.id);
+      if (!Number.isInteger(inboundId) || inboundId <= 0) {
+        continue;
+      }
+
+      const existing = stats.get(inboundId) || { onlineDevices: 0, seenDevices: 0, lastSeenAt: null };
+      const isOnline = Boolean(device?.online);
+      const lastSeenAt = typeof device?.lastSeenAt === 'string' ? device.lastSeenAt : null;
+
+      const nextLastSeenAt = (() => {
+        if (!lastSeenAt) {
+          return existing.lastSeenAt;
+        }
+
+        if (!existing.lastSeenAt) {
+          return lastSeenAt;
+        }
+
+        return new Date(lastSeenAt).getTime() > new Date(existing.lastSeenAt).getTime() ? lastSeenAt : existing.lastSeenAt;
+      })();
+
+      stats.set(inboundId, {
+        onlineDevices: existing.onlineDevices + (isOnline ? 1 : 0),
+        seenDevices: existing.seenDevices + 1,
+        lastSeenAt: nextLastSeenAt
+      });
     }
 
-    const users = onlineUsersData?.users || [];
-    return users.find((entry) => String(entry.uuid || '') === user.uuid) || null;
-  }, [onlineUsersData?.users, user?.uuid]);
-
-  const lastSeenLabel = useMemo(
-    () => getRelativeLastSeenLabel(isUserOnline, currentOnlineEntry?.lastActivity ?? null, nowTimestamp),
-    [currentOnlineEntry?.lastActivity, isUserOnline, nowTimestamp]
-  );
-  const userDevices = userDevicesQuery.data?.data?.devices || [];
+    return stats;
+  }, [userDevices]);
 
   const tableHeaderCellClass = accessKeyDensity === 'compact' ? 'px-3 py-2.5' : 'px-4 py-3';
   const tableBodyCellClass = accessKeyDensity === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
@@ -239,6 +272,8 @@ export const UserDetail: React.FC = () => {
 
   const accessKeyRows = useMemo<AccessKeyRow[]>(() => {
     const inboundRows = user?.inbounds || [];
+    const allowSingleKeyFallback = isUserOnline && inboundRows.length === 1;
+
     return inboundRows.map((relation, index) => ({
       relation,
       index,
@@ -247,10 +282,52 @@ export const UserDetail: React.FC = () => {
       port: Number(relation.inbound.port || 0),
       priority: Number.isInteger(Number(relation.priority)) ? Number(relation.priority) : 100 + index,
       enabled: Boolean(relation.enabled),
-      online: isUserOnline && Boolean(relation.enabled),
+      online: (() => {
+        if (!relation.enabled) {
+          return false;
+        }
+
+        const inboundId = Number(relation.inboundId || relation.inbound?.id);
+        if (Number.isInteger(inboundId) && inboundId > 0) {
+          const stats = inboundDeviceStats.get(inboundId);
+          if (stats && stats.onlineDevices > 0) {
+            return true;
+          }
+        }
+
+        return allowSingleKeyFallback;
+      })(),
+      lastSeenAt: (() => {
+        const inboundId = Number(relation.inboundId || relation.inbound?.id);
+        if (Number.isInteger(inboundId) && inboundId > 0) {
+          const stats = inboundDeviceStats.get(inboundId);
+          if (stats?.lastSeenAt) {
+            return stats.lastSeenAt;
+          }
+        }
+
+        return allowSingleKeyFallback ? (session?.lastSeenAt ?? null) : null;
+      })(),
+      onlineDevices: (() => {
+        const inboundId = Number(relation.inboundId || relation.inbound?.id);
+        if (Number.isInteger(inboundId) && inboundId > 0) {
+          return inboundDeviceStats.get(inboundId)?.onlineDevices ?? 0;
+        }
+        return allowSingleKeyFallback ? 1 : 0;
+      })(),
+      seenDevices: (() => {
+        const inboundId = Number(relation.inboundId || relation.inbound?.id);
+        if (Number.isInteger(inboundId) && inboundId > 0) {
+          return inboundDeviceStats.get(inboundId)?.seenDevices ?? 0;
+        }
+        return allowSingleKeyFallback ? 1 : 0;
+      })(),
       expirationDays: daysRemaining
     }));
-  }, [user?.inbounds, isUserOnline, daysRemaining]);
+  }, [daysRemaining, inboundDeviceStats, isUserOnline, session?.lastSeenAt, user?.inbounds]);
+
+  const enabledKeyCount = useMemo(() => accessKeyRows.filter((row) => row.enabled).length, [accessKeyRows]);
+  const onlineKeyCount = useMemo(() => accessKeyRows.filter((row) => row.online).length, [accessKeyRows]);
 
   const filteredAndSortedKeyRows = useMemo(() => {
     const filtered = accessKeyRows.filter((row) => {
@@ -363,6 +440,27 @@ export const UserDetail: React.FC = () => {
     </span>
   );
 
+  const renderOnlineKeysPill = (onlineCount: number, enabledCount: number) => {
+    const hasOnlineKeys = onlineCount > 0;
+    const label = enabledCount > 0 ? `Keys online ${onlineCount}/${enabledCount}` : 'No keys enabled';
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+          hasOnlineKeys ? 'bg-emerald-500/15 text-emerald-300' : 'bg-panel/60 text-muted'
+        }`}
+        title={label}
+      >
+        <span className="relative inline-flex h-2.5 w-2.5">
+          {hasOnlineKeys ? (
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+          ) : null}
+          <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${hasOnlineKeys ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
+        </span>
+        <span>{label}</span>
+      </span>
+    );
+  };
+
   const renderSignalCounters = (row: AccessKeyRow) => {
     const counters = [
       {
@@ -399,6 +497,26 @@ export const UserDetail: React.FC = () => {
         ))}
       </div>
     );
+  };
+
+  const closeActionMenu = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    const details = element?.closest('details') as HTMLDetailsElement | null;
+    if (details) {
+      details.open = false;
+    }
+  };
+
+  const runMenuAction = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    action: (() => void) | undefined
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (action) {
+      action();
+    }
+    closeActionMenu(event.currentTarget);
   };
 
   const handleResetTraffic = () => {
@@ -486,7 +604,6 @@ export const UserDetail: React.FC = () => {
         enabled: !row.enabled
       });
       void refetch();
-      void refetchOnlineUsers();
     } catch (error: any) {
       toast.error('Update failed', error?.message || 'Failed to update key status');
     } finally {
@@ -518,6 +635,167 @@ export const UserDetail: React.FC = () => {
     } finally {
       setUpdatingPriorityInboundId(null);
     }
+  };
+
+  const renderUserHeaderActionMenu = () => {
+    const menuItems: Array<{
+      key: string;
+      label: string;
+      icon?: React.ComponentType<{ className?: string }>;
+      tone?: 'default' | 'danger';
+      disabled?: boolean;
+      onClick?: () => void;
+    }> = [
+      {
+        key: 'reset-traffic',
+        label: resetTraffic.isPending ? 'Resetting traffic…' : 'Reset traffic',
+        icon: RotateCcw,
+        disabled: resetTraffic.isPending,
+        onClick: () => handleResetTraffic()
+      },
+      {
+        key: 'delete-user',
+        label: deleteUser.isPending ? 'Deleting user…' : 'Delete user',
+        icon: Trash2,
+        tone: 'danger',
+        disabled: deleteUser.isPending,
+        onClick: () => handleDelete()
+      }
+    ];
+
+    return (
+      <details className="relative">
+        <summary
+          className="list-none cursor-pointer rounded-xl border border-line/70 bg-card/75 px-3 py-2 text-foreground transition hover:bg-panel/60 [&::-webkit-details-marker]:hidden"
+          aria-label="More actions"
+          title="More actions"
+        >
+          <span className="inline-flex items-center gap-2">
+            <MoreVertical className="h-4 w-4" />
+            <span className="text-sm font-medium">Actions</span>
+          </span>
+        </summary>
+        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  item.tone === 'danger'
+                    ? 'text-red-500 hover:bg-red-500/10'
+                    : 'text-foreground hover:bg-panel/70'
+                }`}
+                disabled={item.disabled}
+                onClick={(event) => runMenuAction(event, item.onClick)}
+              >
+                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
+    );
+  };
+
+  const renderKeyActionMenu = (keyRow: AccessKeyRow, options: { mobile?: boolean } = {}) => {
+    const row = keyRow.relation;
+    const mobile = Boolean(options.mobile);
+    const inboundId = Number.parseInt(String(row.inboundId || 0), 10);
+    const isCopying = inboundId > 0 && copyingKeyInboundId === inboundId;
+    const isToggling = inboundId > 0 && togglingInboundId === inboundId;
+    const isUpdatingPriority = inboundId > 0 && updatingPriorityInboundId === inboundId;
+
+    const menuItems: Array<{
+      key: string;
+      label: string;
+      icon?: React.ComponentType<{ className?: string }>;
+      tone?: 'default' | 'danger';
+      disabled?: boolean;
+      onClick?: () => void;
+    }> = [
+      {
+        key: 'templates',
+        label: 'Client templates',
+        icon: FileCode2,
+        disabled: !row.inbound,
+        onClick: () => setProfileInbound(row.inbound)
+      },
+      {
+        key: 'copy',
+        label: isCopying ? 'Copying key…' : 'Copy key URL',
+        icon: Copy,
+        disabled: inboundId <= 0 || isCopying,
+        onClick: () => void copyKeyForInbound(row)
+      },
+      {
+        key: 'toggle',
+        label: isToggling ? 'Updating…' : (row.enabled ? 'Disable key' : 'Enable key'),
+        icon: row.enabled ? PowerOff : Power,
+        disabled: inboundId <= 0 || isToggling,
+        onClick: () => void handleToggleInboundKey(row)
+      },
+      {
+        key: 'move-up',
+        label: 'Move up (higher priority)',
+        icon: ArrowUp,
+        disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority <= 1,
+        onClick: () => void handleAdjustInboundPriority(row, -1)
+      },
+      {
+        key: 'move-down',
+        label: 'Move down (lower priority)',
+        icon: ArrowDown,
+        disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority >= 9999,
+        onClick: () => void handleAdjustInboundPriority(row, 1)
+      },
+      {
+        key: 'open-inbounds',
+        label: 'Open inbounds page',
+        icon: ExternalLink,
+        onClick: () => navigate('/inbounds?tab=inbounds')
+      }
+    ];
+
+    return (
+      <details className="relative">
+        <summary
+          className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
+            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
+          }`}
+          aria-label="More actions"
+          title="More actions"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span className="inline-flex items-center">
+            <MoreVertical className="h-4 w-4" />
+          </span>
+        </summary>
+        <div className="absolute right-0 z-20 mt-2 w-60 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={`${row.id}-${item.key}`}
+                type="button"
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  item.tone === 'danger'
+                    ? 'text-red-500 hover:bg-red-500/10'
+                    : 'text-foreground hover:bg-panel/70'
+                }`}
+                disabled={item.disabled}
+                onClick={(event) => runMenuAction(event, item.onClick)}
+              >
+                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
+    );
   };
 
   const handleApplyMyanmarPriority = async () => {
@@ -691,7 +969,7 @@ export const UserDetail: React.FC = () => {
         });
         toast.success('Device revoked', 'Device session was revoked.');
         void userDevicesQuery.refetch();
-        void refetchOnlineUsers();
+        void userSessionQuery.refetch();
       }
       setPendingConfirm(null);
     } catch (error: any) {
@@ -747,22 +1025,18 @@ export const UserDetail: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{user.email}</h1>
             <p className="mt-1 text-sm text-muted">User Details &amp; Access Keys</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {renderOnlineKeysPill(onlineKeyCount, enabledKeyCount)}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          <Button variant="secondary" onClick={handleResetTraffic} loading={resetTraffic.isPending}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset Traffic
-          </Button>
           <Button variant="secondary" onClick={() => setShowEditModal(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="danger" onClick={handleDelete} loading={deleteUser.isPending}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
+          {renderUserHeaderActionMenu()}
         </div>
       </div>
 
@@ -791,9 +1065,18 @@ export const UserDetail: React.FC = () => {
         </Card>
 
         <Card>
-          <p className="text-sm text-muted">Expires In</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{daysRemaining} days</p>
-          <p className="mt-1 text-xs text-muted">{formatDate(user.expireDate)}</p>
+          <p className="text-sm text-muted">{isDeferredExpiry ? 'Expiry' : 'Expires In'}</p>
+          {isDeferredExpiry ? (
+            <>
+              <p className="mt-2 text-base font-semibold text-foreground">Starts on first connect</p>
+              <p className="mt-1 text-xs text-muted">{daysRemaining} days after first connect</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-2xl font-bold text-foreground">{daysRemaining} days</p>
+              <p className="mt-1 text-xs text-muted">{formatDate(user.expireDate)}</p>
+            </>
+          )}
         </Card>
       </div>
 
@@ -1123,7 +1406,8 @@ export const UserDetail: React.FC = () => {
                 variant="secondary"
                 loading={isRefreshingOnline}
                 onClick={() => {
-                  void refetchOnlineUsers();
+                  void userSessionQuery.refetch();
+                  void userDevicesQuery.refetch();
                   void refetch();
                 }}
               >
@@ -1175,6 +1459,7 @@ export const UserDetail: React.FC = () => {
                   {filteredAndSortedKeyRows.map((keyRow) => {
                     const row = keyRow.relation;
                     const inboundId = Number.parseInt(String(row.inboundId || 0), 10);
+                    const rowLastSeenLabel = getRelativeLastSeenLabel(keyRow.online, keyRow.lastSeenAt, nowTimestamp);
                     const isInboundDragEnabled = isDragReorderEnabled && inboundId > 0 && !isReorderingByDrag;
                     const isDraggedRow = draggingInboundId === inboundId;
                     const isDropTargetRow = dragOverInboundId === inboundId && draggingInboundId !== inboundId;
@@ -1197,7 +1482,7 @@ export const UserDetail: React.FC = () => {
                         onDragEnd={clearDragState}
                       >
                         <td className={tableBodyCellClass}>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             <span
                               className={`inline-flex items-center rounded p-1 ${
                                 isInboundDragEnabled ? 'cursor-grab text-muted hover:bg-panel/70 hover:text-foreground' : 'text-muted/40'
@@ -1206,66 +1491,41 @@ export const UserDetail: React.FC = () => {
                             >
                               <GripVertical className="h-4 w-4" />
                             </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Client templates"
-                              onClick={() => setProfileInbound(row.inbound)}
-                            >
-                              <FileCode2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Copy key URL"
-                              loading={copyingKeyInboundId === row.inboundId}
-                              onClick={() => {
-                                void copyKeyForInbound(row);
-                              }}
-                            >
-                              {copiedField === `key-${row.inboundId}` ? (
-                                <CheckCircle className="h-4 w-4 text-emerald-500" />
-                              ) : (
-                                <Copy className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Open inbounds page"
-                              onClick={() => navigate('/inbounds?tab=inbounds')}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
+                            {renderKeyActionMenu(keyRow)}
                           </div>
                         </td>
 
                         <td className={tableBodyCellClass}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={row.enabled}
+                            aria-label={row.enabled ? 'Disable key' : 'Enable key'}
+                            title={row.enabled ? 'Disable key' : 'Enable key'}
+                            disabled={togglingInboundId === row.inboundId}
                             onClick={() => {
                               void handleToggleInboundKey(row);
                             }}
-                            loading={togglingInboundId === row.inboundId}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+                              row.enabled ? 'bg-emerald-500/25' : 'bg-panel/70'
+                            }`}
                           >
-                            {row.enabled ? (
-                              <>
-                                <PowerOff className="mr-1 h-4 w-4" />
-                                Enabled
-                              </>
-                            ) : (
-                              <>
-                                <Power className="mr-1 h-4 w-4" />
-                                Disabled
-                              </>
-                            )}
-                          </Button>
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${
+                                row.enabled ? 'translate-x-5' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
                         </td>
 
                         <td className={tableBodyCellClass}>
                           {renderOnlinePill(keyRow.online)}
-                          <p className="mt-1 text-[11px] text-muted">{keyRow.online ? 'Live now' : lastSeenLabel}</p>
+                          <p className="mt-1 text-[11px] text-muted">{rowLastSeenLabel}</p>
+                          {keyRow.seenDevices > 0 ? (
+                            <p className="mt-0.5 text-[11px] text-muted">
+                              Devices {keyRow.onlineDevices}/{keyRow.seenDevices}
+                            </p>
+                          ) : null}
                         </td>
 
                         <td className={tableBodyCellClass}>
@@ -1285,29 +1545,9 @@ export const UserDetail: React.FC = () => {
                         </td>
 
                         <td className={tableBodyCellClass}>
-                          <div className="inline-flex items-center gap-1 rounded-lg border border-line/70 bg-card/70 px-2 py-1">
-                            <button
-                              type="button"
-                              className="rounded p-1 text-muted transition-colors hover:bg-panel/70 hover:text-foreground disabled:opacity-50"
-                              onClick={() => {
-                                void handleAdjustInboundPriority(row, -1);
-                              }}
-                              disabled={isReorderingByDrag || updatingPriorityInboundId === row.inboundId || keyRow.priority <= 1}
-                            >
-                              <ChevronUp className="h-3.5 w-3.5" />
-                            </button>
-                            <span className="min-w-8 text-center text-xs font-semibold text-foreground">{keyRow.priority}</span>
-                            <button
-                              type="button"
-                              className="rounded p-1 text-muted transition-colors hover:bg-panel/70 hover:text-foreground disabled:opacity-50"
-                              onClick={() => {
-                                void handleAdjustInboundPriority(row, 1);
-                              }}
-                              disabled={isReorderingByDrag || updatingPriorityInboundId === row.inboundId || keyRow.priority >= 9999}
-                            >
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                          <span className="inline-flex items-center rounded-full border border-line/70 bg-card/70 px-3 py-1 text-xs font-semibold text-foreground">
+                            {keyRow.priority}
+                          </span>
                         </td>
 
                         <td className={tableBodyCellClass}>
@@ -1347,6 +1587,7 @@ export const UserDetail: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 p-4 lg:hidden">
               {filteredAndSortedKeyRows.map((keyRow) => {
                 const row = keyRow.relation;
+                const rowLastSeenLabel = getRelativeLastSeenLabel(keyRow.online, keyRow.lastSeenAt, nowTimestamp);
                 return (
                   <div key={`mobile-${row.id}`} className={`rounded-xl border border-line/70 bg-card/70 ${mobileCardPaddingClass}`}>
                     <div className="flex items-start justify-between gap-3">
@@ -1357,40 +1598,27 @@ export const UserDetail: React.FC = () => {
                         </p>
                         {renderSignalCounters(keyRow)}
                       </div>
-                      <div className="text-right">
-                        {renderOnlinePill(keyRow.online)}
-                        <p className="mt-1 text-[11px] text-muted">{keyRow.online ? 'Live now' : lastSeenLabel}</p>
+                      <div className="flex flex-col items-end gap-2 text-right">
+                        <div className="flex items-center gap-2">
+                          {renderOnlinePill(keyRow.online)}
+                          {renderKeyActionMenu(keyRow, { mobile: true })}
+                        </div>
+                        <p className="text-[11px] text-muted">{rowLastSeenLabel}</p>
+                        {keyRow.seenDevices > 0 ? (
+                          <p className="text-[11px] text-muted">
+                            Devices {keyRow.onlineDevices}/{keyRow.seenDevices}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
                     <div className={`mt-3 ${mobileSectionSpacingClass}`}>
                       <p className="text-xs text-muted">
-                        Priority: <span className="font-semibold text-foreground">{keyRow.priority}</span>
+                        Priority:{' '}
+                        <span className="inline-flex items-center rounded-full border border-line/70 bg-card/70 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                          {keyRow.priority}
+                        </span>
                       </p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void handleAdjustInboundPriority(row, -1);
-                          }}
-                          loading={isReorderingByDrag || updatingPriorityInboundId === row.inboundId}
-                          disabled={isReorderingByDrag}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void handleAdjustInboundPriority(row, 1);
-                          }}
-                          loading={isReorderingByDrag || updatingPriorityInboundId === row.inboundId}
-                          disabled={isReorderingByDrag}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
                       <p className="text-xs text-muted">
                         Usage: {formatBytes(totalUsed)} / {dataLimit > 0 ? formatBytes(dataLimit) : '∞'}
                       </p>
@@ -1405,37 +1633,28 @@ export const UserDetail: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className={`${mobileActionsMarginClass} flex flex-wrap gap-2`}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                    <div className={`${mobileActionsMarginClass} flex items-center justify-between rounded-xl border border-line/70 bg-panel/40 px-3 py-2`}>
+                      <span className="text-xs font-medium text-foreground">Enabled</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={row.enabled}
+                        aria-label={row.enabled ? 'Disable key' : 'Enable key'}
+                        title={row.enabled ? 'Disable key' : 'Enable key'}
+                        disabled={togglingInboundId === row.inboundId}
                         onClick={() => {
                           void handleToggleInboundKey(row);
                         }}
-                        loading={togglingInboundId === row.inboundId}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          row.enabled ? 'bg-emerald-500/25' : 'bg-card/70'
+                        }`}
                       >
-                        {row.enabled ? 'Disable' : 'Enable'}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setProfileInbound(row.inbound)}>
-                        <FileCode2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={copyingKeyInboundId === row.inboundId}
-                        onClick={() => {
-                          void copyKeyForInbound(row);
-                        }}
-                      >
-                        {copiedField === `key-${row.inboundId}` ? (
-                          <CheckCircle className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => navigate('/inbounds?tab=inbounds')}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${
+                            row.enabled ? 'translate-x-5' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
                 );
@@ -1534,9 +1753,6 @@ export const UserDetail: React.FC = () => {
       </React.Suspense>
       <React.Suspense fallback={<ChunkSkeleton />}>
         <UserActivityTimeline userId={user.id} />
-      </React.Suspense>
-      <React.Suspense fallback={<ChunkSkeleton />}>
-        <SubscriptionPanel userId={user.id} />
       </React.Suspense>
       <React.Suspense fallback={<ChunkSkeleton />}>
         <SubscriptionLinksPanel userId={user.id} />

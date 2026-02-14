@@ -61,6 +61,8 @@ model User {
   trafficResetPeriod  TrafficResetPeriod  @default(NEVER)
   trafficResetDay     Int                 @default(1) // Day of month (1-31) or day of week (1-7)
   lastTrafficReset    DateTime?           // Last time traffic was reset
+  startOnFirstUse     Boolean             @default(false)
+  firstUsedAt         DateTime?
   expireDate          DateTime
   status              UserStatus          @default(ACTIVE)
   note                String?

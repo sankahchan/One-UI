@@ -17,6 +17,10 @@ class ExpiryChecker {
       const expiringUsers = await prisma.user.findMany({
         where: {
           status: 'ACTIVE',
+          OR: [
+            { startOnFirstUse: false },
+            { firstUsedAt: { not: null } }
+          ],
           expireDate: {
             lte: warningDate,
             gt: now
@@ -59,6 +63,10 @@ class ExpiryChecker {
       const expiredCount = await prisma.user.updateMany({
         where: {
           status: 'ACTIVE',
+          OR: [
+            { startOnFirstUse: false },
+            { firstUsedAt: { not: null } }
+          ],
           expireDate: {
             lt: new Date()
           }

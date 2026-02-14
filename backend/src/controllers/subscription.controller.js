@@ -186,31 +186,40 @@ class SubscriptionController {
         QRCode.toDataURL(urls.wireguard)
       ]);
 
-      const links = [];
-      for (const userInbound of user.inbounds) {
-        const inbound = userInbound.inbound;
-        const url = buildProtocolUrl(inbound.protocol, user, inbound);
-        if (!url) {
-          continue;
-        }
+      const links = (
+        await Promise.all(
+          user.inbounds.map(async (userInbound) => {
+            const inbound = userInbound.inbound;
+            const url = buildProtocolUrl(inbound.protocol, user, inbound);
+            if (!url) {
+              return null;
+            }
 
-        const qrCode = await QRCode.toDataURL(url);
-        links.push({
-          inboundId: inbound.id,
-          remark: inbound.remark || `${user.email}-${inbound.protocol}`,
-          protocol: inbound.protocol,
-          network: inbound.network,
-          security: inbound.security || 'NONE',
-          url,
-          qrCode
-        });
-      }
+            const qrCode = await QRCode.toDataURL(url);
+            return {
+              inboundId: inbound.id,
+              remark: inbound.remark || `${user.email}-${inbound.protocol}`,
+              protocol: inbound.protocol,
+              network: inbound.network,
+              security: inbound.security || 'NONE',
+              url,
+              qrCode
+            };
+          })
+        )
+      ).filter(Boolean);
 
       const totalUsed = Number(user.uploadUsed ?? 0n) + Number(user.downloadUsed ?? 0n);
       const totalLimit = Number(user.dataLimit ?? 0n);
       const usagePercent = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
+      const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
       const daysRemaining = user.expireDate
-        ? Math.max(0, Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        ? isDeferredExpiry
+          ? Math.max(
+              1,
+              Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+            )
+          : Math.max(0, Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : null;
 
       return res.json({
@@ -219,6 +228,8 @@ class SubscriptionController {
           user: {
             email: user.email,
             status: user.status,
+            startOnFirstUse: Boolean(user.startOnFirstUse),
+            firstUsedAt: user.firstUsedAt,
             daysRemaining,
             usagePercent
           },

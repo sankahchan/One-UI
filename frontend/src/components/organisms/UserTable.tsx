@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type FC, type MouseEvent } from 'react';
-import { ChevronDown, ChevronUp, Eye, MoreVertical, Pencil, QrCode } from 'lucide-react';
+import { ChevronDown, ChevronUp, MoreVertical } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Badge } from '../atoms/Badge';
@@ -334,14 +334,13 @@ export const UserTable: FC<UserTableProps> = ({
       <details className="relative">
         <summary
           className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
-            mobile ? 'inline-flex items-center' : 'inline-flex h-8 w-8 items-center justify-center'
+            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
           }`}
           aria-label="More actions"
           title="More actions"
         >
           <span className="inline-flex items-center">
             <MoreVertical className="h-4 w-4" />
-            {mobile ? <span className="ml-1">More</span> : null}
           </span>
         </summary>
         <div
@@ -395,7 +394,14 @@ export const UserTable: FC<UserTableProps> = ({
           const dataLimit = Number(user.dataLimit || 0);
           const totalUsed = uploadUsed + downloadUsed;
           const usagePercent = dataLimit > 0 ? ((totalUsed / dataLimit) * 100).toFixed(1) : '0.0';
-          const daysRemaining = getDaysRemaining(user.expireDate);
+          const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
+          const deferredDays = isDeferredExpiry
+            ? Math.max(
+                1,
+                Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+              )
+            : null;
+          const daysRemaining = isDeferredExpiry ? deferredDays || 0 : getDaysRemaining(user.expireDate);
           const session = sessionsByUserId[user.id];
           const isOnline = session?.online ?? onlineUuidSet.has(user.uuid);
           const activeKeyCount = Number.isFinite(session?.activeKeyCount)
@@ -418,17 +424,27 @@ export const UserTable: FC<UserTableProps> = ({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{user.email}</p>
+                  <button
+                    type="button"
+                    className="truncate text-left text-sm font-medium text-foreground transition hover:text-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    onClick={() => onView(user)}
+                  >
+                    {user.email}
+                  </button>
                   <p className="font-mono text-xs text-muted">{user.uuid.substring(0, 8)}...</p>
                 </div>
-                {onSelectionChange ? (
-                  <input
-                    type="checkbox"
-                    checked={selectedUserIds.includes(user.id)}
-                    onChange={() => handleSelectUser(user.id)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                  />
-                ) : null}
+
+                <div className="flex items-center gap-2">
+                  {onSelectionChange ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(user.id)}
+                      onChange={() => handleSelectUser(user.id)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                  ) : null}
+                  {renderActionMenu(user, true)}
+                </div>
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -465,44 +481,31 @@ export const UserTable: FC<UserTableProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted">
                   <span>{usagePercent}% used</span>
-                  <span className={daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : ''}>
-                    {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
-                  </span>
+                  {isDeferredExpiry ? (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      Starts on first connect (+{deferredDays}d)
+                    </span>
+                  ) : (
+                    <span className={daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : ''}>
+                      {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="sticky bottom-0 -mx-4 mt-3 flex flex-wrap gap-2 border-t border-line/60 bg-card/95 px-4 pt-3 backdrop-blur supports-[backdrop-filter]:bg-card/85">
-                <Button variant="secondary" size="sm" onClick={() => onView(user)}>
-                  <Eye className="mr-1 h-4 w-4" />
-                  Open
-                </Button>
-                {onQuickQr ? (
-                  <Button variant="ghost" size="sm" onClick={() => onQuickQr(user)} title="Show QR">
-                    <QrCode className="mr-1 h-4 w-4 text-brand-500" />
-                    QR
-                  </Button>
-                ) : null}
-                {onQuickEdit ? (
-                  <Button variant="ghost" size="sm" onClick={() => onQuickEdit(user)} title="Quick edit">
-                    <Pencil className="mr-1 h-4 w-4 text-amber-500" />
-                    Edit
-                  </Button>
-                ) : null}
-                <Button variant="ghost" size="sm" onClick={() => toggleExpanded(user.id)} title="Toggle devices">
-                  {expandedUserIds.includes(user.id) ? (
-                    <>
-                      <ChevronUp className="mr-1 h-4 w-4" />
-                      Devices
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="mr-1 h-4 w-4" />
-                      Devices
-                    </>
-                  )}
-                </Button>
-                {renderActionMenu(user, true)}
-              </div>
+              <button
+                type="button"
+                onClick={() => toggleExpanded(user.id)}
+                className="mt-3 flex w-full items-center justify-between rounded-xl border border-line/60 bg-panel/35 px-4 py-3 text-left text-sm text-foreground transition hover:bg-panel/55"
+                aria-label={expandedUserIds.includes(user.id) ? 'Hide devices' : 'Show devices'}
+              >
+                <span className="font-medium">Devices</span>
+                {expandedUserIds.includes(user.id) ? (
+                  <ChevronUp className="h-4 w-4 text-brand-500" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-brand-500" />
+                )}
+              </button>
 
               {expandedUserIds.includes(user.id) ? (
                 <div className="mt-3 rounded-lg border border-line/60 bg-panel/50 p-3">
@@ -551,7 +554,14 @@ export const UserTable: FC<UserTableProps> = ({
 
               const totalUsed = uploadUsed + downloadUsed;
               const usagePercent = dataLimit > 0 ? ((totalUsed / dataLimit) * 100).toFixed(1) : '0.0';
-              const daysRemaining = getDaysRemaining(user.expireDate);
+              const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
+              const deferredDays = isDeferredExpiry
+                ? Math.max(
+                    1,
+                    Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+                  )
+                : null;
+              const daysRemaining = isDeferredExpiry ? deferredDays || 0 : getDaysRemaining(user.expireDate);
               const session = sessionsByUserId[user.id];
               const isOnline = session?.online ?? onlineUuidSet.has(user.uuid);
               const activeKeyCount = Number.isFinite(session?.activeKeyCount)
@@ -583,7 +593,13 @@ export const UserTable: FC<UserTableProps> = ({
                   )}
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{user.email}</span>
+                      <button
+                        type="button"
+                        className="text-left text-sm font-medium text-gray-900 transition hover:text-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 dark:text-white"
+                        onClick={() => onView(user)}
+                      >
+                        {user.email}
+                      </button>
                       <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{user.uuid.substring(0, 8)}...</span>
                     </div>
                   </td>
@@ -632,32 +648,32 @@ export const UserTable: FC<UserTableProps> = ({
                         <span className="text-muted">DEV</span>
                         <span className="font-semibold text-foreground">{Number(user.deviceLimit || 0)}</span>
                       </div>
-                      {onQuickEdit ? (
-                        <button
-                          type="button"
-                          className="text-xs font-medium text-brand-500 transition hover:text-brand-400"
-                          onClick={() => onQuickEdit(user)}
-                        >
-                          Edit limits
-                        </button>
-                      ) : null}
+                      {/* Edit in "More actions" to keep the row clean */}
                     </div>
                   </td>
 
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="text-sm text-gray-900 dark:text-white">{new Date(user.expireDate).toLocaleDateString()}</span>
-                      <span
-                        className={`text-xs ${
-                          daysRemaining < 7
-                            ? 'text-red-600 dark:text-red-400'
-                            : daysRemaining < 30
-                            ? 'text-yellow-600 dark:text-yellow-400'
-                            : 'text-gray-500 dark:text-gray-400'
-                        }`}
-                      >
-                        {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {isDeferredExpiry ? 'Starts on first connect' : new Date(user.expireDate).toLocaleDateString()}
                       </span>
+                      {isDeferredExpiry ? (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          {deferredDays} days after first connect
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-xs ${
+                            daysRemaining < 7
+                              ? 'text-red-600 dark:text-red-400'
+                              : daysRemaining < 30
+                              ? 'text-yellow-600 dark:text-yellow-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -677,17 +693,7 @@ export const UserTable: FC<UserTableProps> = ({
                   </td>
 
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => onView(user)} title="Open user" aria-label="Open user">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {onQuickQr ? (
-                        <Button variant="ghost" size="sm" onClick={() => onQuickQr(user)} title="Show QR" aria-label="Show QR">
-                          <QrCode className="h-4 w-4 text-brand-500" />
-                        </Button>
-                      ) : null}
-                      {renderActionMenu(user)}
-                    </div>
+                    {renderActionMenu(user)}
                   </td>
                 </tr>
                 {expandedUserIds.includes(user.id) ? (
