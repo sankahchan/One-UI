@@ -19,6 +19,7 @@
         "next": "Next",
         "showing": "Showing {{count}} of {{total}}",
         "page": "Page {{current}} of {{total}}",
+        "action": "Action",
         "submit": "Submit",
         "reset": "Reset",
         "close": "Close",
@@ -30,7 +31,34 @@
         "disabled": "Disabled",
         "active": "Active",
         "expired": "Expired",
-        "limited": "Limited"
+        "limited": "Limited",
+        "advancedControls": "Advanced controls",
+        "all": "All",
+        "clear": "Clear",
+        "client": "Client",
+        "daysLeft": "{{count}} days left",
+        "details": "Details",
+        "disable": "Disable",
+        "enable": "Enable",
+        "expiry": "Expiry",
+        "hide": "Hide",
+        "na": "N/A",
+        "never": "Never",
+        "off": "Off",
+        "on": "On",
+        "offline": "Offline",
+        "online": "Online",
+        "preview": "Preview",
+        "removeView": "Remove View",
+        "run": "Run",
+        "saveView": "Save View",
+        "savedViews": "Saved views",
+        "select": "Select",
+        "selectAll": "Select All",
+        "show": "Show",
+        "system": "system",
+        "validationFailed": "Validation failed",
+        "view": "View"
     },
     "status": {
         "active": "Active",
@@ -54,14 +82,46 @@
         "loggingIn": "Signing in...",
         "welcomeBack": "Welcome back"
     },
+    "autoRefresh": {
+        "line": "Auto refresh: {{status}} ({{seconds}}s)",
+        "pause": "Pause Auto",
+        "resume": "Resume Auto",
+        "status": {
+            "off": "Off",
+            "paused": "Paused",
+            "hidden": "Hidden",
+            "offline": "Offline",
+            "active": "Active"
+        }
+    },
     "dashboard": {
         "title": "Dashboard",
+        "tagline": "Realtime overview of your users, usage, and service status.",
         "totalUsers": "Total Users",
         "activeUsers": "Active Users",
         "expiredUsers": "Expired Users",
         "totalTraffic": "Total Traffic",
         "systemStatus": "System Status",
-        "onlineUsers": "Online Users"
+        "onlineUsers": "Online Users",
+        "onlineUsersError": "Unable to fetch online users",
+        "onlineBadge": "{{count}} online",
+        "noOnlineUsers": "No users currently online",
+        "quality": {
+            "connectSuccess60m": "Connect Success (60m)",
+            "limitRejects60m": "Limit Rejects (60m)",
+            "reconnects60m": "Reconnects (60m)",
+            "avgTrafficPerMin": "Avg Traffic / Min",
+            "trafficPerMin": "{{bytes}} / min",
+            "row": "{{connects}} connects · {{rejects}} rejects · {{reconnects}} reconnects"
+        },
+        "topProtocolQuality": {
+            "title": "Top Protocol Quality (60m)",
+            "empty": "No protocol quality data yet."
+        },
+        "topInboundProfiles": {
+            "title": "Top Inbound Profiles (60m)",
+            "empty": "No inbound profile telemetry yet."
+        }
     },
     "users": {
         "title": "Users",
@@ -109,12 +169,225 @@
         "autoTuneFailedBody": "Failed to auto-tune selected users",
         "autoTuneAppliedTitle": "Auto-tune applied"
     },
+    "groups": {
+        "title": "Groups",
+        "subtitle": "Reusable policy templates, schedules, and rollout history.",
+        "newGroup": "New Group",
+        "newTemplate": "New Template",
+        "newSchedule": "New Schedule",
+        "tabs": {
+            "groups": "Groups",
+            "templates": "Templates",
+            "schedules": "Schedules",
+            "rollouts": "Rollouts"
+        },
+        "stats": {
+            "groups": "Groups",
+            "enabled": "Enabled",
+            "memberships": "User memberships",
+            "inboundMappings": "Inbound mappings"
+        },
+        "filters": {
+            "group": "Group",
+            "allGroups": "All groups"
+        },
+        "searchPlaceholder": "Search groups by name or remark",
+        "showDisabled": "Show disabled groups",
+        "loading": "Loading groups...",
+        "emptyTitle": "No groups found",
+        "emptyBody": "Create your first group to reuse user/inbound assignments.",
+        "noRemark": "No remark provided",
+        "labels": {
+            "users": "Users",
+            "inbounds": "Inbounds",
+            "policyOverrides": "Policy overrides",
+            "noPolicyOverrides": "No policy overrides"
+        },
+        "toast": {
+            "refreshedTitle": "Data refreshed",
+            "refreshedBody": "Groups, templates, schedules, and rollouts are up to date.",
+            "refreshFailedTitle": "Refresh failed",
+            "refreshFailedBody": "Failed to refresh group data.",
+            "groupDeletedTitle": "Group deleted",
+            "templateDeletedTitle": "Template deleted",
+            "scheduleDeletedTitle": "Schedule deleted",
+            "deletedBody": "\"{{name}}\" was deleted.",
+            "deleteFailedTitle": "Delete failed",
+            "deleteFailedBody": "Failed to delete \"{{name}}\".",
+            "scheduleExecutedTitle": "Schedule executed",
+            "scheduleExecutedBody": "\"{{name}}\" executed successfully.",
+            "runFailedTitle": "Run failed",
+            "runFailedBody": "Failed to run schedule \"{{name}}\"."
+        },
+        "confirmDelete": {
+            "title": {
+                "group": "Delete Group",
+                "template": "Delete Template",
+                "schedule": "Delete Schedule"
+            },
+            "body": "Delete \"{{name}}\"? This action cannot be undone."
+        },
+        "resetPeriod": {
+            "never": "NEVER",
+            "daily": "DAILY",
+            "weekly": "WEEKLY",
+            "monthly": "MONTHLY"
+        },
+        "chips": {
+            "dataLimit": "Limit: {{value}} GB",
+            "expiryDays": "Expiry: {{value}}d",
+            "ipLimit": "IP: {{value}}",
+            "status": "Status: {{value}}",
+            "reset": "Reset: {{period}}",
+            "resetWithDay": "Reset: {{period}}@{{day}}"
+        },
+        "editor": {
+            "createTitle": "Create Group",
+            "editTitle": "Edit Group",
+            "subtitle": "Reusable user, inbound and policy bundle.",
+            "nameLabel": "Group Name *",
+            "namePlaceholder": "Premium users",
+            "remarkLabel": "Remark",
+            "remarkPlaceholder": "Optional note",
+            "disableGroup": "Disable this group",
+            "policyOverridesTitle": "Policy Overrides",
+            "policyOverridesHint": "Leave empty to inherit each user policy.",
+            "dataLimitLabel": "Data Limit (GB)",
+            "ipLimitLabel": "IP Limit (0 = unlimited)",
+            "statusOverride": "Status Override",
+            "noOverride": "No override",
+            "trafficResetPeriod": "Traffic Reset Period",
+            "trafficResetDay": "Traffic Reset Day",
+            "usersTitle": "Users ({{count}})",
+            "inboundsTitle": "Inbounds ({{count}})",
+            "filterUsers": "Filter users",
+            "filterInbounds": "Filter inbounds",
+            "noUsers": "No users found.",
+            "noInbounds": "No inbounds found.",
+            "saveChanges": "Save Changes",
+            "createCta": "Create Group",
+            "nameRequired": "Group name is required."
+        },
+        "templates": {
+            "searchPlaceholder": "Search templates by name or description",
+            "loading": "Loading templates...",
+            "emptyTitle": "No templates found",
+            "emptyBody": "Create your first reusable policy template.",
+            "noDescription": "No description",
+            "defaultBadge": "Default",
+            "noPolicyFields": "No policy fields configured",
+            "applyToGroup": "Apply to Group",
+            "metrics": {
+                "schedules": "Schedules",
+                "rollouts": "Rollouts"
+            },
+            "editor": {
+                "createTitle": "Create Policy Template",
+                "editTitle": "Edit Policy Template",
+                "subtitle": "Reusable policy overrides for multiple groups.",
+                "nameLabel": "Template Name *",
+                "namePlaceholder": "Monthly 50GB Standard",
+                "descriptionLabel": "Description",
+                "descriptionPlaceholder": "Optional details",
+                "defaultToggle": "Mark as default template",
+                "nameRequired": "Template name is required.",
+                "createCta": "Create Template"
+            },
+            "applyModal": {
+                "title": "Apply Template: {{name}}",
+                "subtitle": "Copy template policy into a target group.",
+                "groupLabel": "Target Group *",
+                "groupPlaceholder": "Select group",
+                "groupRequired": "Please select a group.",
+                "applyNow": "Run policy rollout immediately after template apply",
+                "dryRun": "Dry-run immediate rollout",
+                "targetUserIdsLabel": "Target User IDs (optional)",
+                "targetUserIdsPlaceholder": "1,2,3",
+                "applyCta": "Apply Template"
+            }
+        },
+        "schedules": {
+            "searchPlaceholder": "Search schedules",
+            "loading": "Loading schedules...",
+            "emptyTitle": "No schedules found",
+            "emptyBody": "Create a recurring rollout schedule for any group.",
+            "dryRun": "Dry-run",
+            "applyMode": "Apply mode",
+            "columns": {
+                "name": "Name",
+                "group": "Group",
+                "template": "Template",
+                "cron": "Cron",
+                "lastRun": "Last Run",
+                "runs": "Runs"
+            },
+            "editor": {
+                "createTitle": "Create Policy Schedule",
+                "editTitle": "Edit Policy Schedule",
+                "subtitle": "Automate recurring group policy rollouts.",
+                "nameLabel": "Schedule Name *",
+                "namePlaceholder": "Nightly premium sync",
+                "groupLabel": "Group *",
+                "groupPlaceholder": "Select group",
+                "groupRequired": "Please select a valid group.",
+                "templateLabel": "Template (optional)",
+                "noTemplate": "No template",
+                "cronLabel": "Cron Expression *",
+                "cronRequired": "Cron expression is required.",
+                "timezoneLabel": "Timezone",
+                "targetUserIdsLabel": "Target User IDs (optional, comma-separated)",
+                "targetUserIdsPlaceholder": "1,2,3",
+                "cronExamples": "Cron examples: `0 3 * * *` (daily 03:00), `*/30 * * * *` (every 30 minutes), `0 9 * * 1` (weekly Monday).",
+                "dryRunOnly": "Dry-run only",
+                "nameRequired": "Schedule name is required.",
+                "createCta": "Create Schedule"
+            }
+        },
+        "rollouts": {
+            "filters": {
+                "source": "Source"
+            },
+            "loading": "Loading rollout history...",
+            "emptyTitle": "No rollout history",
+            "emptyBody": "Manual or scheduled policy applications will appear here.",
+            "columns": {
+                "time": "Time",
+                "group": "Group",
+                "template": "Template",
+                "source": "Source",
+                "summary": "Summary",
+                "initiatedBy": "Initiated By"
+            },
+            "summaryLine": "Target: {{target}} • Updated: {{updated}} • Skipped: {{skipped}}",
+            "status": {
+                "success": "SUCCESS",
+                "failed": "FAILED",
+                "dryRun": "DRY_RUN"
+            },
+            "source": {
+                "manual": "MANUAL",
+                "scheduled": "SCHEDULED"
+            }
+        }
+    },
     "inbounds": {
         "title": "Inbounds",
+        "subtitle": "Manage your Xray inbound configurations and reusable profiles.",
         "addInbound": "Add Inbound",
         "editInbound": "Edit Inbound",
         "deleteInbound": "Delete Inbound",
+        "exportJson": "Export JSON",
+        "importJson": "Import JSON",
+        "applyMyanmarPack": "Apply Myanmar Pack",
+        "clearSelection": "Clear Selection",
+        "selectedCount": "{{count}} selected",
+        "empty": "No inbounds configured yet.",
+        "addFirst": "Add Your First Inbound",
+        "clients": "Clients",
+        "traffic": "Traffic",
+        "noClients": "No clients assigned to this inbound yet.",
         "port": "Port",
+        "portLabel": "Port",
         "protocol": "Protocol",
         "tag": "Tag",
         "remark": "Remark",
@@ -123,7 +396,181 @@
         "serverAddress": "Server Address",
         "serverName": "Server Name",
         "toggle": "Toggle",
-        "userCount": "Users"
+        "userCount": "Users",
+        "assignedCount": "{{count}} assigned",
+        "onlineTotal": "{{online}} online / {{total}} total",
+        "randomPort": "Random",
+        "randomPortTitle": "Assign random free port",
+        "refreshing": "Refreshing inbounds...",
+        "stats": {
+            "total": "Total Inbounds",
+            "onlineClients": "Online Clients",
+            "expanded": "Expanded Rows"
+        },
+        "tabs": {
+            "inbounds": "Inbounds",
+            "templates": "Templates",
+            "compatibility": "Compatibility"
+        },
+        "templateLibrary": {
+            "title": "Template Library",
+            "count": "{{count}} templates",
+            "useTemplate": "Use Template",
+            "jsonPreview": "Template JSON Preview"
+        },
+        "templateCategories": {
+            "recommended": {
+                "title": "Recommended",
+                "hint": "Balanced defaults for most deployments."
+            },
+            "cdn": {
+                "title": "CDN & Edge",
+                "hint": "Traffic profiles optimized for edge/CDN transport."
+            },
+            "transport": {
+                "title": "Transport Profiles",
+                "hint": "Focused presets for specific transport behaviors."
+            },
+            "utility": {
+                "title": "Utility & Gateway",
+                "hint": "DNS forwarders, gateways, and service adapters."
+            }
+        },
+        "bulk": {
+            "enableSelected": "Enable Selected",
+            "disableSelected": "Disable Selected",
+            "deleteSelected": "Delete Selected"
+        },
+        "bulkDeleteTitle": "Delete Selected Inbounds",
+        "bulkDeleteBody": "Delete {{count}} inbound(s)? This action cannot be undone.",
+        "deleteTitle": "Delete Inbound",
+        "deleteBody": "Delete inbound \"{{name}}\"? This action cannot be undone.",
+        "clientActionFailedTitle": "Client action failed",
+        "permissionDeniedTitle": "Permission denied",
+        "permissionDeniedDeleteBody": "Only SUPER_ADMIN can delete inbounds.",
+        "bulkDeleteSuccessTitle": "Bulk delete completed",
+        "bulkDeleteSuccessBody": "Deleted {{count}} inbound(s).",
+        "deleteSuccessTitle": "Inbound deleted",
+        "deleteSuccessBody": "Deleted inbound \"{{name}}\".",
+        "deleteFailedTitle": "Delete failed",
+        "deleteFailedBody": "Failed to delete inbound",
+        "bulkEnableSuccessTitle": "Bulk enable completed",
+        "bulkEnableSuccessBody": "Selected inbounds enabled.",
+        "bulkEnableFailedTitle": "Bulk enable failed",
+        "bulkEnableFailedBody": "Failed to enable selected inbounds",
+        "bulkDisableSuccessTitle": "Bulk disable completed",
+        "bulkDisableSuccessBody": "Selected inbounds disabled.",
+        "bulkDisableFailedTitle": "Bulk disable failed",
+        "bulkDisableFailedBody": "Failed to disable selected inbounds",
+        "cloneSuccessTitle": "Inbound cloned",
+        "cloneSuccessBody": "Inbound cloned successfully.",
+        "cloneFailedTitle": "Clone failed",
+        "cloneFailedBody": "Failed to clone inbound",
+        "randomPortFailedTitle": "Randomize port failed",
+        "randomPortFailedBody": "Failed to randomize inbound port",
+        "export": {
+            "unavailableTitle": "Export unavailable",
+            "unavailableBody": "No inbounds to export."
+        },
+        "import": {
+            "completedTitle": "Import completed",
+            "completedBody": "Successfully imported {{count}} profile(s).",
+            "completedWarningsTitle": "Import completed with warnings",
+            "completedWarningsBody": "Imported {{success}} profile(s), {{failed}} failed. {{details}}",
+            "failedTitle": "Import failed",
+            "failedBody": "Failed to import inbound profiles",
+            "noValidProfilesBody": "No valid inbound profiles found in selected file.",
+            "invalidJsonBody": "Invalid JSON file"
+        },
+        "savedViews": {
+            "promptName": "Name this inbounds view",
+            "savedTitle": "View saved",
+            "savedBody": "Saved view \"{{name}}\".",
+            "saveFailedTitle": "Save view failed",
+            "saveFailedBody": "Failed to save view"
+        },
+        "myanmarPack": {
+            "title": "Apply Myanmar Resilience Pack",
+            "subtitle": "Create a curated fallback set (REALITY + WS/TLS) for high-censorship environments.",
+            "serverAddress": "Server Address",
+            "serverName": "Server Name (SNI)",
+            "cdnHost": "CDN Host (optional)",
+            "fallbackPorts": "Fallback Ports",
+            "fallbackPortsHint": "Comma-separated ports for fallback profiles (example: 8443,9443).",
+            "assignUsers": "Assign to Users",
+            "assignUsersHint": "Choose which users should receive the pack after creation.",
+            "assignGroups": "Assign to Groups",
+            "assignGroupsHint": "Choose which groups should receive the pack after creation.",
+            "noUsers": "No users found.",
+            "noGroups": "No groups found.",
+            "previewPlan": "Preview Plan",
+            "applyPack": "Apply Pack",
+            "serverAddressRequired": "Server address is required.",
+            "previewTitle": "Myanmar pack preview generated",
+            "previewBody": "{{count}} planned profile(s).",
+            "previewWarningsTitle": "Myanmar pack preview generated with warnings",
+            "previewWarningsBody": "{{count}} planned profile(s). {{details}}",
+            "appliedTitle": "Myanmar pack applied",
+            "appliedBody": "{{count}} profile(s) created.{{assignment}}",
+            "appliedWarningsTitle": "Myanmar pack applied with warnings",
+            "appliedWarningsBody": "{{count}} profile(s) created.{{assignment}} {{details}}",
+            "assignedSummary": "Assigned to {{users}} user(s) and {{groups}} group(s).",
+            "failedTitle": "Myanmar pack failed",
+            "failedBody": "Failed to apply Myanmar pack"
+        }
+    },
+    "compatibility": {
+        "title": "Protocol Compatibility Matrix",
+        "networks": "Networks",
+        "security": "Security",
+        "clients": "Supported Clients",
+        "quickCreate": "Quick Create"
+    },
+    "systemHealth": {
+        "title": "System Health",
+        "healthy": "Healthy",
+        "unreachable": "Unreachable",
+        "errorBody": "Could not reach backend health endpoint. Confirm `backend` is running on port `3000`.",
+        "retry": "Retry Health Check",
+        "lastCheck": "Last Check"
+    },
+    "updateHealth": {
+        "title": "Update Health",
+        "checking": "Checking...",
+        "restricted": "Restricted",
+        "manualMode": "Manual Mode",
+        "ready": "Ready",
+        "locked": "Locked",
+        "needsFix": "Needs Fix",
+        "openSettings": "Open Settings",
+        "runPreflight": "Run Preflight",
+        "copyFixes": "Copy Fixes",
+        "forceUnlock": "Force Unlock",
+        "openUpdates": "Open Updates",
+        "unlockTitle": "Force Unlock Update Lock",
+        "unlockConfirm": {
+            "default": "Force unlock the active Xray update lock?",
+            "withOwner": "Force unlock active update lock owned by {{owner}} (expires {{expiresAt}})?"
+        },
+        "body": {
+            "restricted": "Update tooling is available for ADMIN and SUPER_ADMIN roles.",
+            "scriptedDisabled": "Runtime mode is {{mode}}. Scripted container update actions are disabled.",
+            "ready": "All required checks passed. You can run canary/full rollout safely.",
+            "locked": "Xray update lock is active. Resolve lock state before running updates.",
+            "blockingFailure": "One or more required checks are failing. Apply fixes before rollout.",
+            "reviewWarnings": "Review warnings before rollout."
+        },
+        "toast": {
+            "copiedTitle": "Copied to clipboard",
+            "copiedBody": "Preflight fix commands copied.",
+            "copyFailedTitle": "Copy failed",
+            "copyFailedBody": "Failed to copy preflight fix commands.",
+            "unlockCompleteTitle": "Unlock complete",
+            "unlockReleasedBody": "Update lock released.",
+            "unlockNotReleasedBody": "Update lock not released.",
+            "unlockFailedTitle": "Unlock failed",
+            "unlockFailedBody": "Failed to unlock update lock."
+        }
     },
     "settings": {
         "title": "Settings",

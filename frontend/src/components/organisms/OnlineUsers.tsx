@@ -1,5 +1,6 @@
 import React from 'react';
 import { Wifi } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useOnlineUsers } from '../../hooks/useXray';
 import { formatBytes } from '../../utils/formatters';
@@ -8,13 +9,16 @@ import { Card } from '../atoms/Card';
 import { Spinner } from '../atoms/Spinner';
 
 export const OnlineUsers: React.FC = () => {
+  const { t } = useTranslation();
   const { data, isLoading, isError } = useOnlineUsers();
 
   if (isLoading) {
     return (
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Online Users</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {t('dashboard.onlineUsers', { defaultValue: 'Online Users' })}
+          </h2>
         </div>
         <div className="flex items-center justify-center py-8">
           <Spinner />
@@ -27,9 +31,13 @@ export const OnlineUsers: React.FC = () => {
     return (
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Online Users</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {t('dashboard.onlineUsers', { defaultValue: 'Online Users' })}
+          </h2>
         </div>
-        <p className="py-4 text-sm text-muted">Unable to fetch online users</p>
+        <p className="py-4 text-sm text-muted">
+          {t('dashboard.onlineUsersError', { defaultValue: 'Unable to fetch online users' })}
+        </p>
       </Card>
     );
   }
@@ -41,13 +49,22 @@ export const OnlineUsers: React.FC = () => {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Wifi className="h-5 w-5 text-emerald-500" />
-          <h2 className="text-lg font-semibold text-foreground">Online Users</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {t('dashboard.onlineUsers', { defaultValue: 'Online Users' })}
+          </h2>
         </div>
-        <Badge variant="success">{onlineUsers.length} online</Badge>
+        <Badge variant="success">
+          {t('dashboard.onlineBadge', {
+            defaultValue: '{{count}} online',
+            count: onlineUsers.length
+          })}
+        </Badge>
       </div>
 
       {onlineUsers.length === 0 ? (
-        <p className="py-4 text-sm text-muted">No users currently online</p>
+        <p className="py-4 text-sm text-muted">
+          {t('dashboard.noOnlineUsers', { defaultValue: 'No users currently online' })}
+        </p>
       ) : (
         <div className="space-y-3">
           {onlineUsers.map((user) => (

@@ -19,6 +19,7 @@
         "next": "ရှေ့သို့",
         "showing": "စုစုပေါင်း {{total}} ထဲမှ {{count}} ခုကို ပြသနေသည်",
         "page": "စာမျက်နှာ {{current}} / {{total}}",
+        "action": "လုပ်ဆောင်ချက်",
         "submit": "တင်သွင်းရန်",
         "reset": "ပြန်လည်သတ်မှတ်ရန်",
         "close": "ပိတ်ရန်",
@@ -30,7 +31,34 @@
         "disabled": "ပိတ်ထားသည်",
         "active": "အသက်ဝင်",
         "expired": "သက်တမ်းကုန်",
-        "limited": "ကန့်သတ်ထား"
+        "limited": "ကန့်သတ်ထား",
+        "advancedControls": "အဆင့်မြင့် ထိန်းချုပ်မှုများ",
+        "all": "အားလုံး",
+        "clear": "ရှင်းရန်",
+        "client": "ကလိုင်ယင့်",
+        "daysLeft": "{{count}} ရက်ကျန်",
+        "details": "အသေးစိတ်",
+        "disable": "ပိတ်ရန်",
+        "enable": "ဖွင့်ရန်",
+        "expiry": "သက်တမ်း",
+        "hide": "ဖျောက်ရန်",
+        "na": "မရှိ",
+        "never": "မလုပ်ဖူးသေး",
+        "off": "ပိတ်",
+        "on": "ဖွင့်",
+        "offline": "အော့ဖ်လိုင်း",
+        "online": "အွန်လိုင်း",
+        "preview": "ကြိုတင်ကြည့်",
+        "removeView": "View ဖယ်ရှားရန်",
+        "run": "လုပ်ဆောင်ရန်",
+        "saveView": "View သိမ်းရန်",
+        "savedViews": "သိမ်းထားသော View များ",
+        "select": "ရွေးရန်",
+        "selectAll": "အားလုံးရွေးရန်",
+        "show": "ပြရန်",
+        "system": "စနစ်",
+        "validationFailed": "စစ်ဆေးမှု မအောင်မြင်",
+        "view": "ကြည့်ရန်"
     },
     "status": {
         "active": "အသက်ဝင်",
@@ -54,14 +82,46 @@
         "loggingIn": "ဝင်ရောက်နေသည်...",
         "welcomeBack": "ပြန်လည်ကြိုဆိုပါသည်"
     },
+    "autoRefresh": {
+        "line": "အလိုအလျောက် ပြန်လည်ဖော်ပြ: {{status}} ({{seconds}} စက္ကန့်)",
+        "pause": "Auto ရပ်ရန်",
+        "resume": "Auto ပြန်စရန်",
+        "status": {
+            "off": "ပိတ်",
+            "paused": "ရပ်ထား",
+            "hidden": "ဖျောက်ထား",
+            "offline": "အင်တာနက်မရှိ",
+            "active": "လုပ်ဆောင်နေ"
+        }
+    },
     "dashboard": {
         "title": "ဒက်ရှ်ဘုတ်",
+        "tagline": "အသုံးပြုသူများ၊ အသွားအလာနှင့် ဝန်ဆောင်မှုအခြေအနေကို အချိန်နှင့်တပြေးညီ ကြည့်ရှုနိုင်သည်။",
         "totalUsers": "စုစုပေါင်းအသုံးပြုသူ",
         "activeUsers": "လက်ရှိအသုံးပြုသူ",
         "expiredUsers": "သက်တမ်းကုန်သူ",
         "totalTraffic": "စုစုပေါင်းအသွားအလာ",
         "systemStatus": "စနစ်အခြေအနေ",
-        "onlineUsers": "အွန်လိုင်းရှိသူများ"
+        "onlineUsers": "အွန်လိုင်းရှိသူများ",
+        "onlineUsersError": "အွန်လိုင်းအသုံးပြုသူများကို မရယူနိုင်ပါ",
+        "onlineBadge": "{{count}} ဦး အွန်လိုင်း",
+        "noOnlineUsers": "လက်ရှိ အွန်လိုင်းရှိသူ မရှိပါ",
+        "quality": {
+            "connectSuccess60m": "ချိတ်ဆက် အောင်မြင်မှု (60 မိနစ်)",
+            "limitRejects60m": "ကန့်သတ်ချက်ကြောင့် ပယ်ချမှု (60 မိနစ်)",
+            "reconnects60m": "ပြန်လည်ချိတ်ဆက်မှု (60 မိနစ်)",
+            "avgTrafficPerMin": "ပျမ်းမျှ အသွားအလာ / မိနစ်",
+            "trafficPerMin": "{{bytes}} / မိနစ်",
+            "row": "{{connects}} ချိတ်ဆက် · {{rejects}} ပယ်ချ · {{reconnects}} ပြန်ချိတ်"
+        },
+        "topProtocolQuality": {
+            "title": "အကောင်းဆုံး ပရိုတိုကော အရည်အသွေး (60 မိနစ်)",
+            "empty": "ပရိုတိုကော အရည်အသွေး ဒေတာ မရှိသေးပါ။"
+        },
+        "topInboundProfiles": {
+            "title": "အကောင်းဆုံး Inbound Profile များ (60 မိနစ်)",
+            "empty": "Inbound profile telemetry မရှိသေးပါ။"
+        }
     },
     "users": {
         "title": "အသုံးပြုသူများ",
@@ -109,12 +169,225 @@
         "autoTuneFailedBody": "ရွေးထားသော အသုံးပြုသူများကို ချိန်ညှိ၍မရပါ",
         "autoTuneAppliedTitle": "အလိုအလျောက် ချိန်ညှိပြီးပါပြီ"
     },
+    "groups": {
+        "title": "အုပ်စုများ",
+        "subtitle": "Policy template များ၊ schedule များ နှင့် rollout history ကို ပြန်အသုံးပြုနိုင်ရန် စီမံခန့်ခွဲပါ။",
+        "newGroup": "အုပ်စုအသစ်",
+        "newTemplate": "Template အသစ်",
+        "newSchedule": "Schedule အသစ်",
+        "tabs": {
+            "groups": "အုပ်စုများ",
+            "templates": "Templates",
+            "schedules": "Schedules",
+            "rollouts": "Rollouts"
+        },
+        "stats": {
+            "groups": "အုပ်စု",
+            "enabled": "ဖွင့်ထား",
+            "memberships": "အသုံးပြုသူ အဖွဲ့ဝင်မှု",
+            "inboundMappings": "Inbound ချိတ်ဆက်မှု"
+        },
+        "filters": {
+            "group": "အုပ်စု",
+            "allGroups": "အုပ်စုအားလုံး"
+        },
+        "searchPlaceholder": "အုပ်စုအမည် သို့မဟုတ် မှတ်ချက်ဖြင့် ရှာပါ",
+        "showDisabled": "ပိတ်ထားသော အုပ်စုများကိုလည်း ပြရန်",
+        "loading": "အုပ်စုများကို တင်နေသည်...",
+        "emptyTitle": "အုပ်စု မတွေ့ပါ",
+        "emptyBody": "User/Inbound assignment များကို ပြန်အသုံးပြုရန် ပထမဆုံး အုပ်စု ဖန်တီးပါ။",
+        "noRemark": "မှတ်ချက် မရှိပါ",
+        "labels": {
+            "users": "အသုံးပြုသူ",
+            "inbounds": "အင်းဘောင်း",
+            "policyOverrides": "Policy ပြင်ဆင်ချက်",
+            "noPolicyOverrides": "Policy ပြင်ဆင်ချက် မရှိပါ"
+        },
+        "toast": {
+            "refreshedTitle": "ဒေတာ ပြန်လည်ဖော်ပြပြီးပါပြီ",
+            "refreshedBody": "Groups, templates, schedules, rollouts များကို နောက်ဆုံးအခြေအနေအဖြစ် ပြန်လည်ရယူပြီးပါပြီ။",
+            "refreshFailedTitle": "ပြန်လည်ဖော်ပြမှု မအောင်မြင်",
+            "refreshFailedBody": "Group ဒေတာကို ပြန်လည်ရယူ၍မရပါ။",
+            "groupDeletedTitle": "အုပ်စု ဖျက်ပြီးပါပြီ",
+            "templateDeletedTitle": "Template ဖျက်ပြီးပါပြီ",
+            "scheduleDeletedTitle": "Schedule ဖျက်ပြီးပါပြီ",
+            "deletedBody": "\"{{name}}\" ကို ဖျက်ပြီးပါပြီ။",
+            "deleteFailedTitle": "ဖျက်မရပါ",
+            "deleteFailedBody": "\"{{name}}\" ကို ဖျက်၍မရပါ။",
+            "scheduleExecutedTitle": "Schedule လုပ်ဆောင်ပြီးပါပြီ",
+            "scheduleExecutedBody": "\"{{name}}\" ကို အောင်မြင်စွာ လုပ်ဆောင်ပြီးပါပြီ။",
+            "runFailedTitle": "လုပ်ဆောင်မှု မအောင်မြင်",
+            "runFailedBody": "Schedule \"{{name}}\" ကို လုပ်ဆောင်၍မရပါ။"
+        },
+        "confirmDelete": {
+            "title": {
+                "group": "အုပ်စု ဖျက်မည်",
+                "template": "Template ဖျက်မည်",
+                "schedule": "Schedule ဖျက်မည်"
+            },
+            "body": "\"{{name}}\" ကို ဖျက်မလား? ဤလုပ်ဆောင်ချက်ကို ပြန်မရနိုင်ပါ။"
+        },
+        "resetPeriod": {
+            "never": "ဘယ်တော့မှ မလုပ်",
+            "daily": "နေ့စဉ်",
+            "weekly": "အပတ်စဉ်",
+            "monthly": "လစဉ်"
+        },
+        "chips": {
+            "dataLimit": "ကန့်သတ်: {{value}} GB",
+            "expiryDays": "သက်တမ်း: {{value}} ရက်",
+            "ipLimit": "IP: {{value}}",
+            "status": "အခြေအနေ: {{value}}",
+            "reset": "ပြန်လည်သတ်မှတ်: {{period}}",
+            "resetWithDay": "ပြန်လည်သတ်မှတ်: {{period}} @{{day}}"
+        },
+        "editor": {
+            "createTitle": "အုပ်စု ဖန်တီးရန်",
+            "editTitle": "အုပ်စု ပြင်ဆင်ရန်",
+            "subtitle": "Reusable user, inbound နှင့် policy bundle ဖြစ်သည်။",
+            "nameLabel": "အုပ်စုအမည် *",
+            "namePlaceholder": "Premium users",
+            "remarkLabel": "မှတ်ချက်",
+            "remarkPlaceholder": "လိုအပ်လျှင် ထည့်ပါ",
+            "disableGroup": "ဤအုပ်စုကို ပိတ်မည်",
+            "policyOverridesTitle": "Policy ပြင်ဆင်ချက်များ",
+            "policyOverridesHint": "မထည့်ပါက အသုံးပြုသူ တစ်ဦးချင်းစီ၏ policy ကိုလိုက်နာမည်။",
+            "dataLimitLabel": "ဒေတာကန့်သတ် (GB)",
+            "ipLimitLabel": "IP ကန့်သတ် (0 = မကန့်သတ်)",
+            "statusOverride": "အခြေအနေ Override",
+            "noOverride": "Override မလုပ်",
+            "trafficResetPeriod": "Traffic Reset ကာလ",
+            "trafficResetDay": "Traffic Reset နေ့",
+            "usersTitle": "အသုံးပြုသူများ ({{count}})",
+            "inboundsTitle": "အင်းဘောင်းများ ({{count}})",
+            "filterUsers": "အသုံးပြုသူ စစ်ထုတ်",
+            "filterInbounds": "အင်းဘောင်း စစ်ထုတ်",
+            "noUsers": "အသုံးပြုသူ မတွေ့ပါ။",
+            "noInbounds": "အင်းဘောင်း မတွေ့ပါ။",
+            "saveChanges": "ပြောင်းလဲမှု သိမ်းရန်",
+            "createCta": "အုပ်စု ဖန်တီးရန်",
+            "nameRequired": "အုပ်စုအမည် လိုအပ်ပါသည်။"
+        },
+        "templates": {
+            "searchPlaceholder": "Template အမည် သို့မဟုတ် ဖော်ပြချက်ဖြင့် ရှာပါ",
+            "loading": "Template များကို တင်နေသည်...",
+            "emptyTitle": "Template မတွေ့ပါ",
+            "emptyBody": "ပထမဆုံး reusable policy template ကို ဖန်တီးပါ။",
+            "noDescription": "ဖော်ပြချက် မရှိပါ",
+            "defaultBadge": "Default",
+            "noPolicyFields": "Policy အချက်အလက် မသတ်မှတ်ထားပါ",
+            "applyToGroup": "အုပ်စုသို့ သတ်မှတ်ရန်",
+            "metrics": {
+                "schedules": "Schedules",
+                "rollouts": "Rollouts"
+            },
+            "editor": {
+                "createTitle": "Policy Template ဖန်တီးရန်",
+                "editTitle": "Policy Template ပြင်ဆင်ရန်",
+                "subtitle": "အုပ်စုများစွာအတွက် reusable policy overrides ဖြစ်သည်။",
+                "nameLabel": "Template အမည် *",
+                "namePlaceholder": "Monthly 50GB Standard",
+                "descriptionLabel": "ဖော်ပြချက်",
+                "descriptionPlaceholder": "လိုအပ်လျှင် ထည့်ပါ",
+                "defaultToggle": "Default template အဖြစ် သတ်မှတ်မည်",
+                "nameRequired": "Template အမည် လိုအပ်ပါသည်။",
+                "createCta": "Template ဖန်တီးရန်"
+            },
+            "applyModal": {
+                "title": "Template အသုံးချ: {{name}}",
+                "subtitle": "Template policy ကို ရွေးထားသော အုပ်စုထဲသို့ ကူးယူမည်။",
+                "groupLabel": "အုပ်စုရွေးရန် *",
+                "groupPlaceholder": "အုပ်စုရွေးပါ",
+                "groupRequired": "အုပ်စုတစ်ခု ရွေးပါ။",
+                "applyNow": "Template သတ်မှတ်ပြီးနောက် ချက်ချင်း rollout လုပ်မည်",
+                "dryRun": "ချက်ချင်း rollout ကို Dry-run လုပ်မည်",
+                "targetUserIdsLabel": "Target User ID များ (လိုအပ်လျှင်)",
+                "targetUserIdsPlaceholder": "1,2,3",
+                "applyCta": "Template သတ်မှတ်ရန်"
+            }
+        },
+        "schedules": {
+            "searchPlaceholder": "Schedule ရှာရန်",
+            "loading": "Schedule များကို တင်နေသည်...",
+            "emptyTitle": "Schedule မတွေ့ပါ",
+            "emptyBody": "အုပ်စုတစ်ခုအတွက် recurring rollout schedule ကို ဖန်တီးပါ။",
+            "dryRun": "Dry-run",
+            "applyMode": "Apply mode",
+            "columns": {
+                "name": "အမည်",
+                "group": "အုပ်စု",
+                "template": "Template",
+                "cron": "Cron",
+                "lastRun": "နောက်ဆုံး လုပ်ဆောင်ချိန်",
+                "runs": "အကြိမ်"
+            },
+            "editor": {
+                "createTitle": "Policy Schedule ဖန်တီးရန်",
+                "editTitle": "Policy Schedule ပြင်ဆင်ရန်",
+                "subtitle": "အုပ်စု policy rollout များကို အလိုအလျောက် လုပ်ဆောင်ပါ။",
+                "nameLabel": "Schedule အမည် *",
+                "namePlaceholder": "Nightly premium sync",
+                "groupLabel": "အုပ်စု *",
+                "groupPlaceholder": "အုပ်စုရွေးပါ",
+                "groupRequired": "မှန်ကန်သော အုပ်စုကို ရွေးပါ။",
+                "templateLabel": "Template (optional)",
+                "noTemplate": "Template မရွေး",
+                "cronLabel": "Cron Expression *",
+                "cronRequired": "Cron expression လိုအပ်ပါသည်။",
+                "timezoneLabel": "Timezone",
+                "targetUserIdsLabel": "Target User ID များ (optional, comma-separated)",
+                "targetUserIdsPlaceholder": "1,2,3",
+                "cronExamples": "Cron ဥပမာများ: `0 3 * * *` (နေ့စဉ် 03:00), `*/30 * * * *` (မိနစ် 30 တစ်ခါ), `0 9 * * 1` (အပတ်စဉ် တနင်္လာ).",
+                "dryRunOnly": "Dry-run သာ",
+                "nameRequired": "Schedule အမည် လိုအပ်ပါသည်။",
+                "createCta": "Schedule ဖန်တီးရန်"
+            }
+        },
+        "rollouts": {
+            "filters": {
+                "source": "ရင်းမြစ်"
+            },
+            "loading": "Rollout history ကို တင်နေသည်...",
+            "emptyTitle": "Rollout history မရှိပါ",
+            "emptyBody": "Manual သို့ Schedule ဖြင့် policy apply လုပ်မှုများကို ဒီမှာ တွေ့ရပါမည်။",
+            "columns": {
+                "time": "အချိန်",
+                "group": "အုပ်စု",
+                "template": "Template",
+                "source": "ရင်းမြစ်",
+                "summary": "အနှစ်ချုပ်",
+                "initiatedBy": "စတင်သူ"
+            },
+            "summaryLine": "ပစ်မှတ်: {{target}} • ပြင်ဆင်: {{updated}} • ကျော်: {{skipped}}",
+            "status": {
+                "success": "SUCCESS",
+                "failed": "FAILED",
+                "dryRun": "DRY_RUN"
+            },
+            "source": {
+                "manual": "MANUAL",
+                "scheduled": "SCHEDULED"
+            }
+        }
+    },
     "inbounds": {
         "title": "အင်းဘောင်းများ",
+        "subtitle": "Xray inbound configuration များနှင့် reusable profile များကို စီမံခန့်ခွဲပါ။",
         "addInbound": "အင်းဘောင်းထည့်ရန်",
         "editInbound": "အင်းဘောင်းပြင်ဆင်ရန်",
         "deleteInbound": "အင်းဘောင်းဖျက်ရန်",
+        "exportJson": "JSON ထုတ်ရန်",
+        "importJson": "JSON သွင်းရန်",
+        "applyMyanmarPack": "မြန်မာ Pack အသုံးချရန်",
+        "clearSelection": "ရွေးထားသည်များ ဖယ်ရှားရန်",
+        "selectedCount": "{{count}} ခု ရွေးထားသည်",
+        "empty": "Inbound မသတ်မှတ်ရသေးပါ။",
+        "addFirst": "ပထမဆုံး Inbound ထည့်ရန်",
+        "clients": "ကလိုင်ယင့်များ",
+        "traffic": "အသွားအလာ",
+        "noClients": "ဒီ inbound အတွက် client မသတ်မှတ်ရသေးပါ။",
         "port": "ပေါ့တ်",
+        "portLabel": "ပေါ့တ်",
         "protocol": "ပရိုတိုကော",
         "tag": "တက်ဂ်",
         "remark": "မှတ်ချက်",
@@ -123,7 +396,181 @@
         "serverAddress": "ဆာဗာလိပ်စာ",
         "serverName": "ဆာဗာအမည်",
         "toggle": "ဖွင့်/ပိတ်",
-        "userCount": "အသုံးပြုသူများ"
+        "userCount": "အသုံးပြုသူများ",
+        "assignedCount": "{{count}} ခု သတ်မှတ်ထား",
+        "onlineTotal": "{{online}} အွန်လိုင်း / {{total}} စုစုပေါင်း",
+        "randomPort": "ကျပန်း",
+        "randomPortTitle": "လွတ်နေသော Port ကို ကျပန်း သတ်မှတ်ရန်",
+        "refreshing": "Inbounds ကို ပြန်လည်ဖော်ပြနေသည်...",
+        "stats": {
+            "total": "Inbound စုစုပေါင်း",
+            "onlineClients": "အွန်လိုင်း Clients",
+            "expanded": "ဖွင့်ထားသော Rows"
+        },
+        "tabs": {
+            "inbounds": "Inbounds",
+            "templates": "Templates",
+            "compatibility": "Compatibility"
+        },
+        "templateLibrary": {
+            "title": "Template Library",
+            "count": "{{count}} ခု တမ်းပလိတ်",
+            "useTemplate": "Template အသုံးပြုရန်",
+            "jsonPreview": "Template JSON ကြိုတင်ကြည့်"
+        },
+        "templateCategories": {
+            "recommended": {
+                "title": "အကြံပြုထားသည်",
+                "hint": "ပုံမှန် အသုံးပြုမှုအတွက် balance လုပ်ထားသော default များ။"
+            },
+            "cdn": {
+                "title": "CDN & Edge",
+                "hint": "Edge/CDN transport အတွက် အကောင်းဆုံး ပြင်ဆင်ထားသော profile များ။"
+            },
+            "transport": {
+                "title": "Transport Profiles",
+                "hint": "Transport အလိုက် focus လုပ်ထားသော preset များ။"
+            },
+            "utility": {
+                "title": "Utility & Gateway",
+                "hint": "DNS forwarder, gateway နှင့် service adapter များ။"
+            }
+        },
+        "bulk": {
+            "enableSelected": "ရွေးထားသည်များ ဖွင့်ရန်",
+            "disableSelected": "ရွေးထားသည်များ ပိတ်ရန်",
+            "deleteSelected": "ရွေးထားသည်များ ဖျက်ရန်"
+        },
+        "bulkDeleteTitle": "ရွေးထားသော Inbound များကို ဖျက်မည်",
+        "bulkDeleteBody": "{{count}} ခုကို ဖျက်မလား? ဤလုပ်ဆောင်ချက်ကို ပြန်မရနိုင်ပါ။",
+        "deleteTitle": "Inbound ဖျက်မည်",
+        "deleteBody": "Inbound \"{{name}}\" ကို ဖျက်မလား? ဤလုပ်ဆောင်ချက်ကို ပြန်မရနိုင်ပါ။",
+        "clientActionFailedTitle": "Client လုပ်ဆောင်ချက် မအောင်မြင်",
+        "permissionDeniedTitle": "ခွင့်ပြုချက် မရှိပါ",
+        "permissionDeniedDeleteBody": "SUPER_ADMIN သာ Inbound ကို ဖျက်နိုင်ပါသည်။",
+        "bulkDeleteSuccessTitle": "အုပ်စုလိုက် ဖျက်ပြီးပါပြီ",
+        "bulkDeleteSuccessBody": "{{count}} ခုကို ဖျက်ပြီးပါပြီ။",
+        "deleteSuccessTitle": "Inbound ဖျက်ပြီးပါပြီ",
+        "deleteSuccessBody": "Inbound \"{{name}}\" ကို ဖျက်ပြီးပါပြီ။",
+        "deleteFailedTitle": "ဖျက်မရပါ",
+        "deleteFailedBody": "Inbound ကို ဖျက်၍မရပါ။",
+        "bulkEnableSuccessTitle": "အုပ်စုလိုက် ဖွင့်ပြီးပါပြီ",
+        "bulkEnableSuccessBody": "ရွေးထားသော Inbound များကို ဖွင့်ပြီးပါပြီ။",
+        "bulkEnableFailedTitle": "အုပ်စုလိုက် ဖွင့်မရပါ",
+        "bulkEnableFailedBody": "ရွေးထားသော Inbound များကို ဖွင့်၍မရပါ။",
+        "bulkDisableSuccessTitle": "အုပ်စုလိုက် ပိတ်ပြီးပါပြီ",
+        "bulkDisableSuccessBody": "ရွေးထားသော Inbound များကို ပိတ်ပြီးပါပြီ။",
+        "bulkDisableFailedTitle": "အုပ်စုလိုက် ပိတ်မရပါ",
+        "bulkDisableFailedBody": "ရွေးထားသော Inbound များကို ပိတ်၍မရပါ။",
+        "cloneSuccessTitle": "Inbound ကူးယူပြီးပါပြီ",
+        "cloneSuccessBody": "Inbound ကို အောင်မြင်စွာ ကူးယူပြီးပါပြီ။",
+        "cloneFailedTitle": "ကူးယူမရပါ",
+        "cloneFailedBody": "Inbound ကို ကူးယူ၍မရပါ။",
+        "randomPortFailedTitle": "Port ကျပန်း သတ်မှတ်မရပါ",
+        "randomPortFailedBody": "Inbound port ကို ကျပန်း သတ်မှတ်၍မရပါ။",
+        "export": {
+            "unavailableTitle": "ထုတ်မရပါ",
+            "unavailableBody": "ထုတ်ရန် Inbound မရှိပါ။"
+        },
+        "import": {
+            "completedTitle": "သွင်းပြီးပါပြီ",
+            "completedBody": "{{count}} ခုကို အောင်မြင်စွာ သွင်းပြီးပါပြီ။",
+            "completedWarningsTitle": "သွင်းပြီးပါပြီ (သတိပေးချက်များရှိ)",
+            "completedWarningsBody": "{{success}} ခု သွင်းပြီး၊ {{failed}} ခု မအောင်မြင်ပါ။ {{details}}",
+            "failedTitle": "သွင်းမရပါ",
+            "failedBody": "Inbound profile များကို သွင်း၍မရပါ။",
+            "noValidProfilesBody": "ရွေးထားသော ဖိုင်ထဲတွင် မှန်ကန်သော inbound profile မတွေ့ပါ။",
+            "invalidJsonBody": "JSON ဖိုင် မမှန်ကန်ပါ"
+        },
+        "savedViews": {
+            "promptName": "ဤ Inbounds view ကို နာမည်ပေးပါ",
+            "savedTitle": "View သိမ်းပြီးပါပြီ",
+            "savedBody": "View \"{{name}}\" ကို သိမ်းပြီးပါပြီ။",
+            "saveFailedTitle": "View သိမ်းမရပါ",
+            "saveFailedBody": "View ကို သိမ်း၍မရပါ။"
+        },
+        "myanmarPack": {
+            "title": "မြန်မာ ခံနိုင်ရည် Pack အသုံးချရန်",
+            "subtitle": "Censorship များသော နေရာများအတွက် (REALITY + WS/TLS) fallback set ကို တစ်ချက်နှိပ်ဖြင့် ဖန်တီးပါ။",
+            "serverAddress": "ဆာဗာလိပ်စာ",
+            "serverName": "Server Name (SNI)",
+            "cdnHost": "CDN Host (optional)",
+            "fallbackPorts": "Fallback Ports",
+            "fallbackPortsHint": "Fallback profile များအတွက် port များကို comma ဖြင့် ခွဲရေးပါ (ဥပမာ: 8443,9443)",
+            "assignUsers": "အသုံးပြုသူများသို့ သတ်မှတ်ရန်",
+            "assignUsersHint": "Pack ဖန်တီးပြီးနောက် သတ်မှတ်မည့် အသုံးပြုသူများကို ရွေးပါ။",
+            "assignGroups": "အုပ်စုများသို့ သတ်မှတ်ရန်",
+            "assignGroupsHint": "Pack ဖန်တီးပြီးနောက် သတ်မှတ်မည့် အုပ်စုများကို ရွေးပါ။",
+            "noUsers": "အသုံးပြုသူ မတွေ့ပါ။",
+            "noGroups": "အုပ်စု မတွေ့ပါ။",
+            "previewPlan": "အစီအစဉ် ကြိုတင်ကြည့်",
+            "applyPack": "Pack အသုံးချမည်",
+            "serverAddressRequired": "ဆာဗာလိပ်စာ လိုအပ်ပါသည်။",
+            "previewTitle": "မြန်မာ Pack ကြိုတင်အစီအစဉ် ထုတ်ပြီးပါပြီ",
+            "previewBody": "ဖန်တီးမည့် profile {{count}} ခု ရှိပါသည်။",
+            "previewWarningsTitle": "ကြိုတင်အစီအစဉ် (သတိပေးချက်များရှိ)",
+            "previewWarningsBody": "ဖန်တီးမည့် profile {{count}} ခု။ {{details}}",
+            "appliedTitle": "မြန်မာ Pack အသုံးချပြီးပါပြီ",
+            "appliedBody": "profile {{count}} ခု ဖန်တီးပြီးပါပြီ။{{assignment}}",
+            "appliedWarningsTitle": "Pack အသုံးချပြီး (သတိပေးချက်များရှိ)",
+            "appliedWarningsBody": "profile {{count}} ခု ဖန်တီးပြီးပါပြီ။{{assignment}} {{details}}",
+            "assignedSummary": "{{users}} ဦး အသုံးပြုသူနှင့် {{groups}} အုပ်စုသို့ သတ်မှတ်ပြီးပါပြီ။",
+            "failedTitle": "မြန်မာ Pack မအောင်မြင်ပါ",
+            "failedBody": "မြန်မာ Pack ကို အသုံးချ၍မရပါ။"
+        }
+    },
+    "compatibility": {
+        "title": "ပရိုတိုကော ကိုက်ညီမှု ဇယား",
+        "networks": "Networks",
+        "security": "Security",
+        "clients": "အထောက်အပံ့ရှိသော Client များ",
+        "quickCreate": "လျင်မြန်ဖန်တီး"
+    },
+    "systemHealth": {
+        "title": "စနစ် ကျန်းမာရေး",
+        "healthy": "ကောင်းမွန်",
+        "unreachable": "မရောက်နိုင်",
+        "errorBody": "Backend health endpoint ကို မရောက်နိုင်ပါ။ `backend` သည် `3000` ပေါ်တွင် လည်ပတ်နေကြောင်း စစ်ဆေးပါ။",
+        "retry": "ပြန်စစ်ဆေးရန်",
+        "lastCheck": "နောက်ဆုံး စစ်ဆေးချိန်"
+    },
+    "updateHealth": {
+        "title": "အပ်ဒိတ် အခြေအနေ",
+        "checking": "စစ်ဆေးနေသည်...",
+        "restricted": "ကန့်သတ်ထား",
+        "manualMode": "လက်ဖြင့် စီမံ",
+        "ready": "အဆင်သင့်",
+        "locked": "လော့ခ်ထား",
+        "needsFix": "ပြင်ဆင်ရန် လို",
+        "openSettings": "ဆက်တင်ဖွင့်",
+        "runPreflight": "Preflight စစ်",
+        "copyFixes": "Fix များ ကူးရန်",
+        "forceUnlock": "အတင်းဖြုတ်",
+        "openUpdates": "အပ်ဒိတ် ဖွင့်",
+        "unlockTitle": "အပ်ဒိတ် လော့ခ် အတင်းဖြုတ်",
+        "unlockConfirm": {
+            "default": "Xray update lock ကို အတင်းဖြုတ်မလား?",
+            "withOwner": "Owner {{owner}} ရဲ့ update lock ကို အတင်းဖြုတ်မလား? (သက်တမ်းကုန်ချိန် {{expiresAt}})"
+        },
+        "body": {
+            "restricted": "အပ်ဒိတ် ကိရိယာများကို ADMIN နှင့် SUPER_ADMIN role များသာ အသုံးပြုနိုင်သည်။",
+            "scriptedDisabled": "Runtime mode သည် {{mode}} ဖြစ်သည်။ Scripted update လုပ်ဆောင်ချက်များကို ပိတ်ထားသည်။",
+            "ready": "စစ်ဆေးချက်များ အားလုံး အောင်မြင်ပါသည်။ Canary/Full rollout ကို လုံခြုံစွာ ပြုလုပ်နိုင်သည်။",
+            "locked": "Xray update lock လုပ်ဆောင်နေသည်။ Update မလုပ်မီ lock အခြေအနေကို ဖြေရှင်းပါ။",
+            "blockingFailure": "လိုအပ်သည့် စစ်ဆေးချက်များထဲမှ တစ်ခု သို့မဟုတ် အများသည် မအောင်မြင်ပါ။ Rollout မလုပ်မီ ပြင်ဆင်ပါ။",
+            "reviewWarnings": "Rollout မလုပ်မီ သတိပေးချက်များကို စစ်ဆေးပါ။"
+        },
+        "toast": {
+            "copiedTitle": "ကလစ်ဘုတ်သို့ ကူးယူပြီးပါပြီ",
+            "copiedBody": "Preflight fix command များကို ကူးယူပြီးပါပြီ။",
+            "copyFailedTitle": "ကူးယူမရပါ",
+            "copyFailedBody": "Preflight fix command များကို ကူးယူ၍မရပါ။",
+            "unlockCompleteTitle": "လော့ခ်ဖြုတ်ပြီးပါပြီ",
+            "unlockReleasedBody": "Update lock ကို ဖြုတ်ပြီးပါပြီ။",
+            "unlockNotReleasedBody": "Update lock ကို မဖြုတ်နိုင်ပါ။",
+            "unlockFailedTitle": "လော့ခ်ဖြုတ်မရပါ",
+            "unlockFailedBody": "Update lock ကို ဖြုတ်၍မရပါ။"
+        }
     },
     "settings": {
         "title": "ဆက်တင်များ",

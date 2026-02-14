@@ -7,6 +7,8 @@ interface SmartAutoRefreshOptions {
   label?: string;
 }
 
+type AutoRefreshStatus = 'off' | 'paused' | 'hidden' | 'offline' | 'active';
+
 export function useSmartAutoRefresh(
   callback: () => Promise<unknown> | void,
   options: SmartAutoRefreshOptions = {}
@@ -122,25 +124,37 @@ export function useSmartAutoRefresh(
     setPaused((previous) => !previous);
   }, []);
 
-  const statusLabel = useMemo(() => {
+  const status = useMemo<AutoRefreshStatus>(() => {
     if (!enabled) {
-      return 'Off';
+      return 'off';
     }
     if (paused) {
-      return 'Paused';
+      return 'paused';
     }
     if (pauseOnHidden && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-      return 'Hidden';
+      return 'hidden';
     }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return 'Offline';
+      return 'offline';
     }
-    return 'Active';
+    return 'active';
   }, [enabled, pauseOnHidden, paused]);
+
+  const statusLabel = useMemo(() => {
+    const labels: Record<AutoRefreshStatus, string> = {
+      off: 'Off',
+      paused: 'Paused',
+      hidden: 'Hidden',
+      offline: 'Offline',
+      active: 'Active'
+    };
+    return labels[status];
+  }, [status]);
 
   return {
     enabled,
     paused,
+    status,
     statusLabel,
     lastRunAt,
     nextRunInMs,

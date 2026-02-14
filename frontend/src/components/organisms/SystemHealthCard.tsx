@@ -1,5 +1,6 @@
 import React from 'react';
 import { RefreshCw, ShieldCheck, ShieldX } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import apiClient from '../../api/client';
@@ -10,6 +11,7 @@ import { Card } from '../atoms/Card';
 import { Spinner } from '../atoms/Spinner';
 
 export const SystemHealthCard: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data, isLoading, isError, isFetching } = useHealth();
   const { data: quality } = useQuery({
@@ -135,13 +137,19 @@ export const SystemHealthCard: React.FC = () => {
           ) : (
             <ShieldCheck className="h-5 w-5 text-emerald-500" />
           )}
-          <h2 className="text-lg font-semibold text-foreground">System Health</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {t('systemHealth.title', { defaultValue: 'System Health' })}
+          </h2>
         </div>
 
         {isLoading ? null : isError ? (
-          <Badge variant="danger">Unreachable</Badge>
+          <Badge variant="danger">
+            {t('systemHealth.unreachable', { defaultValue: 'Unreachable' })}
+          </Badge>
         ) : (
-          <Badge variant="success">Healthy</Badge>
+          <Badge variant="success">
+            {t('systemHealth.healthy', { defaultValue: 'Healthy' })}
+          </Badge>
         )}
       </div>
 
@@ -152,21 +160,23 @@ export const SystemHealthCard: React.FC = () => {
       ) : isError ? (
         <div className="space-y-3">
           <p className="text-sm text-muted">
-            Could not reach backend health endpoint. Confirm `backend` is running on port `3000`.
+            {t('systemHealth.errorBody', {
+              defaultValue: 'Could not reach backend health endpoint. Confirm `backend` is running on port `3000`.'
+            })}
           </p>
           <Button type="button" size="sm" variant="secondary" onClick={refresh} loading={isFetching}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Retry Health Check
+            {t('systemHealth.retry', { defaultValue: 'Retry Health Check' })}
           </Button>
         </div>
       ) : (
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted">Status</span>
+            <span className="text-muted">{t('common.status', { defaultValue: 'Status' })}</span>
             <span className="font-semibold capitalize text-foreground">{data?.status || 'ok'}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted">Last Check</span>
+            <span className="text-muted">{t('systemHealth.lastCheck', { defaultValue: 'Last Check' })}</span>
             <span className="font-medium text-foreground">
               {data?.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}
             </span>
@@ -174,27 +184,37 @@ export const SystemHealthCard: React.FC = () => {
           <div className="pt-2">
             <Button type="button" size="sm" variant="secondary" onClick={refresh} loading={isFetching}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
+              {t('common.refresh', { defaultValue: 'Refresh' })}
             </Button>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl border border-line/70 bg-panel/45 p-3 text-xs sm:grid-cols-3">
             <div>
-              <p className="text-muted">Connect Success (60m)</p>
+              <p className="text-muted">
+                {t('dashboard.quality.connectSuccess60m', { defaultValue: 'Connect Success (60m)' })}
+              </p>
               <p className="text-sm font-semibold text-foreground">{qualitySummary.connects}</p>
             </div>
             <div>
-              <p className="text-muted">Limit Rejects (60m)</p>
+              <p className="text-muted">
+                {t('dashboard.quality.limitRejects60m', { defaultValue: 'Limit Rejects (60m)' })}
+              </p>
               <p className="text-sm font-semibold text-rose-400">{qualitySummary.rejects}</p>
             </div>
             <div>
-              <p className="text-muted">Reconnects (60m)</p>
+              <p className="text-muted">
+                {t('dashboard.quality.reconnects60m', { defaultValue: 'Reconnects (60m)' })}
+              </p>
               <p className="text-sm font-semibold text-amber-300">{qualitySummary.reconnects}</p>
             </div>
           </div>
           <div className="mt-3 space-y-2 text-xs">
-            <p className="uppercase tracking-wide text-muted">Top Protocol Quality</p>
+            <p className="uppercase tracking-wide text-muted">
+              {t('dashboard.topProtocolQuality.title', { defaultValue: 'Top Protocol Quality (60m)' })}
+            </p>
             {topProtocolQuality.length === 0 ? (
-              <p className="text-muted">No protocol telemetry yet.</p>
+              <p className="text-muted">
+                {t('dashboard.topProtocolQuality.empty', { defaultValue: 'No protocol quality data yet.' })}
+              </p>
             ) : (
               topProtocolQuality.map((row) => (
                 <div key={row.protocol} className="flex items-center justify-between rounded-lg border border-line/70 bg-panel/35 px-2.5 py-1.5">
@@ -210,9 +230,13 @@ export const SystemHealthCard: React.FC = () => {
             )}
           </div>
           <div className="mt-3 space-y-2 text-xs">
-            <p className="uppercase tracking-wide text-muted">Top Inbound Profiles</p>
+            <p className="uppercase tracking-wide text-muted">
+              {t('dashboard.topInboundProfiles.title', { defaultValue: 'Top Inbound Profiles (60m)' })}
+            </p>
             {topProfileQuality.length === 0 ? (
-              <p className="text-muted">No inbound profile telemetry yet.</p>
+              <p className="text-muted">
+                {t('dashboard.topInboundProfiles.empty', { defaultValue: 'No inbound profile telemetry yet.' })}
+              </p>
             ) : (
               topProfileQuality.map((row) => (
                 <div key={row.key} className="rounded-lg border border-line/70 bg-panel/35 px-2.5 py-1.5">

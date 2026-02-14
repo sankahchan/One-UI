@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2, Copy, Lock, Settings, Unlock, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { useRunXrayUpdateUnlock, useXrayUpdatePolicy, useXrayUpdatePreflight } from '../../hooks/useXray';
 import { useToast } from '../../hooks/useToast';
@@ -12,6 +13,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { Spinner } from '../atoms/Spinner';
 
 export const UpdateHealthCard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const admin = useAuthStore((state) => state.admin);
@@ -58,9 +60,15 @@ export const UpdateHealthCard: React.FC = () => {
 
     try {
       await navigator.clipboard.writeText(content);
-      toast.success('Copied to clipboard', 'Preflight fix commands copied.');
+      toast.success(
+        t('updateHealth.toast.copiedTitle', { defaultValue: 'Copied to clipboard' }),
+        t('updateHealth.toast.copiedBody', { defaultValue: 'Preflight fix commands copied.' })
+      );
     } catch {
-      toast.error('Copy failed', 'Failed to copy preflight fix commands.');
+      toast.error(
+        t('updateHealth.toast.copyFailedTitle', { defaultValue: 'Copy failed' }),
+        t('updateHealth.toast.copyFailedBody', { defaultValue: 'Failed to copy preflight fix commands.' })
+      );
     }
   };
 
@@ -75,52 +83,65 @@ export const UpdateHealthCard: React.FC = () => {
         force: !activeLockIsStale
       });
       toast.success(
-        'Unlock complete',
-        result.message || (result.unlocked ? 'Update lock released.' : 'Update lock not released.')
+        t('updateHealth.toast.unlockCompleteTitle', { defaultValue: 'Unlock complete' }),
+        result.message || (
+          result.unlocked
+            ? t('updateHealth.toast.unlockReleasedBody', { defaultValue: 'Update lock released.' })
+            : t('updateHealth.toast.unlockNotReleasedBody', { defaultValue: 'Update lock not released.' })
+        )
       );
       setShowUnlockConfirm(false);
       await preflightQuery.refetch();
     } catch (error: any) {
-      toast.error('Unlock failed', error?.message || 'Failed to unlock update lock.');
+      toast.error(
+        t('updateHealth.toast.unlockFailedTitle', { defaultValue: 'Unlock failed' }),
+        error?.message || t('updateHealth.toast.unlockFailedBody', { defaultValue: 'Failed to unlock update lock.' })
+      );
     }
   };
 
   const unlockConfirmDescription = activeLockOwner && activeLockExpiresAt
-    ? `Force unlock active update lock owned by ${activeLockOwner} (expires ${new Date(activeLockExpiresAt).toLocaleString()})?`
-    : 'Force unlock the active Xray update lock?';
+    ? t('updateHealth.unlockConfirm.withOwner', {
+      defaultValue: 'Force unlock active update lock owned by {{owner}} (expires {{expiresAt}})?',
+      owner: activeLockOwner,
+      expiresAt: new Date(activeLockExpiresAt).toLocaleString()
+    })
+    : t('updateHealth.unlockConfirm.default', { defaultValue: 'Force unlock the active Xray update lock?' });
 
   return (
     <Card>
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Update Health</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          {t('updateHealth.title', { defaultValue: 'Update Health' })}
+        </h2>
         {preflightQuery.isLoading || (canManageUpdates && policyQuery.isLoading) ? (
           <span className="inline-flex items-center rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-muted">
-            Checking...
+            {t('updateHealth.checking', { defaultValue: 'Checking...' })}
           </span>
         ) : !canManageUpdates ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-muted">
             <Lock className="h-3.5 w-3.5" />
-            Restricted
+            {t('updateHealth.restricted', { defaultValue: 'Restricted' })}
           </span>
         ) : !scriptedUpdatesEnabled ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2.5 py-1 text-xs font-semibold text-sky-300">
             <Settings className="h-3.5 w-3.5" />
-            Manual Mode
+            {t('updateHealth.manualMode', { defaultValue: 'Manual Mode' })}
           </span>
         ) : preflight?.ready ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Ready
+            {t('updateHealth.ready', { defaultValue: 'Ready' })}
           </span>
         ) : lockFailure ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-300">
             <Lock className="h-3.5 w-3.5" />
-            Locked
+            {t('updateHealth.locked', { defaultValue: 'Locked' })}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Needs Fix
+            {t('updateHealth.needsFix', { defaultValue: 'Needs Fix' })}
           </span>
         )}
       </div>
@@ -132,7 +153,9 @@ export const UpdateHealthCard: React.FC = () => {
       ) : !canManageUpdates ? (
         <>
           <p className="text-sm text-muted">
-            Update tooling is available for <code>ADMIN</code> and <code>SUPER_ADMIN</code> roles.
+            {t('updateHealth.body.restricted', {
+              defaultValue: 'Update tooling is available for ADMIN and SUPER_ADMIN roles.'
+            })}
           </p>
           <div className="mt-4">
             <Button
@@ -141,7 +164,7 @@ export const UpdateHealthCard: React.FC = () => {
               onClick={() => navigate('/settings?tab=system&section=xray-updates')}
             >
               <Settings className="mr-2 h-4 w-4" />
-              Open Settings
+              {t('updateHealth.openSettings', { defaultValue: 'Open Settings' })}
             </Button>
           </div>
         </>
@@ -149,14 +172,17 @@ export const UpdateHealthCard: React.FC = () => {
         <>
           <p className="text-sm text-muted">
             {!scriptedUpdatesEnabled
-              ? `Runtime mode is ${updateRuntimeMode}. Scripted container update actions are disabled.`
+              ? t('updateHealth.body.scriptedDisabled', {
+                defaultValue: 'Runtime mode is {{mode}}. Scripted container update actions are disabled.',
+                mode: updateRuntimeMode
+              })
               : preflight?.ready
-              ? 'All required checks passed. You can run canary/full rollout safely.'
+              ? t('updateHealth.body.ready', { defaultValue: 'All required checks passed. You can run canary/full rollout safely.' })
               : lockFailure
-                ? 'Xray update lock is active. Resolve lock state before running updates.'
+                ? t('updateHealth.body.locked', { defaultValue: 'Xray update lock is active. Resolve lock state before running updates.' })
                 : hasBlockingFailure
-                  ? 'One or more required checks are failing. Apply fixes before rollout.'
-                  : 'Review warnings before rollout.'}
+                  ? t('updateHealth.body.blockingFailure', { defaultValue: 'One or more required checks are failing. Apply fixes before rollout.' })
+                  : t('updateHealth.body.reviewWarnings', { defaultValue: 'Review warnings before rollout.' })}
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -169,7 +195,7 @@ export const UpdateHealthCard: React.FC = () => {
               loading={preflightQuery.isFetching}
             >
               <Wrench className="mr-2 h-4 w-4" />
-              Run Preflight
+              {t('updateHealth.runPreflight', { defaultValue: 'Run Preflight' })}
             </Button>
             <Button
               type="button"
@@ -180,7 +206,7 @@ export const UpdateHealthCard: React.FC = () => {
               disabled={unresolvedFixCommands.length === 0}
             >
               <Copy className="mr-2 h-4 w-4" />
-              Copy Fixes
+              {t('updateHealth.copyFixes', { defaultValue: 'Copy Fixes' })}
             </Button>
             <Button
               type="button"
@@ -192,7 +218,7 @@ export const UpdateHealthCard: React.FC = () => {
               disabled={!hasUnlockableLock}
             >
               <Unlock className="mr-2 h-4 w-4" />
-              Force Unlock
+              {t('updateHealth.forceUnlock', { defaultValue: 'Force Unlock' })}
             </Button>
             <Button
               type="button"
@@ -200,7 +226,7 @@ export const UpdateHealthCard: React.FC = () => {
               onClick={() => navigate('/settings?tab=system&section=xray-updates')}
             >
               <Settings className="mr-2 h-4 w-4" />
-              Open Updates
+              {t('updateHealth.openUpdates', { defaultValue: 'Open Updates' })}
             </Button>
           </div>
         </>
@@ -208,9 +234,9 @@ export const UpdateHealthCard: React.FC = () => {
 
       <ConfirmDialog
         open={showUnlockConfirm}
-        title="Force Unlock Update Lock"
+        title={t('updateHealth.unlockTitle', { defaultValue: 'Force Unlock Update Lock' })}
         description={unlockConfirmDescription}
-        confirmLabel="Force Unlock"
+        confirmLabel={t('updateHealth.forceUnlock', { defaultValue: 'Force Unlock' })}
         tone="danger"
         loading={forceUnlockMutation.isPending}
         onCancel={() => {

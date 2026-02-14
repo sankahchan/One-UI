@@ -180,7 +180,11 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-foreground">{t('dashboard.title')}</h1>
-          <p className="mt-1 text-sm text-muted">Realtime overview of your users, usage, and service status.</p>
+          <p className="mt-1 text-sm text-muted">
+            {t('dashboard.tagline', {
+              defaultValue: 'Realtime overview of your users, usage, and service status.'
+            })}
+          </p>
         </div>
       </div>
 
@@ -217,19 +221,27 @@ export const Dashboard: React.FC = () => {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-500/10 via-emerald-500/5 to-transparent" />
         <div className="relative grid grid-cols-1 gap-3 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted">Connect Success (60m)</p>
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('dashboard.quality.connectSuccess60m', { defaultValue: 'Connect Success (60m)' })}
+            </p>
             <p className="mt-1 text-xl font-semibold text-foreground">{qualitySummary.connects}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted">Limit Rejects (60m)</p>
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('dashboard.quality.limitRejects60m', { defaultValue: 'Limit Rejects (60m)' })}
+            </p>
             <p className="mt-1 text-xl font-semibold text-rose-400">{qualitySummary.rejects}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted">Reconnects (60m)</p>
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('dashboard.quality.reconnects60m', { defaultValue: 'Reconnects (60m)' })}
+            </p>
             <p className="mt-1 text-xl font-semibold text-amber-300">{qualitySummary.reconnects}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted">Avg Traffic / Min</p>
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('dashboard.quality.avgTrafficPerMin', { defaultValue: 'Avg Traffic / Min' })}
+            </p>
             <p className="mt-1 text-xl font-semibold text-emerald-400">{formatBytes(qualitySummary.trafficPerMinute)}</p>
           </div>
         </div>
@@ -238,9 +250,13 @@ export const Dashboard: React.FC = () => {
       <Card className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-500/10 via-brand-500/5 to-transparent" />
         <div className="relative">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Top Profile Quality (60m)</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            {t('dashboard.topProtocolQuality.title', { defaultValue: 'Top Protocol Quality (60m)' })}
+          </h2>
           {topProtocolQuality.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">No profile quality data yet.</p>
+            <p className="mt-3 text-sm text-muted">
+              {t('dashboard.topProtocolQuality.empty', { defaultValue: 'No protocol quality data yet.' })}
+            </p>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {topProtocolQuality.map((row) => (
@@ -251,8 +267,20 @@ export const Dashboard: React.FC = () => {
                       {row.score}
                     </span>
                   </div>
-                  <p className="mt-2 text-muted">Connect {row.connects} • Reject {row.rejects} • Reconnect {row.reconnects}</p>
-                  <p className="mt-1 text-muted">Traffic/min {formatBytes(row.trafficPerMinute)}</p>
+                  <p className="mt-2 text-muted">
+                    {t('dashboard.quality.row', {
+                      defaultValue: 'Connect {{connects}} • Reject {{rejects}} • Reconnect {{reconnects}}',
+                      connects: row.connects,
+                      rejects: row.rejects,
+                      reconnects: row.reconnects
+                    })}
+                  </p>
+                  <p className="mt-1 text-muted">
+                    {t('dashboard.quality.trafficPerMin', {
+                      defaultValue: 'Traffic/min {{traffic}}',
+                      traffic: formatBytes(row.trafficPerMinute)
+                    })}
+                  </p>
                 </div>
               ))}
             </div>
@@ -263,9 +291,13 @@ export const Dashboard: React.FC = () => {
       <Card className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-brand-500/5 to-transparent" />
         <div className="relative">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Top Inbound Profiles (60m)</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            {t('dashboard.topInboundProfiles.title', { defaultValue: 'Top Inbound Profiles (60m)' })}
+          </h2>
           {topProfileQuality.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">No inbound profile telemetry yet.</p>
+            <p className="mt-3 text-sm text-muted">
+              {t('dashboard.topInboundProfiles.empty', { defaultValue: 'No inbound profile telemetry yet.' })}
+            </p>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {topProfileQuality.map((row) => (
@@ -281,8 +313,20 @@ export const Dashboard: React.FC = () => {
                   <p className="mt-1 truncate text-muted" title={row.tag}>
                     {row.tag}
                   </p>
-                  <p className="mt-2 text-muted">Connect {row.connects} • Reject {row.rejects} • Reconnect {row.reconnects}</p>
-                  <p className="mt-1 text-muted">Traffic/min {formatBytes(row.trafficPerMinute)}</p>
+                  <p className="mt-2 text-muted">
+                    {t('dashboard.quality.row', {
+                      defaultValue: 'Connect {{connects}} • Reject {{rejects}} • Reconnect {{reconnects}}',
+                      connects: row.connects,
+                      rejects: row.rejects,
+                      reconnects: row.reconnects
+                    })}
+                  </p>
+                  <p className="mt-1 text-muted">
+                    {t('dashboard.quality.trafficPerMin', {
+                      defaultValue: 'Traffic/min {{traffic}}',
+                      traffic: formatBytes(row.trafficPerMinute)
+                    })}
+                  </p>
                 </div>
               ))}
             </div>

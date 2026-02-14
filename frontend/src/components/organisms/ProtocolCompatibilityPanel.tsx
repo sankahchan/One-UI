@@ -1,5 +1,6 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import type { Inbound } from '../../types';
 import { protocolCompatibility } from '../../data/protocolCompatibility';
@@ -12,11 +13,15 @@ interface ProtocolCompatibilityPanelProps {
 }
 
 export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProps> = ({ onQuickCreate }) => {
+  const { t } = useTranslation();
+
   return (
     <Card>
       <div className="mb-4 flex items-center gap-2">
         <Layers className="h-4 w-4 text-brand-500" />
-        <h2 className="text-lg font-semibold text-foreground">Protocol Compatibility Matrix</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          {t('compatibility.title', { defaultValue: 'Protocol Compatibility Matrix' })}
+        </h2>
       </div>
 
       <div className="space-y-3">
@@ -35,7 +40,9 @@ export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProp
                 <p className="text-xs text-muted">{item.recommendation}</p>
 
                 <div className="pt-1">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Networks</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {t('compatibility.networks', { defaultValue: 'Networks' })}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {item.networks.map((network) => (
                       <span
@@ -49,7 +56,9 @@ export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProp
                 </div>
 
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Security</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {t('compatibility.security', { defaultValue: 'Security' })}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {item.security.map((security) => (
                       <span
@@ -63,7 +72,9 @@ export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProp
                 </div>
 
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Supported Clients</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {t('compatibility.clients', { defaultValue: 'Supported Clients' })}
+                  </p>
                   <p className="text-xs text-foreground/90">{item.clients.join(' · ')}</p>
                 </div>
               </div>
@@ -75,7 +86,7 @@ export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProp
                   onClick={() => onQuickCreate(item.protocol)}
                   className="w-full md:w-auto"
                 >
-                  Quick Create
+                  {t('compatibility.quickCreate', { defaultValue: 'Quick Create' })}
                 </Button>
               </div>
             </div>
@@ -85,4 +96,3 @@ export const ProtocolCompatibilityPanel: React.FC<ProtocolCompatibilityPanelProp
     </Card>
   );
 };
-

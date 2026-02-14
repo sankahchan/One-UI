@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Copy, Download, Edit, Eye, FileCode2, MoreVertical, Plus, Power, PowerOff, Shuffle, Sparkles, Trash2, Upload } from 'lucide-react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
@@ -82,12 +83,6 @@ type InboundsConfirmState =
   | { type: 'bulk-delete'; ids: number[] }
   | { type: 'single-delete'; id: number; label: string }
   | null;
-
-const INBOUNDS_TABS: Array<{ id: InboundsTab; label: string }> = [
-  { id: 'inbounds', label: 'Inbounds' },
-  { id: 'templates', label: 'Templates' },
-  { id: 'compatibility', label: 'Compatibility' }
-];
 
 type InboundTemplateCategory = InboundTemplate['category'];
 
@@ -367,6 +362,7 @@ function fallbackDraftForProtocol(protocol: Inbound['protocol']): InboundDraftVa
 }
 
 export const Inbounds: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -374,6 +370,34 @@ export const Inbounds: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const admin = useAuthStore((state) => state.admin);
   const canDeleteInbounds = admin?.role === 'SUPER_ADMIN';
+
+  const tabs = useMemo(
+    () => ([
+      { id: 'inbounds' as const, label: t('inbounds.tabs.inbounds', { defaultValue: 'Inbounds' }) },
+      { id: 'templates' as const, label: t('inbounds.tabs.templates', { defaultValue: 'Templates' }) },
+      { id: 'compatibility' as const, label: t('inbounds.tabs.compatibility', { defaultValue: 'Compatibility' }) }
+    ]),
+    [t]
+  );
+
+  const templateCategoryMeta = useMemo(() => ({
+    recommended: {
+      title: t('inbounds.templateCategories.recommended.title', { defaultValue: TEMPLATE_CATEGORY_LABEL.recommended.title }),
+      hint: t('inbounds.templateCategories.recommended.hint', { defaultValue: TEMPLATE_CATEGORY_LABEL.recommended.hint })
+    },
+    cdn: {
+      title: t('inbounds.templateCategories.cdn.title', { defaultValue: TEMPLATE_CATEGORY_LABEL.cdn.title }),
+      hint: t('inbounds.templateCategories.cdn.hint', { defaultValue: TEMPLATE_CATEGORY_LABEL.cdn.hint })
+    },
+    transport: {
+      title: t('inbounds.templateCategories.transport.title', { defaultValue: TEMPLATE_CATEGORY_LABEL.transport.title }),
+      hint: t('inbounds.templateCategories.transport.hint', { defaultValue: TEMPLATE_CATEGORY_LABEL.transport.hint })
+    },
+    utility: {
+      title: t('inbounds.templateCategories.utility.title', { defaultValue: TEMPLATE_CATEGORY_LABEL.utility.title }),
+      hint: t('inbounds.templateCategories.utility.hint', { defaultValue: TEMPLATE_CATEGORY_LABEL.utility.hint })
+    }
+  } satisfies Record<InboundTemplateCategory, { title: string; hint: string }>), [t]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingInbound, setEditingInbound] = useState<Inbound | null>(null);
@@ -557,15 +581,29 @@ export const Inbounds: React.FC = () => {
       const failedCount = failures.length;
       if (failedCount > 0) {
         toast.error(
-          'Import completed with warnings',
-          `Imported ${success} profile(s), ${failedCount} failed. ${failures.slice(0, 3).join(' | ')}`
+          t('inbounds.import.completedWarningsTitle', { defaultValue: 'Import completed with warnings' }),
+          t('inbounds.import.completedWarningsBody', {
+            defaultValue: 'Imported {{success}} profile(s), {{failed}} failed. {{details}}',
+            success,
+            failed: failedCount,
+            details: failures.slice(0, 3).join(' | ')
+          })
         );
       } else {
-        toast.success('Import completed', `Successfully imported ${success} profile(s).`);
+        toast.success(
+          t('inbounds.import.completedTitle', { defaultValue: 'Import completed' }),
+          t('inbounds.import.completedBody', {
+            defaultValue: 'Successfully imported {{count}} profile(s).',
+            count: success
+          })
+        );
       }
     },
     onError: (error: any) => {
-      toast.error('Import failed', error?.message || 'Failed to import inbound profiles');
+      toast.error(
+        t('inbounds.import.failedTitle', { defaultValue: 'Import failed' }),
+        error?.message || t('inbounds.import.failedBody', { defaultValue: 'Failed to import inbound profiles' })
+      );
     }
   });
 
@@ -591,11 +629,21 @@ export const Inbounds: React.FC = () => {
         const plannedCount = payload.planned?.length || 0;
         if (warnings.length > 0) {
           toast.error(
-            'Myanmar pack preview generated with warnings',
-            `${plannedCount} planned profile(s). ${warnings.slice(0, 3).join(' | ')}`
+            t('inbounds.myanmarPack.previewWarningsTitle', { defaultValue: 'Myanmar pack preview generated with warnings' }),
+            t('inbounds.myanmarPack.previewWarningsBody', {
+              defaultValue: '{{count}} planned profile(s). {{details}}',
+              count: plannedCount,
+              details: warnings.slice(0, 3).join(' | ')
+            })
           );
         } else {
-          toast.success('Myanmar pack preview generated', `${plannedCount} planned profile(s).`);
+          toast.success(
+            t('inbounds.myanmarPack.previewTitle', { defaultValue: 'Myanmar pack preview generated' }),
+            t('inbounds.myanmarPack.previewBody', {
+              defaultValue: '{{count}} planned profile(s).',
+              count: plannedCount
+            })
+          );
         }
         return;
       }
@@ -607,7 +655,11 @@ export const Inbounds: React.FC = () => {
       const assignedGroups = Number(assignment.assignedGroups || 0);
       let assignmentSummary = '';
       if (assignedUsers > 0 || assignedGroups > 0) {
-        assignmentSummary = `\nAssigned to ${assignedUsers} user(s) and ${assignedGroups} group(s).`;
+        assignmentSummary = `\n${t('inbounds.myanmarPack.assignedSummary', {
+          defaultValue: 'Assigned to {{users}} user(s) and {{groups}} group(s).',
+          users: assignedUsers,
+          groups: assignedGroups
+        })}`;
       }
 
       await Promise.all([
@@ -619,17 +671,32 @@ export const Inbounds: React.FC = () => {
 
       if (warnings.length > 0) {
         toast.error(
-          'Myanmar pack applied with warnings',
-          `${createdCount} profile(s) created.${assignmentSummary} ${warnings.slice(0, 3).join(' | ')}`
+          t('inbounds.myanmarPack.appliedWarningsTitle', { defaultValue: 'Myanmar pack applied with warnings' }),
+          t('inbounds.myanmarPack.appliedWarningsBody', {
+            defaultValue: '{{count}} profile(s) created.{{assignment}} {{details}}',
+            count: createdCount,
+            assignment: assignmentSummary,
+            details: warnings.slice(0, 3).join(' | ')
+          })
         );
       } else {
-        toast.success('Myanmar pack applied', `${createdCount} profile(s) created.${assignmentSummary}`);
+        toast.success(
+          t('inbounds.myanmarPack.appliedTitle', { defaultValue: 'Myanmar pack applied' }),
+          t('inbounds.myanmarPack.appliedBody', {
+            defaultValue: '{{count}} profile(s) created.{{assignment}}',
+            count: createdCount,
+            assignment: assignmentSummary
+          })
+        );
       }
       setShowMyanmarPackModal(false);
       setMyanmarPackPreview(null);
     },
     onError: (error: any) => {
-      toast.error('Myanmar pack failed', error?.message || 'Failed to apply Myanmar pack');
+      toast.error(
+        t('inbounds.myanmarPack.failedTitle', { defaultValue: 'Myanmar pack failed' }),
+        error?.message || t('inbounds.myanmarPack.failedBody', { defaultValue: 'Failed to apply Myanmar pack' })
+      );
     }
   });
 
@@ -692,7 +759,10 @@ export const Inbounds: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ['inbounds'] });
     },
     onError: (error: any) => {
-      toast.error('Randomize port failed', error?.message || 'Failed to randomize inbound port');
+      toast.error(
+        t('inbounds.randomPortFailedTitle', { defaultValue: 'Randomize port failed' }),
+        error?.message || t('inbounds.randomPortFailedBody', { defaultValue: 'Failed to randomize inbound port' })
+      );
     },
     onSettled: () => {
       setRandomizingPortId(null);
@@ -841,7 +911,10 @@ export const Inbounds: React.FC = () => {
       await handler();
       await refreshInboundRelations({ includeUsersDirectory: true });
     } catch (error: any) {
-      toast.error('Client action failed', error?.message || fallbackMessage);
+      toast.error(
+        t('inbounds.clientActionFailedTitle', { defaultValue: 'Client action failed' }),
+        error?.message || fallbackMessage
+      );
     } finally {
       setClientActionLoadingKey(null);
     }
@@ -849,7 +922,10 @@ export const Inbounds: React.FC = () => {
 
   const runBulkDelete = async () => {
     if (!canDeleteInbounds) {
-      toast.error('Permission denied', 'Only SUPER_ADMIN can delete inbounds.');
+      toast.error(
+        t('inbounds.permissionDeniedTitle', { defaultValue: 'Permission denied' }),
+        t('inbounds.permissionDeniedDeleteBody', { defaultValue: 'Only SUPER_ADMIN can delete inbounds.' })
+      );
       return;
     }
     if (selectedInboundIds.length === 0) {
@@ -866,14 +942,29 @@ export const Inbounds: React.FC = () => {
     try {
       if (confirmState.type === 'bulk-delete') {
         await bulkDeleteInbounds.mutateAsync(confirmState.ids);
-        toast.success('Bulk delete completed', `Deleted ${confirmState.ids.length} inbound(s).`);
+        toast.success(
+          t('inbounds.bulkDeleteSuccessTitle', { defaultValue: 'Bulk delete completed' }),
+          t('inbounds.bulkDeleteSuccessBody', {
+            defaultValue: 'Deleted {{count}} inbound(s).',
+            count: confirmState.ids.length
+          })
+        );
       } else {
         await deleteInbound.mutateAsync(confirmState.id);
-        toast.success('Inbound deleted', `Deleted inbound "${confirmState.label}".`);
+        toast.success(
+          t('inbounds.deleteSuccessTitle', { defaultValue: 'Inbound deleted' }),
+          t('inbounds.deleteSuccessBody', {
+            defaultValue: 'Deleted inbound \"{{name}}\".',
+            name: confirmState.label
+          })
+        );
       }
       setConfirmState(null);
     } catch (error: any) {
-      toast.error('Delete failed', error?.message || 'Failed to delete inbound');
+      toast.error(
+        t('inbounds.deleteFailedTitle', { defaultValue: 'Delete failed' }),
+        error?.message || t('inbounds.deleteFailedBody', { defaultValue: 'Failed to delete inbound' })
+      );
     }
   };
 
@@ -884,9 +975,15 @@ export const Inbounds: React.FC = () => {
 
     try {
       await bulkEnableInbounds.mutateAsync(selectedInboundIds);
-      toast.success('Bulk enable completed', 'Selected inbounds enabled.');
+      toast.success(
+        t('inbounds.bulkEnableSuccessTitle', { defaultValue: 'Bulk enable completed' }),
+        t('inbounds.bulkEnableSuccessBody', { defaultValue: 'Selected inbounds enabled.' })
+      );
     } catch (error: any) {
-      toast.error('Bulk enable failed', error?.message || 'Failed to enable selected inbounds');
+      toast.error(
+        t('inbounds.bulkEnableFailedTitle', { defaultValue: 'Bulk enable failed' }),
+        error?.message || t('inbounds.bulkEnableFailedBody', { defaultValue: 'Failed to enable selected inbounds' })
+      );
     }
   };
 
@@ -897,9 +994,15 @@ export const Inbounds: React.FC = () => {
 
     try {
       await bulkDisableInbounds.mutateAsync(selectedInboundIds);
-      toast.success('Bulk disable completed', 'Selected inbounds disabled.');
+      toast.success(
+        t('inbounds.bulkDisableSuccessTitle', { defaultValue: 'Bulk disable completed' }),
+        t('inbounds.bulkDisableSuccessBody', { defaultValue: 'Selected inbounds disabled.' })
+      );
     } catch (error: any) {
-      toast.error('Bulk disable failed', error?.message || 'Failed to disable selected inbounds');
+      toast.error(
+        t('inbounds.bulkDisableFailedTitle', { defaultValue: 'Bulk disable failed' }),
+        error?.message || t('inbounds.bulkDisableFailedBody', { defaultValue: 'Failed to disable selected inbounds' })
+      );
     }
   };
 
@@ -913,10 +1016,16 @@ export const Inbounds: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['inbounds'] });
-      toast.success('Inbound cloned', 'Inbound cloned successfully.');
+      toast.success(
+        t('inbounds.cloneSuccessTitle', { defaultValue: 'Inbound cloned' }),
+        t('inbounds.cloneSuccessBody', { defaultValue: 'Inbound cloned successfully.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Clone failed', error?.message || 'Failed to clone inbound');
+      toast.error(
+        t('inbounds.cloneFailedTitle', { defaultValue: 'Clone failed' }),
+        error?.message || t('inbounds.cloneFailedBody', { defaultValue: 'Failed to clone inbound' })
+      );
     },
     onSettled: () => {
       setCloningId(null);
@@ -1198,7 +1307,10 @@ export const Inbounds: React.FC = () => {
 
   const applyMyanmarPack = async (dryRun = false) => {
     if (!myanmarPackForm.serverAddress.trim()) {
-      toast.error('Validation failed', 'Server address is required.');
+      toast.error(
+        t('common.validationFailed', { defaultValue: 'Validation failed' }),
+        t('inbounds.myanmarPack.serverAddressRequired', { defaultValue: 'Server address is required.' })
+      );
       return;
     }
 
@@ -1243,7 +1355,7 @@ export const Inbounds: React.FC = () => {
   };
 
   const handleSaveCurrentView = () => {
-    const name = window.prompt('Name this inbounds view');
+    const name = window.prompt(t('inbounds.savedViews.promptName', { defaultValue: 'Name this inbounds view' }));
     if (!name) {
       return;
     }
@@ -1254,9 +1366,18 @@ export const Inbounds: React.FC = () => {
         viewMode
       });
       setSelectedViewId(view.id);
-      toast.success('View saved', `Saved view "${view.name}".`);
+      toast.success(
+        t('inbounds.savedViews.savedTitle', { defaultValue: 'View saved' }),
+        t('inbounds.savedViews.savedBody', {
+          defaultValue: 'Saved view \"{{name}}\".',
+          name: view.name
+        })
+      );
     } catch (error: any) {
-      toast.error('Save view failed', error?.message || 'Failed to save view');
+      toast.error(
+        t('inbounds.savedViews.saveFailedTitle', { defaultValue: 'Save view failed' }),
+        error?.message || t('inbounds.savedViews.saveFailedBody', { defaultValue: 'Failed to save view' })
+      );
     }
   };
 
@@ -1282,7 +1403,10 @@ export const Inbounds: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (!canDeleteInbounds) {
-      toast.error('Permission denied', 'Only SUPER_ADMIN can delete inbounds.');
+      toast.error(
+        t('inbounds.permissionDeniedTitle', { defaultValue: 'Permission denied' }),
+        t('inbounds.permissionDeniedDeleteBody', { defaultValue: 'Only SUPER_ADMIN can delete inbounds.' })
+      );
       return;
     }
     const inbound = inbounds.find((entry) => entry.id === id);
@@ -1295,7 +1419,10 @@ export const Inbounds: React.FC = () => {
 
   const handleExport = () => {
     if (inbounds.length === 0) {
-      toast.error('Export unavailable', 'No inbounds to export.');
+      toast.error(
+        t('inbounds.export.unavailableTitle', { defaultValue: 'Export unavailable' }),
+        t('inbounds.export.unavailableBody', { defaultValue: 'No inbounds to export.' })
+      );
       return;
     }
 
@@ -1341,12 +1468,18 @@ export const Inbounds: React.FC = () => {
       const parsed = JSON.parse(rawText);
       const items = parseImportItems(parsed);
       if (items.length === 0) {
-        toast.error('Import failed', 'No valid inbound profiles found in selected file.');
+        toast.error(
+          t('inbounds.import.failedTitle', { defaultValue: 'Import failed' }),
+          t('inbounds.import.noValidProfilesBody', { defaultValue: 'No valid inbound profiles found in selected file.' })
+        );
         return;
       }
       await importMutation.mutateAsync(items);
     } catch (error: any) {
-      toast.error('Import failed', error?.message || 'Invalid JSON file');
+      toast.error(
+        t('inbounds.import.failedTitle', { defaultValue: 'Import failed' }),
+        error?.message || t('inbounds.import.invalidJsonBody', { defaultValue: 'Invalid JSON file' })
+      );
     }
   };
 
@@ -1371,14 +1504,20 @@ export const Inbounds: React.FC = () => {
   };
 
   const confirmTitle = confirmState?.type === 'bulk-delete'
-    ? 'Delete Selected Inbounds'
+    ? t('inbounds.bulkDeleteTitle', { defaultValue: 'Delete Selected Inbounds' })
     : confirmState?.type === 'single-delete'
-    ? 'Delete Inbound'
+    ? t('inbounds.deleteTitle', { defaultValue: 'Delete Inbound' })
     : '';
   const confirmDescription = confirmState?.type === 'bulk-delete'
-    ? `Delete ${confirmState.ids.length} selected inbound(s)? This action cannot be undone.`
+    ? t('inbounds.bulkDeleteBody', {
+        defaultValue: 'Delete {{count}} selected inbound(s)? This action cannot be undone.',
+        count: confirmState.ids.length
+      })
     : confirmState?.type === 'single-delete'
-    ? `Delete inbound "${confirmState.label}"? Associated users may lose access.`
+    ? t('inbounds.deleteBody', {
+        defaultValue: 'Delete inbound "{{name}}"? Associated users may lose access.',
+        name: confirmState.label
+      })
     : '';
   const confirmLoading = confirmState?.type === 'bulk-delete'
     ? bulkDeleteInbounds.isPending
@@ -1409,22 +1548,30 @@ export const Inbounds: React.FC = () => {
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Inbounds</h1>
-          <p className="mt-1 text-sm text-muted">Manage your Xray inbound configurations and reusable profiles.</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            {t('inbounds.title', { defaultValue: 'Inbounds' })}
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            {t('inbounds.subtitle', {
+              defaultValue: 'Manage your Xray inbound configurations and reusable profiles.'
+            })}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {activeTab === 'inbounds' ? (
             <>
               <Button variant="secondary" onClick={toggleSelectAll} disabled={inbounds.length === 0}>
-                {allSelected ? 'Clear Selection' : 'Select All'}
+                {allSelected
+                  ? t('inbounds.clearSelection', { defaultValue: 'Clear Selection' })
+                  : t('common.selectAll', { defaultValue: 'Select All' })}
               </Button>
               <Button variant="secondary" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
-                Export JSON
+                {t('inbounds.exportJson', { defaultValue: 'Export JSON' })}
               </Button>
               <Button variant="secondary" onClick={() => fileInputRef.current?.click()} loading={importMutation.isPending}>
                 <Upload className="mr-2 h-4 w-4" />
-                Import JSON
+                {t('inbounds.importJson', { defaultValue: 'Import JSON' })}
               </Button>
               <Button
                 variant="secondary"
@@ -1432,13 +1579,13 @@ export const Inbounds: React.FC = () => {
                 loading={applyMyanmarPackMutation.isPending}
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Apply Myanmar Pack
+                {t('inbounds.applyMyanmarPack', { defaultValue: 'Apply Myanmar Pack' })}
               </Button>
             </>
           ) : null}
           <Button onClick={() => openAddModal()}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Inbound
+            {t('inbounds.addInbound', { defaultValue: 'Add Inbound' })}
           </Button>
         </div>
       </div>
@@ -1448,9 +1595,15 @@ export const Inbounds: React.FC = () => {
           <details className="group lg:hidden">
             <summary className="flex list-none items-center justify-between gap-3 rounded-xl px-2 py-2 text-left text-sm font-medium text-foreground transition hover:bg-panel/50 [&::-webkit-details-marker]:hidden">
               <div className="min-w-0">
-                <p className="truncate">Advanced controls</p>
+                <p className="truncate">
+                  {t('common.advancedControls', { defaultValue: 'Advanced controls' })}
+                </p>
                 <p className="mt-0.5 text-xs font-normal text-muted">
-                  Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                  {t('autoRefresh.line', {
+                    defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
+                    status: t(`autoRefresh.status.${autoRefresh.status}`, { defaultValue: autoRefresh.statusLabel }),
+                    seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
+                  })}
                 </p>
               </div>
               <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -1463,7 +1616,7 @@ export const Inbounds: React.FC = () => {
                   value={selectedViewId}
                   onChange={(event) => applySavedView(event.target.value)}
                 >
-                  <option value="">Saved views</option>
+                  <option value="">{t('common.savedViews', { defaultValue: 'Saved views' })}</option>
                   {savedViews.map((view) => (
                     <option key={view.id} value={view.id}>
                       {view.name}
@@ -1471,10 +1624,10 @@ export const Inbounds: React.FC = () => {
                   ))}
                 </select>
                 <Button size="sm" variant="secondary" onClick={handleSaveCurrentView}>
-                  Save View
+                  {t('common.saveView', { defaultValue: 'Save View' })}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={removeSavedView} disabled={!selectedViewId}>
-                  Remove View
+                  {t('common.removeView', { defaultValue: 'Remove View' })}
                 </Button>
               </div>
 
@@ -1491,12 +1644,14 @@ export const Inbounds: React.FC = () => {
                           : 'text-muted hover:text-foreground'
                       }`}
                     >
-                      {mode.toUpperCase()}
+                      {t(`viewMode.${mode}`, { defaultValue: mode.toUpperCase() })}
                     </button>
                   ))}
                 </div>
                 <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-                  {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                  {autoRefresh.paused
+                    ? t('autoRefresh.resume', { defaultValue: 'Resume Auto' })
+                    : t('autoRefresh.pause', { defaultValue: 'Pause Auto' })}
                 </Button>
               </div>
             </div>
@@ -1509,7 +1664,7 @@ export const Inbounds: React.FC = () => {
                 value={selectedViewId}
                 onChange={(event) => applySavedView(event.target.value)}
               >
-                <option value="">Saved views</option>
+                <option value="">{t('common.savedViews', { defaultValue: 'Saved views' })}</option>
                 {savedViews.map((view) => (
                   <option key={view.id} value={view.id}>
                     {view.name}
@@ -1517,10 +1672,10 @@ export const Inbounds: React.FC = () => {
                 ))}
               </select>
               <Button size="sm" variant="secondary" onClick={handleSaveCurrentView}>
-                Save View
+                {t('common.saveView', { defaultValue: 'Save View' })}
               </Button>
               <Button size="sm" variant="ghost" onClick={removeSavedView} disabled={!selectedViewId}>
-                Remove View
+                {t('common.removeView', { defaultValue: 'Remove View' })}
               </Button>
             </div>
 
@@ -1537,15 +1692,21 @@ export const Inbounds: React.FC = () => {
                         : 'text-muted hover:text-foreground'
                     }`}
                   >
-                    {mode.toUpperCase()}
+                    {t(`viewMode.${mode}`, { defaultValue: mode.toUpperCase() })}
                   </button>
                 ))}
               </div>
               <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-                {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                {autoRefresh.paused
+                  ? t('autoRefresh.resume', { defaultValue: 'Resume Auto' })
+                  : t('autoRefresh.pause', { defaultValue: 'Pause Auto' })}
               </Button>
               <span className="text-xs text-muted">
-                Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                {t('autoRefresh.line', {
+                  defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
+                  status: t(`autoRefresh.status.${autoRefresh.status}`, { defaultValue: autoRefresh.statusLabel }),
+                  seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
+                })}
               </span>
             </div>
           </div>
@@ -1555,7 +1716,7 @@ export const Inbounds: React.FC = () => {
       <Card className="p-3 sm:p-4">
         <div className="overflow-x-auto">
           <div className="inline-flex min-w-full gap-1 rounded-xl border border-line/70 bg-panel/45 p-1">
-            {INBOUNDS_TABS.map((tab) => {
+            {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const count = tab.id === 'inbounds'
                 ? inbounds.length
@@ -1591,7 +1752,10 @@ export const Inbounds: React.FC = () => {
         <Card>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <p className="text-sm text-foreground">
-              {selectedCount} inbound{selectedCount > 1 ? 's' : ''} selected
+              {t('inbounds.selectedCount', {
+                defaultValue: '{{count}} inbounds selected',
+                count: selectedCount
+              })}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1602,7 +1766,7 @@ export const Inbounds: React.FC = () => {
                 }}
                 disabled={hasBulkPending}
               >
-                Clear
+                {t('common.clear', { defaultValue: 'Clear' })}
               </Button>
               <Button
                 size="sm"
@@ -1613,7 +1777,7 @@ export const Inbounds: React.FC = () => {
                 loading={bulkEnableInbounds.isPending}
                 disabled={hasBulkPending}
               >
-                Enable Selected
+                {t('inbounds.bulk.enableSelected', { defaultValue: 'Enable Selected' })}
               </Button>
               <Button
                 size="sm"
@@ -1624,7 +1788,7 @@ export const Inbounds: React.FC = () => {
                 loading={bulkDisableInbounds.isPending}
                 disabled={hasBulkPending}
               >
-                Disable Selected
+                {t('inbounds.bulk.disableSelected', { defaultValue: 'Disable Selected' })}
               </Button>
                 {canDeleteInbounds ? (
                   <Button
@@ -1636,7 +1800,7 @@ export const Inbounds: React.FC = () => {
                     loading={bulkDeleteInbounds.isPending}
                     disabled={hasBulkPending}
                   >
-                    Delete Selected
+                    {t('inbounds.bulk.deleteSelected', { defaultValue: 'Delete Selected' })}
                   </Button>
                 ) : null}
             </div>
@@ -1648,7 +1812,9 @@ export const Inbounds: React.FC = () => {
         <Card>
           <div className="mb-4 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-brand-500" />
-            <h2 className="text-lg font-semibold text-foreground">Template Library</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {t('inbounds.templateLibrary.title', { defaultValue: 'Template Library' })}
+            </h2>
           </div>
           <div className="space-y-5">
             {TEMPLATE_CATEGORY_ORDER.map((category) => {
@@ -1657,7 +1823,7 @@ export const Inbounds: React.FC = () => {
                 return null;
               }
 
-              const categoryMeta = TEMPLATE_CATEGORY_LABEL[category];
+              const categoryMeta = templateCategoryMeta[category];
 
               return (
                 <div key={category}>
@@ -1667,7 +1833,10 @@ export const Inbounds: React.FC = () => {
                       <p className="text-xs text-muted">{categoryMeta.hint}</p>
                     </div>
                     <span className="rounded-full border border-line/70 bg-panel/70 px-2.5 py-1 text-xs text-muted">
-                      {templates.length} template{templates.length > 1 ? 's' : ''}
+                      {t('inbounds.templateLibrary.count', {
+                        defaultValue: '{{count}} templates',
+                        count: templates.length
+                      })}
                     </span>
                   </div>
 
@@ -1704,7 +1873,7 @@ export const Inbounds: React.FC = () => {
                             onClick={() => setPreviewTemplate(template)}
                           >
                             <Eye className="mr-1 h-4 w-4" />
-                            Preview
+                            {t('common.preview', { defaultValue: 'Preview' })}
                           </Button>
                           <Button
                             size="sm"
@@ -1712,7 +1881,7 @@ export const Inbounds: React.FC = () => {
                               openAddModal(templateToDraft(template));
                             }}
                           >
-                            Use Template
+                            {t('inbounds.templateLibrary.useTemplate', { defaultValue: 'Use Template' })}
                           </Button>
                         </div>
                       </div>
@@ -1748,10 +1917,12 @@ export const Inbounds: React.FC = () => {
       ) : activeTab === 'inbounds' && inbounds.length === 0 ? (
         <Card>
           <div className="py-12 text-center">
-            <p className="mb-4 text-muted">No inbounds configured yet.</p>
+            <p className="mb-4 text-muted">
+              {t('inbounds.empty', { defaultValue: 'No inbounds configured yet.' })}
+            </p>
             <Button onClick={() => openAddModal()}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Your First Inbound
+              {t('inbounds.addFirst', { defaultValue: 'Add Your First Inbound' })}
             </Button>
           </div>
         </Card>
@@ -1760,15 +1931,21 @@ export const Inbounds: React.FC = () => {
           <Card className="p-4">
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               <div className="rounded-xl border border-line/70 bg-panel/60 p-3">
-                <p className="text-xs uppercase tracking-wide text-muted">Total Inbounds</p>
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('inbounds.stats.total', { defaultValue: 'Total Inbounds' })}
+                </p>
                 <p className="mt-1 text-xl font-semibold text-foreground">{inbounds.length}</p>
               </div>
               <div className="rounded-xl border border-line/70 bg-panel/60 p-3">
-                <p className="text-xs uppercase tracking-wide text-muted">Online Clients</p>
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('inbounds.stats.onlineClients', { defaultValue: 'Online Clients' })}
+                </p>
                 <p className="mt-1 text-xl font-semibold text-foreground">{onlineUuidSet.size}</p>
               </div>
               <div className="rounded-xl border border-line/70 bg-panel/60 p-3">
-                <p className="text-xs uppercase tracking-wide text-muted">Expanded Rows</p>
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('inbounds.stats.expanded', { defaultValue: 'Expanded Rows' })}
+                </p>
                 <p className="mt-1 text-xl font-semibold text-foreground">{expandedInboundIds.length}</p>
               </div>
             </div>
@@ -1779,15 +1956,15 @@ export const Inbounds: React.FC = () => {
               <table className="min-w-[1080px] w-full text-sm">
                 <thead className="bg-panel/70">
                   <tr className="border-b border-line/70 text-left text-xs uppercase tracking-wide text-muted">
-                    <th className="px-3 py-3">Select</th>
-                    <th className="px-3 py-3">Details</th>
-                    <th className="px-3 py-3">Enabled</th>
-                    <th className="px-3 py-3">Remark</th>
-                    <th className="px-3 py-3">Port</th>
-                    <th className="px-3 py-3">Protocol</th>
-                    <th className="px-3 py-3">Clients</th>
-                    <th className="px-3 py-3">Traffic</th>
-                    <th className="px-3 py-3">Actions</th>
+                    <th className="px-3 py-3">{t('common.select', { defaultValue: 'Select' })}</th>
+                    <th className="px-3 py-3">{t('common.details', { defaultValue: 'Details' })}</th>
+                    <th className="px-3 py-3">{t('common.enabled', { defaultValue: 'Enabled' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.remark', { defaultValue: 'Remark' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.port', { defaultValue: 'Port' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.protocol', { defaultValue: 'Protocol' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.clients', { defaultValue: 'Clients' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.traffic', { defaultValue: 'Traffic' })}</th>
+                    <th className="px-3 py-3">{t('common.actions', { defaultValue: 'Actions' })}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1817,7 +1994,9 @@ export const Inbounds: React.FC = () => {
                               className="inline-flex items-center gap-1 rounded-md border border-line/70 px-2 py-1 text-xs text-muted transition-colors hover:bg-card/80 hover:text-foreground"
                             >
                               {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              {isExpanded ? 'Hide' : 'Show'}
+                              {isExpanded
+                                ? t('common.hide', { defaultValue: 'Hide' })
+                                : t('common.show', { defaultValue: 'Show' })}
                             </button>
                           </td>
                           <td className="px-3 py-3">
@@ -1830,7 +2009,9 @@ export const Inbounds: React.FC = () => {
                                   : 'border-amber-400/50 bg-amber-500/10 text-amber-300'
                               }`}
                             >
-                              {inbound.enabled ? 'On' : 'Off'}
+                              {inbound.enabled
+                                ? t('common.on', { defaultValue: 'On' })
+                                : t('common.off', { defaultValue: 'Off' })}
                             </button>
                           </td>
                           <td className="px-3 py-3">
@@ -1847,10 +2028,10 @@ export const Inbounds: React.FC = () => {
                                 onClick={() => randomizeInboundPort.mutate(inbound.id)}
                                 disabled={randomizeInboundPort.isPending && randomizingPortId === inbound.id}
                                 className="inline-flex items-center gap-1 rounded-md border border-line/70 px-2 py-1 text-xs text-muted transition-colors hover:bg-card/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Assign random free port"
+                                title={t('inbounds.randomPortTitle', { defaultValue: 'Assign random free port' })}
                               >
                                 <Shuffle className="h-3.5 w-3.5" />
-                                Random
+                                {t('inbounds.randomPort', { defaultValue: 'Random' })}
                               </button>
                             </div>
                           </td>
@@ -1864,8 +2045,19 @@ export const Inbounds: React.FC = () => {
                           </td>
                           <td className="px-3 py-3">
                             <div className="space-y-1">
-                              <p className="text-foreground">{onlineClients} online / {clients.length} total</p>
-                              <p className="text-xs text-muted">Assigned: {inbound._count?.userInbounds || 0}</p>
+                              <p className="text-foreground">
+                                {t('inbounds.onlineTotal', {
+                                  defaultValue: '{{online}} online / {{total}} total',
+                                  online: onlineClients,
+                                  total: clients.length
+                                })}
+                              </p>
+                              <p className="text-xs text-muted">
+                                {t('inbounds.assignedCount', {
+                                  defaultValue: 'Assigned: {{count}}',
+                                  count: inbound._count?.userInbounds || 0
+                                })}
+                              </p>
                             </div>
                           </td>
                           <td className="px-3 py-3">
@@ -1892,18 +2084,20 @@ export const Inbounds: React.FC = () => {
                           <tr className="border-b border-line/70 bg-panel/30">
                             <td colSpan={9} className="px-4 py-4">
                               {clients.length === 0 ? (
-                                <p className="text-sm text-muted">No clients assigned to this inbound yet.</p>
+                                <p className="text-sm text-muted">
+                                  {t('inbounds.noClients', { defaultValue: 'No clients assigned to this inbound yet.' })}
+                                </p>
                               ) : (
                                 <div className="overflow-x-auto">
                                   <table className="min-w-[880px] w-full text-sm">
                                     <thead>
                                       <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                                        <th className="px-2 py-2">Client</th>
-                                        <th className="px-2 py-2">Online</th>
-                                        <th className="px-2 py-2">Status</th>
-                                        <th className="px-2 py-2">Traffic</th>
-                                        <th className="px-2 py-2">Expiry</th>
-                                        <th className="px-2 py-2">Action</th>
+                                        <th className="px-2 py-2">{t('common.client', { defaultValue: 'Client' })}</th>
+                                        <th className="px-2 py-2">{t('common.online', { defaultValue: 'Online' })}</th>
+                                        <th className="px-2 py-2">{t('common.status', { defaultValue: 'Status' })}</th>
+                                        <th className="px-2 py-2">{t('inbounds.traffic', { defaultValue: 'Traffic' })}</th>
+                                        <th className="px-2 py-2">{t('common.expiry', { defaultValue: 'Expiry' })}</th>
+                                        <th className="px-2 py-2">{t('common.action', { defaultValue: 'Action' })}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -1926,7 +2120,9 @@ export const Inbounds: React.FC = () => {
                                                   ? 'bg-green-500/15 text-green-300'
                                                   : 'bg-zinc-500/15 text-zinc-300'
                                               }`}>
-                                                {isOnline ? 'Online' : 'Offline'}
+                                                {isOnline
+                                                  ? t('common.online', { defaultValue: 'Online' })
+                                                  : t('common.offline', { defaultValue: 'Offline' })}
                                               </span>
                                             </td>
                                             <td className="px-2 py-2">
@@ -1952,7 +2148,14 @@ export const Inbounds: React.FC = () => {
                                               </div>
                                             </td>
                                             <td className="px-2 py-2 text-xs text-muted">
-                                              {daysLeft === null ? 'N/A' : daysLeft > 0 ? `${daysLeft}d left` : 'Expired'}
+                                              {daysLeft === null
+                                                ? t('common.na', { defaultValue: 'N/A' })
+                                                : daysLeft > 0
+                                                ? t('common.daysLeft', {
+                                                    defaultValue: '{{count}}d left',
+                                                    count: daysLeft
+                                                  })
+                                                : t('common.expired', { defaultValue: 'Expired' })}
                                             </td>
                                             <td className="px-2 py-2">
                                               <Button
@@ -1960,7 +2163,7 @@ export const Inbounds: React.FC = () => {
                                                 variant="secondary"
                                                 onClick={() => navigate(`/users/${client.id}`)}
                                               >
-                                                View
+                                                {t('common.view', { defaultValue: 'View' })}
                                               </Button>
                                             </td>
                                           </tr>
@@ -1994,24 +2197,32 @@ export const Inbounds: React.FC = () => {
                           {inbound.protocol}
                         </span>
                         <h3 className="mt-2 text-base font-semibold text-foreground">{inbound.remark || inbound.tag}</h3>
-                        <p className="text-xs text-muted">Port {inbound.port} • {inbound.network}/{inbound.security}</p>
+                        <p className="text-xs text-muted">
+                          {t('inbounds.portLabel', { defaultValue: 'Port' })} {inbound.port} • {inbound.network}/{inbound.security}
+                        </p>
                       </div>
-                      <Badge variant={inbound.enabled ? 'success' : 'warning'}>{inbound.enabled ? 'Active' : 'Disabled'}</Badge>
+                      <Badge variant={inbound.enabled ? 'success' : 'warning'}>
+                        {inbound.enabled
+                          ? t('common.active', { defaultValue: 'Active' })
+                          : t('common.disabled', { defaultValue: 'Disabled' })}
+                      </Badge>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted">Clients</span>
+                      <span className="text-muted">{t('inbounds.clients', { defaultValue: 'Clients' })}</span>
                       <span className="text-foreground">{onlineClients} online / {clients.length} total</span>
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-t border-line/70 pt-3">
                       <Button variant="ghost" size="sm" onClick={() => toggleInbound.mutate(inbound.id)}>
                         {inbound.enabled ? <PowerOff className="mr-1 h-4 w-4" /> : <Power className="mr-1 h-4 w-4" />}
-                        {inbound.enabled ? 'Disable' : 'Enable'}
+                        {inbound.enabled
+                          ? t('common.disable', { defaultValue: 'Disable' })
+                          : t('common.enable', { defaultValue: 'Enable' })}
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setDrawerInbound(inbound)}>
                         <Eye className="h-4 w-4" />
-                        Details
+                        {t('common.details', { defaultValue: 'Details' })}
                       </Button>
                       <div className="ml-auto flex items-center">
                         {renderInboundActionMenu(inbound, { mobile: true, includeRandomPort: true })}
@@ -2029,15 +2240,21 @@ export const Inbounds: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="w-full max-w-xl rounded-2xl border border-line/80 bg-card/95 shadow-soft">
             <div className="border-b border-line/70 px-5 py-4">
-              <h3 className="text-lg font-semibold text-foreground">Apply Myanmar Resilience Pack</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                {t('inbounds.myanmarPack.title', { defaultValue: 'Apply Myanmar Resilience Pack' })}
+              </h3>
               <p className="mt-1 text-sm text-muted">
-                Creates three optimized profiles: VLESS REALITY XHTTP, VLESS WS TLS, and Trojan WS TLS.
+                {t('inbounds.myanmarPack.subtitle', {
+                  defaultValue: 'Creates three optimized profiles: VLESS REALITY XHTTP, VLESS WS TLS, and Trojan WS TLS.'
+                })}
               </p>
             </div>
 
             <div className="space-y-4 px-5 py-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Server Address</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">
+                  {t('inbounds.myanmarPack.serverAddress', { defaultValue: 'Server Address' })}
+                </label>
                 <input
                   value={myanmarPackForm.serverAddress}
                   onChange={(event) =>
@@ -2050,7 +2267,9 @@ export const Inbounds: React.FC = () => {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">Server Name (SNI)</label>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    {t('inbounds.myanmarPack.serverName', { defaultValue: 'Server Name (SNI)' })}
+                  </label>
                   <input
                     value={myanmarPackForm.serverName}
                     onChange={(event) =>
@@ -2062,7 +2281,9 @@ export const Inbounds: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">CDN Host (optional)</label>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    {t('inbounds.myanmarPack.cdnHost', { defaultValue: 'CDN Host (optional)' })}
+                  </label>
                   <input
                     value={myanmarPackForm.cdnHost}
                     onChange={(event) =>
@@ -2075,7 +2296,9 @@ export const Inbounds: React.FC = () => {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Fallback Ports</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">
+                  {t('inbounds.myanmarPack.fallbackPorts', { defaultValue: 'Fallback Ports' })}
+                </label>
                 <input
                   value={myanmarPackForm.fallbackPorts}
                   onChange={(event) =>
@@ -2084,28 +2307,38 @@ export const Inbounds: React.FC = () => {
                   placeholder="8443,9443"
                   className="w-full rounded-lg border border-line/70 bg-panel/60 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none"
                 />
-                <p className="mt-1 text-xs text-muted">Comma-separated ports used for WS/TLS fallback profiles.</p>
+                <p className="mt-1 text-xs text-muted">
+                  {t('inbounds.myanmarPack.fallbackPortsHint', {
+                    defaultValue: 'Comma-separated ports used for WS/TLS fallback profiles.'
+                  })}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-line/70 bg-panel/45 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">Assign to Users</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {t('inbounds.myanmarPack.assignUsers', { defaultValue: 'Assign to Users' })}
+                    </p>
                     <div className="flex items-center gap-1">
                       <Button type="button" variant="ghost" size="sm" onClick={selectAllMyanmarPackUsers}>
-                        All
+                        {t('common.all', { defaultValue: 'All' })}
                       </Button>
                       <Button type="button" variant="ghost" size="sm" onClick={clearMyanmarPackUsers}>
-                        Clear
+                        {t('common.clear', { defaultValue: 'Clear' })}
                       </Button>
                     </div>
                   </div>
                   <p className="mb-2 text-xs text-muted">
-                    Optional. Adds created profiles to selected users without removing existing keys.
+                    {t('inbounds.myanmarPack.assignUsersHint', {
+                      defaultValue: 'Optional. Adds created profiles to selected users without removing existing keys.'
+                    })}
                   </p>
                   <div className="max-h-40 space-y-1 overflow-auto pr-1">
                     {assignableUsers.length === 0 ? (
-                      <p className="text-xs text-muted">No users found.</p>
+                      <p className="text-xs text-muted">
+                        {t('inbounds.myanmarPack.noUsers', { defaultValue: 'No users found.' })}
+                      </p>
                     ) : (
                       assignableUsers.map((user) => {
                         const userId = Number(user.id);
@@ -2127,22 +2360,28 @@ export const Inbounds: React.FC = () => {
 
                 <div className="rounded-lg border border-line/70 bg-panel/45 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">Assign to Groups</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {t('inbounds.myanmarPack.assignGroups', { defaultValue: 'Assign to Groups' })}
+                    </p>
                     <div className="flex items-center gap-1">
                       <Button type="button" variant="ghost" size="sm" onClick={selectAllMyanmarPackGroups}>
-                        All
+                        {t('common.all', { defaultValue: 'All' })}
                       </Button>
                       <Button type="button" variant="ghost" size="sm" onClick={clearMyanmarPackGroups}>
-                        Clear
+                        {t('common.clear', { defaultValue: 'Clear' })}
                       </Button>
                     </div>
                   </div>
                   <p className="mb-2 text-xs text-muted">
-                    Optional. Merges created profiles into selected groups while keeping existing assignments.
+                    {t('inbounds.myanmarPack.assignGroupsHint', {
+                      defaultValue: 'Optional. Merges created profiles into selected groups while keeping existing assignments.'
+                    })}
                   </p>
                   <div className="max-h-40 space-y-1 overflow-auto pr-1">
                     {assignableGroupsSorted.length === 0 ? (
-                      <p className="text-xs text-muted">No groups found.</p>
+                      <p className="text-xs text-muted">
+                        {t('inbounds.myanmarPack.noGroups', { defaultValue: 'No groups found.' })}
+                      </p>
                     ) : (
                       assignableGroupsSorted.map((group) => {
                         const groupId = Number(group.id);
@@ -2165,7 +2404,9 @@ export const Inbounds: React.FC = () => {
 
               {myanmarPackPreview?.planned && myanmarPackPreview.planned.length > 0 ? (
                 <div className="space-y-2 rounded-lg border border-line/70 bg-panel/50 p-3">
-                  <p className="text-sm font-medium text-foreground">Preview Plan</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {t('inbounds.myanmarPack.previewPlan', { defaultValue: 'Preview Plan' })}
+                  </p>
                   <div className="space-y-1 text-xs text-muted">
                     {myanmarPackPreview.planned.map((profile, index) => (
                       <div key={`${profile.tag || profile.protocol || index}`} className="flex items-center justify-between gap-2 rounded-md bg-panel/60 px-2 py-1">
@@ -2196,7 +2437,7 @@ export const Inbounds: React.FC = () => {
                 loading={applyMyanmarPackMutation.isPending}
                 className="flex-1"
               >
-                Preview Plan
+                {t('inbounds.myanmarPack.previewPlan', { defaultValue: 'Preview Plan' })}
               </Button>
               <Button
                 onClick={() => {
@@ -2205,10 +2446,10 @@ export const Inbounds: React.FC = () => {
                 loading={applyMyanmarPackMutation.isPending}
                 className="flex-1"
               >
-                Apply Pack
+                {t('inbounds.myanmarPack.applyPack', { defaultValue: 'Apply Pack' })}
               </Button>
               <Button variant="secondary" onClick={() => setShowMyanmarPackModal(false)} className="flex-1">
-                Cancel
+                {t('common.cancel', { defaultValue: 'Cancel' })}
               </Button>
             </div>
           </div>
@@ -2316,7 +2557,9 @@ export const Inbounds: React.FC = () => {
             </div>
 
             <div className="rounded-xl border border-line/70 bg-panel/60 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Template JSON Preview</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
+                {t('inbounds.templateLibrary.jsonPreview', { defaultValue: 'Template JSON Preview' })}
+              </p>
               <pre className="max-h-[48vh] overflow-auto rounded-lg bg-card/80 p-3 text-xs text-foreground">
                 {JSON.stringify(templateToDraft(previewTemplate), null, 2)}
               </pre>
@@ -2324,7 +2567,7 @@ export const Inbounds: React.FC = () => {
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button variant="secondary" onClick={() => setPreviewTemplate(null)}>
-                Close
+                {t('common.close', { defaultValue: 'Close' })}
               </Button>
               <Button
                 onClick={() => {
@@ -2332,7 +2575,7 @@ export const Inbounds: React.FC = () => {
                   setPreviewTemplate(null);
                 }}
               >
-                Use Template
+                {t('inbounds.templateLibrary.useTemplate', { defaultValue: 'Use Template' })}
               </Button>
             </div>
           </div>
@@ -2343,8 +2586,8 @@ export const Inbounds: React.FC = () => {
         open={Boolean(confirmState)}
         title={confirmTitle}
         description={confirmDescription}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t('common.delete', { defaultValue: 'Delete' })}
+        cancelLabel={t('common.cancel', { defaultValue: 'Cancel' })}
         tone="danger"
         loading={confirmLoading}
         onCancel={() => {
@@ -2359,7 +2602,7 @@ export const Inbounds: React.FC = () => {
 
       {isFetching && !isLoading ? (
         <div className="fixed bottom-24 right-4 z-40 rounded-full border border-line/80 bg-card/90 px-3 py-1 text-xs text-muted shadow-soft lg:bottom-6">
-          Refreshing inbounds...
+          {t('inbounds.refreshing', { defaultValue: 'Refreshing inbounds...' })}
         </div>
       ) : null}
     </div>
