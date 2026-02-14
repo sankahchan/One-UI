@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Edit, Trash2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import apiClient from '../../api/client';
 import { Card } from '../../components/atoms/Card';
@@ -54,6 +55,7 @@ function stringifyJson(value: unknown): string {
 const BrandingSettings: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [scope, setScope] = useState<'GLOBAL' | 'GROUP' | 'USER'>('GLOBAL');
@@ -196,7 +198,10 @@ const BrandingSettings: React.FC = () => {
         }
         metadataDraft.customApps = parsed;
       } catch (error: any) {
-        toast.error('Invalid JSON', error?.message || 'Custom apps JSON is invalid.');
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          error?.message || t('brandingSettings.toast.invalidJson', { defaultValue: 'Custom apps JSON is invalid.' })
+        );
         throw error;
       }
 
@@ -214,10 +219,18 @@ const BrandingSettings: React.FC = () => {
     onSuccess: async () => {
       resetForm();
       await queryClient.invalidateQueries({ queryKey: ['subscription-branding'] });
-      toast.success('Branding saved', isEditing ? 'Subscription branding updated successfully.' : 'Subscription branding profile created successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        isEditing
+          ? t('brandingSettings.toast.updated', { defaultValue: 'Subscription branding updated successfully.' })
+          : t('brandingSettings.toast.created', { defaultValue: 'Subscription branding profile created successfully.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Save failed', error?.message || 'Failed to save branding');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.saveFailed', { defaultValue: 'Failed to save branding' })
+      );
     }
   });
 
@@ -229,10 +242,16 @@ const BrandingSettings: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['subscription-branding'] });
-      toast.success('Branding updated', 'Branding status updated.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('brandingSettings.toast.statusUpdated', { defaultValue: 'Branding status updated.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Update failed', error?.message || 'Failed to update branding status');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.statusUpdateFailed', { defaultValue: 'Failed to update branding status' })
+      );
     }
   });
 
@@ -242,10 +261,16 @@ const BrandingSettings: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['subscription-branding'] });
-      toast.success('Branding deleted', 'Branding profile deleted.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('brandingSettings.toast.deleted', { defaultValue: 'Branding profile deleted.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Delete failed', error?.message || 'Failed to delete branding');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.deleteFailed', { defaultValue: 'Failed to delete branding' })
+      );
     }
   });
 

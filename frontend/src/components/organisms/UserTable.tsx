@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, type FC, type MouseEvent } from 'react';
 import { ChevronDown, ChevronUp, MoreVertical } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Badge } from '../atoms/Badge';
@@ -14,6 +15,7 @@ interface UserDevicesInlinePanelProps {
 }
 
 const UserDevicesInlinePanel: FC<UserDevicesInlinePanelProps> = ({ userId }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [pendingRevokeFingerprint, setPendingRevokeFingerprint] = useState<string | null>(null);
 
@@ -41,11 +43,15 @@ const UserDevicesInlinePanel: FC<UserDevicesInlinePanelProps> = ({ userId }) => 
   const devices = devicesQuery.data?.devices || [];
 
   if (devicesQuery.isLoading) {
-    return <p className="text-xs text-muted">Loading active devices...</p>;
+    return <p className="text-xs text-muted">{t('users.devices.loading', { defaultValue: 'Loading active devices...' })}</p>;
   }
 
   if (devices.length === 0) {
-    return <p className="text-xs text-muted">No devices tracked in the last 60 minutes.</p>;
+    return (
+      <p className="text-xs text-muted">
+        {t('users.devices.noneRecent', { defaultValue: 'No devices tracked in the last {{minutes}} minutes.', minutes: 60 })}
+      </p>
+    );
   }
 
   return (
@@ -58,7 +64,10 @@ const UserDevicesInlinePanel: FC<UserDevicesInlinePanelProps> = ({ userId }) => 
           <div className="min-w-0">
             <p className="font-mono text-foreground">{device.shortFingerprint || device.fingerprint.slice(0, 10)}</p>
             <p className="text-muted">
-              {device.clientIp || 'unknown IP'} • {device.online ? 'Online' : `Last ${formatDateTime(device.lastSeenAt)}`}
+              {device.clientIp || t('users.devices.unknownIp', { defaultValue: 'unknown IP' })} •{' '}
+              {device.online
+                ? t('common.online', { defaultValue: 'Online' })
+                : t('users.devices.lastSeen', { defaultValue: 'Last {{time}}', time: formatDateTime(device.lastSeenAt) })}
             </p>
           </div>
           <Button
@@ -69,16 +78,18 @@ const UserDevicesInlinePanel: FC<UserDevicesInlinePanelProps> = ({ userId }) => 
               setPendingRevokeFingerprint(device.fingerprint);
             }}
           >
-            Revoke
+            {t('common.revoke', { defaultValue: 'Revoke' })}
           </Button>
         </div>
       ))}
 
       <ConfirmDialog
         open={Boolean(pendingRevokeFingerprint)}
-        title="Revoke Device Session"
-        description="This device will be disconnected and must refresh subscription before reconnecting."
-        confirmLabel="Revoke"
+        title={t('users.devices.revokeTitle', { defaultValue: 'Revoke Device Session' })}
+        description={t('users.devices.revokeDescription', {
+          defaultValue: 'This device will be disconnected and must refresh subscription before reconnecting.'
+        })}
+        confirmLabel={t('common.revoke', { defaultValue: 'Revoke' })}
         tone="danger"
         loading={revokeMutation.isPending}
         onCancel={() => {
@@ -144,6 +155,7 @@ export const UserTable: FC<UserTableProps> = ({
   onSelectionChange,
   sessionsByUserId = {}
 }) => {
+  const { t } = useTranslation();
   const RENDER_BATCH_SIZE = 80;
   const [expandedUserIds, setExpandedUserIds] = useState<number[]>([]);
   const [renderedCount, setRenderedCount] = useState(() => Math.min(users.length, RENDER_BATCH_SIZE));
@@ -204,7 +216,18 @@ export const UserTable: FC<UserTableProps> = ({
       LIMITED: 'warning'
     } as const;
 
-    return <Badge variant={variants[status as keyof typeof variants] || 'info'}>{status}</Badge>;
+    const labelKey = ({
+      ACTIVE: 'status.active',
+      EXPIRED: 'status.expired',
+      DISABLED: 'status.disabled',
+      LIMITED: 'status.limited'
+    } as Record<string, string | undefined>)[status];
+
+    return (
+      <Badge variant={variants[status as keyof typeof variants] || 'info'}>
+        {labelKey ? t(labelKey, { defaultValue: status }) : status}
+      </Badge>
+    );
   };
 
   const renderOnlinePill = (isOnline: boolean) => (
@@ -225,36 +248,36 @@ export const UserTable: FC<UserTableProps> = ({
           }`}
         />
       </span>
-      {isOnline ? 'Online' : 'Offline'}
+      {isOnline ? t('common.online', { defaultValue: 'Online' }) : t('common.offline', { defaultValue: 'Offline' })}
     </span>
   );
 
   const getLastSeenLabel = (session?: UserSessionSnapshot) => {
     if (!session?.lastSeenAt) {
-      return 'No activity';
+      return t('users.sessions.noActivity', { defaultValue: 'No activity' });
     }
 
     const timestamp = new Date(session.lastSeenAt).getTime();
     if (Number.isNaN(timestamp)) {
-      return 'No activity';
+      return t('users.sessions.noActivity', { defaultValue: 'No activity' });
     }
 
     const elapsedMinutes = Math.floor((Date.now() - timestamp) / 60_000);
     if (elapsedMinutes < 1) {
-      return 'just now';
+      return t('users.sessions.justNow', { defaultValue: 'just now' });
     }
 
     if (elapsedMinutes < 60) {
-      return `${elapsedMinutes}m ago`;
+      return t('users.sessions.minutesAgo', { defaultValue: '{{count}}m ago', count: elapsedMinutes });
     }
 
     const elapsedHours = Math.floor(elapsedMinutes / 60);
     if (elapsedHours < 24) {
-      return `${elapsedHours}h ago`;
+      return t('users.sessions.hoursAgo', { defaultValue: '{{count}}h ago', count: elapsedHours });
     }
 
     const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays}d ago`;
+    return t('users.sessions.daysAgo', { defaultValue: '{{count}}d ago', count: elapsedDays });
   };
 
   const getSessionMetaLabel = (session?: UserSessionSnapshot) => {
@@ -298,12 +321,12 @@ export const UserTable: FC<UserTableProps> = ({
   const renderActionMenu = (user: User, mobile = false) => {
     const items: Array<{ key: string; label: string; tone?: 'default' | 'danger'; onClick: () => void }> = [];
 
-    if (onQuickQr) items.push({ key: 'qr', label: 'Show QR', onClick: () => onQuickQr(user) });
-    if (onQuickEdit) items.push({ key: 'edit', label: 'Quick Edit', onClick: () => onQuickEdit(user) });
+    if (onQuickQr) items.push({ key: 'qr', label: t('users.actions.showQr', { defaultValue: 'Show QR' }), onClick: () => onQuickQr(user) });
+    if (onQuickEdit) items.push({ key: 'edit', label: t('users.actions.quickEdit', { defaultValue: 'Quick Edit' }), onClick: () => onQuickEdit(user) });
     if (!onQuickEdit && onUpdateLimits) {
       items.push({
         key: 'limits',
-        label: 'Increase limits',
+        label: t('users.actions.increaseLimits', { defaultValue: 'Increase limits' }),
         onClick: () =>
           onUpdateLimits(user, {
             ipLimit: Number(user.ipLimit || 0) + 1,
@@ -311,20 +334,20 @@ export const UserTable: FC<UserTableProps> = ({
           })
       });
     }
-    if (onCopySubscription) items.push({ key: 'copy-sub', label: 'Copy Subscription', onClick: () => onCopySubscription(user) });
+    if (onCopySubscription) items.push({ key: 'copy-sub', label: t('users.actions.copySubscription', { defaultValue: 'Copy Subscription' }), onClick: () => onCopySubscription(user) });
     if (onRegenerateSubscription) {
-      items.push({ key: 'regen-token', label: 'Regenerate Token', onClick: () => onRegenerateSubscription(user) });
+      items.push({ key: 'regen-token', label: t('users.actions.regenerateToken', { defaultValue: 'Regenerate Token' }), onClick: () => onRegenerateSubscription(user) });
     }
     if (onExtendExpiry) {
-      items.push({ key: 'extend7', label: 'Extend +7 Days', onClick: () => onExtendExpiry(user, 7) });
-      items.push({ key: 'extend30', label: 'Extend +30 Days', onClick: () => onExtendExpiry(user, 30) });
+      items.push({ key: 'extend7', label: t('users.actions.extend7', { defaultValue: 'Extend +7 Days' }), onClick: () => onExtendExpiry(user, 7) });
+      items.push({ key: 'extend30', label: t('users.actions.extend30', { defaultValue: 'Extend +30 Days' }), onClick: () => onExtendExpiry(user, 30) });
     }
-    if (onResetTraffic) items.push({ key: 'reset-traffic', label: 'Reset Traffic', onClick: () => onResetTraffic(user) });
-    if (onDisconnectSessions) items.push({ key: 'disconnect', label: 'Disconnect Sessions', onClick: () => onDisconnectSessions(user) });
-    if (onRotateKeys) items.push({ key: 'rotate', label: 'Rotate Credentials', onClick: () => onRotateKeys(user) });
-    if (onRevokeKeys) items.push({ key: 'revoke', label: 'Revoke Access', onClick: () => onRevokeKeys(user) });
-    if (onDisableUser) items.push({ key: 'disable', label: 'Disable User', onClick: () => onDisableUser(user) });
-    if (onDelete) items.push({ key: 'delete', label: 'Delete User', tone: 'danger', onClick: () => onDelete(user.id) });
+    if (onResetTraffic) items.push({ key: 'reset-traffic', label: t('users.actions.resetTraffic', { defaultValue: 'Reset Traffic' }), onClick: () => onResetTraffic(user) });
+    if (onDisconnectSessions) items.push({ key: 'disconnect', label: t('users.actions.disconnectSessions', { defaultValue: 'Disconnect Sessions' }), onClick: () => onDisconnectSessions(user) });
+    if (onRotateKeys) items.push({ key: 'rotate', label: t('users.actions.rotateCredentials', { defaultValue: 'Rotate Credentials' }), onClick: () => onRotateKeys(user) });
+    if (onRevokeKeys) items.push({ key: 'revoke', label: t('users.actions.revokeAccess', { defaultValue: 'Revoke Access' }), onClick: () => onRevokeKeys(user) });
+    if (onDisableUser) items.push({ key: 'disable', label: t('users.actions.disableUser', { defaultValue: 'Disable User' }), onClick: () => onDisableUser(user) });
+    if (onDelete) items.push({ key: 'delete', label: t('users.actions.deleteUser', { defaultValue: 'Delete User' }), tone: 'danger', onClick: () => onDelete(user.id) });
 
     if (items.length === 0) {
       return null;
@@ -336,8 +359,8 @@ export const UserTable: FC<UserTableProps> = ({
           className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
             mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
           }`}
-          aria-label="More actions"
-          title="More actions"
+          aria-label={t('common.actions', { defaultValue: 'Actions' })}
+          title={t('common.actions', { defaultValue: 'Actions' })}
         >
           <span className="inline-flex items-center">
             <MoreVertical className="h-4 w-4" />
@@ -382,9 +405,11 @@ export const UserTable: FC<UserTableProps> = ({
                 onChange={handleSelectAll}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
               />
-              Select all
+              {t('common.selectAll', { defaultValue: 'Select All' })}
             </label>
-            <span className="text-xs text-muted">{selectedUserIds.length} selected</span>
+            <span className="text-xs text-muted">
+              {t('users.selectedCount', { defaultValue: '{{count}} selected', count: selectedUserIds.length })}
+            </span>
           </div>
         ) : null}
 
@@ -451,14 +476,22 @@ export const UserTable: FC<UserTableProps> = ({
                 {getStatusBadge(user.status)}
                 {renderOnlinePill(isOnline)}
                 <span className="text-xs text-muted">
-                  Keys {onlineKeyCount}/{activeKeyCount || 0} active
+                  {t('users.keysActive', {
+                    defaultValue: 'Keys {{online}}/{{total}} active',
+                    online: onlineKeyCount,
+                    total: activeKeyCount || 0
+                  })}
                 </span>
-                <span className="text-xs text-muted">IP {Number(user.ipLimit || 0)}</span>
-                <span className="text-xs text-muted">DEV {Number(user.deviceLimit || 0)}</span>
+                <span className="text-xs text-muted">{t('users.limitIpShort', { defaultValue: 'IP {{count}}', count: Number(user.ipLimit || 0) })}</span>
+                <span className="text-xs text-muted">{t('users.limitDeviceShort', { defaultValue: 'DEV {{count}}', count: Number(user.deviceLimit || 0) })}</span>
                 {sessionMeta ? (
                   <span className="text-xs text-muted">{sessionMeta}</span>
                 ) : null}
-                {!isOnline ? <span className="text-xs text-muted">Last seen {lastSeenLabel}</span> : null}
+                {!isOnline ? (
+                  <span className="text-xs text-muted">
+                    {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}
+                  </span>
+                ) : null}
               </div>
 
               <div className="mt-3 space-y-2">
@@ -480,14 +513,19 @@ export const UserTable: FC<UserTableProps> = ({
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted">
-                  <span>{usagePercent}% used</span>
+                  <span>{t('users.usagePercent', { defaultValue: '{{percent}}% used', percent: usagePercent })}</span>
                   {isDeferredExpiry ? (
                     <span className="text-amber-600 dark:text-amber-400">
-                      Starts on first connect (+{deferredDays}d)
+                      {t('users.startOnFirstConnectBadge', {
+                        defaultValue: 'Starts on first connect (+{{days}}d)',
+                        days: deferredDays
+                      })}
                     </span>
                   ) : (
                     <span className={daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : ''}>
-                      {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                      {daysRemaining > 0
+                        ? t('common.daysLeft', { defaultValue: '{{count}} days left', count: daysRemaining })
+                        : t('common.expired', { defaultValue: 'Expired' })}
                     </span>
                   )}
                 </div>
@@ -497,9 +535,11 @@ export const UserTable: FC<UserTableProps> = ({
                 type="button"
                 onClick={() => toggleExpanded(user.id)}
                 className="mt-3 flex w-full items-center justify-between rounded-xl border border-line/60 bg-panel/35 px-4 py-3 text-left text-sm text-foreground transition hover:bg-panel/55"
-                aria-label={expandedUserIds.includes(user.id) ? 'Hide devices' : 'Show devices'}
+                aria-label={expandedUserIds.includes(user.id)
+                  ? t('users.devices.hide', { defaultValue: 'Hide devices' })
+                  : t('users.devices.show', { defaultValue: 'Show devices' })}
               >
-                <span className="font-medium">Devices</span>
+                <span className="font-medium">{t('users.devices.title', { defaultValue: 'Devices' })}</span>
                 {expandedUserIds.includes(user.id) ? (
                   <ChevronUp className="h-4 w-4 text-brand-500" />
                 ) : (
@@ -534,16 +574,30 @@ export const UserTable: FC<UserTableProps> = ({
                   />
                 </th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">User</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Online</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Data Usage
+                {t('users.table.user', { defaultValue: 'User' })}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Limits</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Expiry</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Devices</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('common.status', { defaultValue: 'Status' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('common.online', { defaultValue: 'Online' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('users.table.dataUsage', { defaultValue: 'Data Usage' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('users.table.limits', { defaultValue: 'Limits' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('common.expiry', { defaultValue: 'Expiry' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('users.devices.title', { defaultValue: 'Devices' })}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t('common.actions', { defaultValue: 'Actions' })}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
@@ -609,10 +663,18 @@ export const UserTable: FC<UserTableProps> = ({
                   <td className="px-6 py-4">
                     {renderOnlinePill(isOnline)}
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Keys {onlineKeyCount}/{activeKeyCount || 0} active
+                      {t('users.keysActive', {
+                        defaultValue: 'Keys {{online}}/{{total}} active',
+                        online: onlineKeyCount,
+                        total: activeKeyCount || 0
+                      })}
                     </p>
                     {sessionMeta ? <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{sessionMeta}</p> : null}
-                    {!isOnline ? <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Last seen {lastSeenLabel}</p> : null}
+                    {!isOnline ? (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}
+                      </p>
+                    ) : null}
                   </td>
 
                   <td className="px-6 py-4">
@@ -634,18 +696,20 @@ export const UserTable: FC<UserTableProps> = ({
                           }}
                         />
                       </div>
-                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">{usagePercent}% used</span>
+                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('users.usagePercent', { defaultValue: '{{percent}}% used', percent: usagePercent })}
+                      </span>
                     </div>
                   </td>
 
                   <td className="px-6 py-4">
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="text-muted">IP</span>
+                        <span className="text-muted">{t('users.limitIpAbbrev', { defaultValue: 'IP' })}</span>
                         <span className="font-semibold text-foreground">{Number(user.ipLimit || 0)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-muted">DEV</span>
+                        <span className="text-muted">{t('users.limitDeviceAbbrev', { defaultValue: 'DEV' })}</span>
                         <span className="font-semibold text-foreground">{Number(user.deviceLimit || 0)}</span>
                       </div>
                       {/* Edit in "More actions" to keep the row clean */}
@@ -655,11 +719,16 @@ export const UserTable: FC<UserTableProps> = ({
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm text-gray-900 dark:text-white">
-                        {isDeferredExpiry ? 'Starts on first connect' : new Date(user.expireDate).toLocaleDateString()}
+                        {isDeferredExpiry
+                          ? t('users.startOnFirstConnect', { defaultValue: 'Starts on first connect' })
+                          : new Date(user.expireDate).toLocaleDateString()}
                       </span>
                       {isDeferredExpiry ? (
                         <span className="text-xs text-amber-600 dark:text-amber-400">
-                          {deferredDays} days after first connect
+                          {t('users.startOnFirstConnectAfter', {
+                            defaultValue: '{{count}} days after first connect',
+                            count: deferredDays
+                          })}
                         </span>
                       ) : (
                         <span
@@ -671,7 +740,9 @@ export const UserTable: FC<UserTableProps> = ({
                               : 'text-gray-500 dark:text-gray-400'
                           }`}
                         >
-                          {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                          {daysRemaining > 0
+                            ? t('common.daysLeft', { defaultValue: '{{count}} days left', count: daysRemaining })
+                            : t('common.expired', { defaultValue: 'Expired' })}
                         </span>
                       )}
                     </div>
@@ -682,7 +753,9 @@ export const UserTable: FC<UserTableProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleExpanded(user.id)}
-                      aria-label={expandedUserIds.includes(user.id) ? 'Hide devices' : 'Show devices'}
+                      aria-label={expandedUserIds.includes(user.id)
+                        ? t('users.devices.hide', { defaultValue: 'Hide devices' })
+                        : t('users.devices.show', { defaultValue: 'Show devices' })}
                     >
                       {expandedUserIds.includes(user.id) ? (
                         <ChevronUp className="h-4 w-4 text-brand-500" />
@@ -714,7 +787,11 @@ export const UserTable: FC<UserTableProps> = ({
       </div>
       {renderedCount < users.length ? (
         <div className="flex items-center justify-center rounded-xl border border-line/60 bg-card/60 px-3 py-2 text-xs text-muted">
-          Rendering {renderedCount} of {users.length} users...
+          {t('users.rendering', {
+            defaultValue: 'Rendering {{count}} of {{total}} users...',
+            count: renderedCount,
+            total: users.length
+          })}
         </div>
       ) : null}
     </div>

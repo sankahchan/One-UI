@@ -205,7 +205,7 @@ export const UserInfoPage = () => {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || 'Failed to revoke device');
+        throw new Error(payload?.error || t('portal.toast.revokeFailed', { defaultValue: 'Failed to revoke device' }));
       }
       return (await res.json()) as { success: boolean };
     },
@@ -214,7 +214,10 @@ export const UserInfoPage = () => {
       await refetchDevices();
     },
     onError: (error: any) => {
-      toast.error(t('common.error', { defaultValue: 'Error' }), error?.message || 'Failed to revoke device');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('portal.toast.revokeFailed', { defaultValue: 'Failed to revoke device' })
+      );
     }
   });
 
@@ -385,15 +388,24 @@ export const UserInfoPage = () => {
   const handleRefreshAll = async () => {
     try {
       await Promise.all([refetch(), refetchLinks()]);
-      toast.success('Updated', 'Subscription data refreshed.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('portal.toast.refreshed', { defaultValue: 'Subscription data refreshed.' })
+      );
     } catch (err: any) {
-      toast.error('Refresh failed', err?.message || 'Unable to refresh.');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        err?.message || t('portal.toast.refreshFailed', { defaultValue: 'Unable to refresh.' })
+      );
     }
   };
 
   const downloadNodeLinks = () => {
     if (nodeLinks.length === 0) {
-      toast.info('No nodes', 'There are no node links to download.');
+      toast.info(
+        t('common.info', { defaultValue: 'Info' }),
+        t('portal.toast.noNodes', { defaultValue: 'There are no node links to download.' })
+      );
       return;
     }
 

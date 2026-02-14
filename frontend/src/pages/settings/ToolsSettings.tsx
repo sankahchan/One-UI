@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RefreshCw, Copy } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import apiClient from '../../api/client';
 import { Card } from '../../components/atoms/Card';
@@ -10,6 +11,7 @@ import { useToast } from '../../hooks/useToast';
 
 const ToolsSettings: React.FC = () => {
   const toast = useToast();
+  const { t } = useTranslation();
   const [results, setResults] = useState<any[]>([]);
   const [dnsForm, setDnsForm] = useState({
     domain: '',
@@ -27,7 +29,10 @@ const ToolsSettings: React.FC = () => {
       setResults(data);
     },
     onError: (error: any) => {
-      toast.error('Scan failed', error.response?.data?.message || error.message);
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error.response?.data?.message || error.message || t('toolsSettings.toast.scanFailed', { defaultValue: 'Scan failed' })
+      );
     }
   });
 
@@ -37,11 +42,17 @@ const ToolsSettings: React.FC = () => {
       return res;
     },
     onSuccess: () => {
-      toast.success('DNS updated', 'DNS record updated successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('toolsSettings.toast.dnsUpdated', { defaultValue: 'DNS record updated successfully.' })
+      );
       setDnsForm({ ...dnsForm, domain: '', content: '' });
     },
     onError: (error: any) => {
-      toast.error('DNS update failed', error.response?.data?.message || error.message);
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error.response?.data?.message || error.message || t('toolsSettings.toast.dnsUpdateFailed', { defaultValue: 'DNS update failed' })
+      );
     }
   });
 
@@ -49,23 +60,29 @@ const ToolsSettings: React.FC = () => {
     <Card>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Tools & Utilities</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            {t('toolsSettings.title', { defaultValue: 'Tools & utilities' })}
+          </h3>
         </div>
         {/* Cloudflare DNS Manager */}
         <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-          <h4 className="text-base font-medium text-gray-900 dark:text-white">Cloudflare DNS Record Manager</h4>
+          <h4 className="text-base font-medium text-gray-900 dark:text-white">
+            {t('toolsSettings.dns.title', { defaultValue: 'Cloudflare DNS record manager' })}
+          </h4>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Quickly add or update DNS records in your Cloudflare account.
+            {t('toolsSettings.dns.subtitle', { defaultValue: 'Quickly add or update DNS records in your Cloudflare account.' })}
           </p>
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Domain"
+              label={t('toolsSettings.dns.domainLabel', { defaultValue: 'Domain' })}
               value={dnsForm.domain}
               onChange={(e) => setDnsForm({ ...dnsForm, domain: e.target.value })}
-              placeholder="sub.example.com"
+              placeholder={t('toolsSettings.dns.domainPlaceholder', { defaultValue: 'sub.example.com' })}
             />
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('toolsSettings.dns.typeLabel', { defaultValue: 'Type' })}
+              </label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 value={dnsForm.type}
@@ -77,10 +94,10 @@ const ToolsSettings: React.FC = () => {
               </select>
             </div>
             <Input
-              label="Content"
+              label={t('toolsSettings.dns.contentLabel', { defaultValue: 'Content' })}
               value={dnsForm.content}
               onChange={(e) => setDnsForm({ ...dnsForm, content: e.target.value })}
-              placeholder="1.2.3.4"
+              placeholder={t('toolsSettings.dns.contentPlaceholder', { defaultValue: '1.2.3.4' })}
             />
             <div className="flex items-center pt-8">
               <input
@@ -91,7 +108,7 @@ const ToolsSettings: React.FC = () => {
                 onChange={(e) => setDnsForm({ ...dnsForm, proxied: e.target.checked })}
               />
               <label htmlFor="proxied" className="ml-2 block text-sm text-gray-900 dark:text-gray-200">
-                Proxied
+                {t('toolsSettings.dns.proxiedLabel', { defaultValue: 'Proxied' })}
               </label>
             </div>
           </div>
@@ -101,15 +118,19 @@ const ToolsSettings: React.FC = () => {
               loading={dnsMutation.isPending}
               disabled={!dnsForm.domain || !dnsForm.content}
             >
-              Update Record
+              {t('toolsSettings.dns.updateButton', { defaultValue: 'Update record' })}
             </Button>
           </div>
         </div>
 
         <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Cloudflare CDN IP Scanner</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            {t('toolsSettings.cdnScan.title', { defaultValue: 'Cloudflare CDN IP scanner' })}
+          </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Scan for the best performing Cloudflare IPs for your location. This helps optimize connection speed and latency.
+            {t('toolsSettings.cdnScan.subtitle', {
+              defaultValue: 'Scan for the best performing Cloudflare IPs for your location. This helps optimize speed and latency.'
+            })}
           </p>
 
           <div className="mt-4">
@@ -118,7 +139,7 @@ const ToolsSettings: React.FC = () => {
               loading={mutation.isPending}
               icon={<RefreshCw className={`h-4 w-4 ${mutation.isPending ? 'animate-spin' : ''}`} />}
             >
-              Start Scan
+              {t('toolsSettings.cdnScan.startButton', { defaultValue: 'Start scan' })}
             </Button>
           </div>
 
@@ -127,9 +148,15 @@ const ToolsSettings: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">IP Address</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">Latency</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">Action</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
+                      {t('toolsSettings.cdnScan.table.ip', { defaultValue: 'IP address' })}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
+                      {t('toolsSettings.cdnScan.table.latency', { defaultValue: 'Latency' })}
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
+                      {t('common.action', { defaultValue: 'Action' })}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
@@ -148,7 +175,10 @@ const ToolsSettings: React.FC = () => {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(res.ip);
-                            toast.success('Copied to clipboard', 'IP copied to clipboard.');
+                            toast.success(
+                              t('common.success', { defaultValue: 'Success' }),
+                              t('toolsSettings.toast.ipCopied', { defaultValue: 'IP copied to clipboard.' })
+                            );
                           }}
                           className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                         >

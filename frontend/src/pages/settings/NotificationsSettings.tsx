@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, RefreshCw, Save } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import apiClient from '../../api/client';
 import { Card } from '../../components/atoms/Card';
@@ -61,6 +62,7 @@ interface NotificationAuditPayload {
 const NotificationsSettings: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useTranslation();
   const [webhookEnabled, setWebhookEnabled] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
@@ -122,11 +124,16 @@ const NotificationsSettings: React.FC = () => {
       try {
         const parsed = JSON.parse(routesJson || '{}');
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('Routes JSON must be an object');
+          throw new Error(
+            t('notificationsSettings.errors.routesMustBeObject', { defaultValue: 'Routes JSON must be an object' })
+          );
         }
         parsedRoutes = parsed as Record<string, NotificationChannelRoute>;
       } catch (error: any) {
-        throw new Error(error?.message || 'Invalid routes JSON');
+        throw new Error(
+          error?.message
+          || t('notificationsSettings.errors.invalidRoutesJson', { defaultValue: 'Invalid routes JSON' })
+        );
       }
 
       const payload: Record<string, unknown> = {
@@ -150,10 +157,16 @@ const NotificationsSettings: React.FC = () => {
       setAuditPage(1);
       await queryClient.invalidateQueries({ queryKey: ['notification-settings'] });
       await queryClient.invalidateQueries({ queryKey: ['notification-settings-audit'] });
-      toast.success('Settings saved', 'Notification settings saved.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('notificationsSettings.toast.saved', { defaultValue: 'Notification settings saved.' })
+      );
     },
     onError: (error: any) => {
-      setJsonError(error?.message || 'Failed to save notification settings');
+      setJsonError(
+        error?.message
+        || t('notificationsSettings.errors.saveFailed', { defaultValue: 'Failed to save notification settings' })
+      );
     }
   });
 
@@ -165,10 +178,15 @@ const NotificationsSettings: React.FC = () => {
         if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
           parsedData = raw as Record<string, unknown>;
         } else {
-          throw new Error('Test data must be a JSON object');
+          throw new Error(
+            t('notificationsSettings.errors.testDataMustBeObject', { defaultValue: 'Test data must be a JSON object' })
+          );
         }
       } catch (error: any) {
-        throw new Error(error?.message || 'Invalid test payload JSON');
+        throw new Error(
+          error?.message
+          || t('notificationsSettings.errors.invalidTestPayload', { defaultValue: 'Invalid test payload JSON' })
+        );
       }
 
       return (await apiClient.post('/settings/notifications/test', {
@@ -178,10 +196,16 @@ const NotificationsSettings: React.FC = () => {
       })) as ApiResponse<{ eventId?: string }>;
     },
     onSuccess: (response) => {
-      toast.success('Test sent', response.message || 'Notification test sent.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        response.message || t('notificationsSettings.toast.testSent', { defaultValue: 'Notification test sent.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Test failed', error?.message || 'Failed to dispatch test notification');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('notificationsSettings.toast.testFailed', { defaultValue: 'Failed to dispatch test notification' })
+      );
     }
   });
 
@@ -195,20 +219,27 @@ const NotificationsSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification Channels</h3>
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+          {t('notificationsSettings.channels.title', { defaultValue: 'Notification channels' })}
+        </h3>
         {isLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading notification settings...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('notificationsSettings.channels.loading', { defaultValue: 'Loading notification settings...' })}
+          </p>
         ) : (
           <div className="space-y-5">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-gray-600 dark:text-gray-300">
                   <div>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">Last updated:</span>{' '}
-                    {settings?.updatedAt ? new Date(settings.updatedAt).toLocaleString() : 'N/A'}
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {t('notificationsSettings.channels.lastUpdated', { defaultValue: 'Last updated' })}:
+                    </span>{' '}
+                    {settings?.updatedAt ? new Date(settings.updatedAt).toLocaleString() : t('common.na', { defaultValue: 'N/A' })}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Created: {settings?.createdAt ? new Date(settings.createdAt).toLocaleString() : 'N/A'}
+                    {t('notificationsSettings.channels.created', { defaultValue: 'Created' })}:{' '}
+                    {settings?.createdAt ? new Date(settings.createdAt).toLocaleString() : t('common.na', { defaultValue: 'N/A' })}
                   </div>
                 </div>
                 <Button
@@ -220,7 +251,7 @@ const NotificationsSettings: React.FC = () => {
                   }}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
+                  {t('common.refresh', { defaultValue: 'Refresh' })}
                 </Button>
               </div>
             </div>
@@ -232,41 +263,51 @@ const NotificationsSettings: React.FC = () => {
                 checked={webhookEnabled}
                 onChange={(event) => setWebhookEnabled(event.target.checked)}
               />
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-200">Enable webhook delivery</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                {t('notificationsSettings.channels.enableWebhook', { defaultValue: 'Enable webhook delivery' })}
+              </span>
             </label>
 
             <Input
-              label="Webhook URL"
+              label={t('notificationsSettings.channels.webhookUrlLabel', { defaultValue: 'Webhook URL' })}
               value={webhookUrl}
               onChange={(event) => setWebhookUrl(event.target.value)}
-              placeholder="https://your-notify-service.example/webhook"
+              placeholder={t('notificationsSettings.channels.webhookUrlPlaceholder', {
+                defaultValue: 'https://your-notify-service.example/webhook'
+              })}
             />
 
             <Input
-              label={settings?.webhookSecretConfigured ? 'Webhook Secret (leave blank to keep existing)' : 'Webhook Secret'}
+              label={settings?.webhookSecretConfigured
+                ? t('notificationsSettings.channels.webhookSecretKeepLabel', {
+                    defaultValue: 'Webhook secret (leave blank to keep existing)'
+                  })
+                : t('notificationsSettings.channels.webhookSecretLabel', { defaultValue: 'Webhook secret' })}
               type="password"
               value={webhookSecret}
               onChange={(event) => setWebhookSecret(event.target.value)}
-              placeholder="Enter webhook signing secret"
+              placeholder={t('notificationsSettings.channels.webhookSecretPlaceholder', {
+                defaultValue: 'Enter webhook signing secret'
+              })}
             />
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Input
-                label="Timeout (ms)"
+                label={t('notificationsSettings.channels.timeoutLabel', { defaultValue: 'Timeout (ms)' })}
                 type="number"
                 min={1000}
                 value={timeoutMs}
                 onChange={(event) => setTimeoutMs(event.target.value)}
               />
               <Input
-                label="Retry Attempts"
+                label={t('notificationsSettings.channels.retryAttemptsLabel', { defaultValue: 'Retry attempts' })}
                 type="number"
                 min={1}
                 value={retryAttempts}
                 onChange={(event) => setRetryAttempts(event.target.value)}
               />
               <Input
-                label="Retry Delay (ms)"
+                label={t('notificationsSettings.channels.retryDelayLabel', { defaultValue: 'Retry delay (ms)' })}
                 type="number"
                 min={100}
                 value={retryDelayMs}
@@ -275,7 +316,9 @@ const NotificationsSettings: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200">Default Route</h4>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200">
+                {t('notificationsSettings.channels.defaultRouteTitle', { defaultValue: 'Default route' })}
+              </h4>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
                   <input
@@ -283,7 +326,9 @@ const NotificationsSettings: React.FC = () => {
                     checked={defaultRoute.webhook}
                     onChange={(event) => updateDefaultRoute('webhook', event.target.checked)}
                   />
-                  <span className="text-gray-700 dark:text-gray-300">Webhook</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {t('notificationsSettings.channels.route.webhook', { defaultValue: 'Webhook' })}
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
                   <input
@@ -291,7 +336,9 @@ const NotificationsSettings: React.FC = () => {
                     checked={defaultRoute.telegram}
                     onChange={(event) => updateDefaultRoute('telegram', event.target.checked)}
                   />
-                  <span className="text-gray-700 dark:text-gray-300">Telegram</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {t('notificationsSettings.channels.route.telegram', { defaultValue: 'Telegram' })}
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
                   <input
@@ -299,13 +346,17 @@ const NotificationsSettings: React.FC = () => {
                     checked={defaultRoute.systemLog}
                     onChange={(event) => updateDefaultRoute('systemLog', event.target.checked)}
                   />
-                  <span className="text-gray-700 dark:text-gray-300">System Log</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {t('notificationsSettings.channels.route.systemLog', { defaultValue: 'System log' })}
+                  </span>
                 </label>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">Route Matrix (JSON)</label>
+              <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
+                {t('notificationsSettings.channels.routeMatrixLabel', { defaultValue: 'Route matrix (JSON)' })}
+              </label>
               <textarea
                 className="min-h-[220px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 value={routesJson}
@@ -313,7 +364,9 @@ const NotificationsSettings: React.FC = () => {
                 placeholder='{"user.*":{"webhook":true,"telegram":false,"systemLog":true}}'
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Use event names (e.g. <code>auth.login.success</code>) or wildcard prefixes (e.g. <code>user.*</code>).
+                {t('notificationsSettings.channels.routeMatrixHelp', {
+                  defaultValue: 'Use event names (e.g. auth.login.success) or wildcard prefixes (e.g. user.*).'
+                })}
               </p>
             </div>
 
@@ -329,31 +382,35 @@ const NotificationsSettings: React.FC = () => {
               className="w-full sm:w-auto"
             >
               <Save className="mr-2 h-4 w-4" />
-              Save Notification Settings
+              {t('notificationsSettings.channels.saveButton', { defaultValue: 'Save notification settings' })}
             </Button>
           </div>
         )}
       </Card>
 
       <Card>
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Send Test Notification</h3>
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+          {t('notificationsSettings.test.title', { defaultValue: 'Send test notification' })}
+        </h3>
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Channel</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('notificationsSettings.test.channelLabel', { defaultValue: 'Channel' })}
+              </label>
               <select
                 value={testChannel}
                 onChange={(event) => setTestChannel(event.target.value as typeof testChannel)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               >
-                <option value="all">All channels</option>
-                <option value="webhook">Webhook only</option>
-                <option value="telegram">Telegram only</option>
-                <option value="systemLog">System log only</option>
+                <option value="all">{t('notificationsSettings.test.channelAll', { defaultValue: 'All channels' })}</option>
+                <option value="webhook">{t('notificationsSettings.test.channelWebhook', { defaultValue: 'Webhook only' })}</option>
+                <option value="telegram">{t('notificationsSettings.test.channelTelegram', { defaultValue: 'Telegram only' })}</option>
+                <option value="systemLog">{t('notificationsSettings.test.channelSystemLog', { defaultValue: 'System log only' })}</option>
               </select>
             </div>
             <Input
-              label="Event Name"
+              label={t('notificationsSettings.test.eventLabel', { defaultValue: 'Event name' })}
               value={testEvent}
               onChange={(event) => setTestEvent(event.target.value)}
               placeholder="system.notification.test"
@@ -365,13 +422,15 @@ const NotificationsSettings: React.FC = () => {
                 loading={testMutation.isPending}
               >
                 <Bell className="mr-2 h-4 w-4" />
-                Dispatch Test
+                {t('notificationsSettings.test.dispatchButton', { defaultValue: 'Dispatch test' })}
               </Button>
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Test Payload (JSON)</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('notificationsSettings.test.payloadLabel', { defaultValue: 'Test payload (JSON)' })}
+            </label>
             <textarea
               value={testDataJson}
               onChange={(event) => setTestDataJson(event.target.value)}
@@ -383,32 +442,48 @@ const NotificationsSettings: React.FC = () => {
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notification Audit History</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {t('notificationsSettings.audit.title', { defaultValue: 'Notification audit history' })}
+          </h3>
           <Button
             variant="secondary"
             size="sm"
             onClick={() => void queryClient.invalidateQueries({ queryKey: ['notification-settings-audit'] })}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh Audit
+            {t('notificationsSettings.audit.refreshButton', { defaultValue: 'Refresh audit' })}
           </Button>
         </div>
 
         {auditQuery.isLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading audit history...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('notificationsSettings.audit.loading', { defaultValue: 'Loading audit history...' })}
+          </p>
         ) : !auditPayload?.items?.length ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No audit records yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('notificationsSettings.audit.empty', { defaultValue: 'No audit records yet.' })}
+          </p>
         ) : (
           <div className="space-y-4">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Time</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Admin</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">IP</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Action</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Changed Keys</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {t('notificationsSettings.audit.table.time', { defaultValue: 'Time' })}
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {t('notificationsSettings.audit.table.admin', { defaultValue: 'Admin' })}
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {t('notificationsSettings.audit.table.ip', { defaultValue: 'IP' })}
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {t('common.action', { defaultValue: 'Action' })}
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {t('notificationsSettings.audit.table.changedKeys', { defaultValue: 'Changed keys' })}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -418,10 +493,10 @@ const NotificationsSettings: React.FC = () => {
                         {new Date(item.createdAt).toLocaleString()}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
-                        {item.adminUsername || 'system'}
+                        {item.adminUsername || t('common.system', { defaultValue: 'system' })}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
-                        {item.requestIp || 'N/A'}
+                        {item.requestIp || t('common.na', { defaultValue: 'N/A' })}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
                         {item.action}
@@ -442,10 +517,15 @@ const NotificationsSettings: React.FC = () => {
                 disabled={(auditPayload.pagination.page || 1) <= 1}
                 onClick={() => setAuditPage((current) => Math.max(1, current - 1))}
               >
-                Previous
+                {t('common.previous', { defaultValue: 'Previous' })}
               </Button>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Page {auditPayload.pagination.page} of {auditPayload.pagination.totalPages} ({auditPayload.pagination.total} total)
+                {t('notificationsSettings.audit.pageLine', {
+                  defaultValue: 'Page {{page}} of {{pages}} ({{total}} total)',
+                  page: auditPayload.pagination.page,
+                  pages: auditPayload.pagination.totalPages,
+                  total: auditPayload.pagination.total
+                })}
               </p>
               <Button
                 variant="secondary"
@@ -453,7 +533,7 @@ const NotificationsSettings: React.FC = () => {
                 disabled={(auditPayload.pagination.page || 1) >= (auditPayload.pagination.totalPages || 1)}
                 onClick={() => setAuditPage((current) => current + 1)}
               >
-                Next
+                {t('common.next', { defaultValue: 'Next' })}
               </Button>
             </div>
           </div>

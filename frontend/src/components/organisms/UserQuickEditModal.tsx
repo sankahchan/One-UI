@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useUpdateUser } from '../../hooks/useUsers';
 import type { User } from '../../types';
@@ -31,6 +32,7 @@ function toLocalDateInputValue(dateInput: string | Date): string {
 export function UserQuickEditModal({ user, onClose, onSuccess }: UserQuickEditModalProps) {
   const [submitError, setSubmitError] = useState('');
   const updateUser = useUpdateUser();
+  const { t } = useTranslation();
 
   const {
     register,
@@ -75,7 +77,7 @@ export function UserQuickEditModal({ user, onClose, onSuccess }: UserQuickEditMo
         });
       onSuccess();
     } catch (error: any) {
-      setSubmitError(error?.message || 'Failed to update user');
+      setSubmitError(error?.message || t('users.quickEdit.saveFailed', { defaultValue: 'Failed to update user' }));
     }
   };
 
@@ -84,13 +86,13 @@ export function UserQuickEditModal({ user, onClose, onSuccess }: UserQuickEditMo
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line/80 bg-card/95 shadow-soft backdrop-blur-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Quick Edit</h2>
+            <h2 className="text-xl font-bold text-foreground">{t('users.quickEdit.title', { defaultValue: 'Quick Edit' })}</h2>
             <p className="text-sm text-muted">{user.email}</p>
           </div>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
-            aria-label="Close"
+            aria-label={t('common.close', { defaultValue: 'Close' })}
           >
             <X className="h-5 w-5" />
           </button>
@@ -104,56 +106,58 @@ export function UserQuickEditModal({ user, onClose, onSuccess }: UserQuickEditMo
           ) : null}
 
           <Input
-            label="Data Limit (GB)"
+            label={t('users.quickEdit.dataLimitLabel', { defaultValue: 'Data Limit (GB)' })}
             type="number"
             {...register('dataLimitGb', {
               valueAsNumber: true,
-              required: 'Data limit is required',
-              min: { value: 1, message: 'Minimum 1 GB' }
+              required: t('users.form.validation.dataLimitRequired', { defaultValue: 'Data limit is required' }),
+              min: { value: 1, message: t('users.form.validation.minGb', { defaultValue: 'Minimum 1 GB' }) }
             })}
             error={errors.dataLimitGb?.message}
           />
 
           <Input
-            label="Expiry Date"
+            label={t('users.quickEdit.expiryDateLabel', { defaultValue: 'Expiry Date' })}
             type="date"
             {...register('expireDate', {
-              required: 'Expiry date is required'
+              required: t('users.quickEdit.validation.expiryDateRequired', { defaultValue: 'Expiry date is required' })
             })}
             error={errors.expireDate?.message}
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label="IP Limit (0 = unlimited)"
+              label={t('users.quickEdit.ipLimitLabel', { defaultValue: 'IP Limit (0 = unlimited)' })}
               type="number"
               {...register('ipLimit', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Minimum 0' }
+                min: { value: 0, message: t('users.quickEdit.validation.minZero', { defaultValue: 'Minimum 0' }) }
               })}
               error={errors.ipLimit?.message}
             />
             <Input
-              label="Device Limit (0 = unlimited)"
+              label={t('users.quickEdit.deviceLimitLabel', { defaultValue: 'Device Limit (0 = unlimited)' })}
               type="number"
               {...register('deviceLimit', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Minimum 0' }
+                min: { value: 0, message: t('users.quickEdit.validation.minZero', { defaultValue: 'Minimum 0' }) }
               })}
               error={errors.deviceLimit?.message}
             />
           </div>
 
           <p className="rounded-lg border border-line/70 bg-panel/60 px-3 py-2 text-xs text-muted">
-            Expiry is stored as days from now. We convert this date automatically when saving.
+            {t('users.quickEdit.helper', {
+              defaultValue: 'Expiry is stored as days from now. We convert this date automatically when saving.'
+            })}
           </p>
 
           <div className="flex gap-2">
             <Button type="submit" className="flex-1" loading={updateUser.isPending}>
-              Save Changes
+              {t('users.quickEdit.saveChanges', { defaultValue: 'Save Changes' })}
             </Button>
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
-              Cancel
+              {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, RefreshCw, Save } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import apiClient, { API_URL } from '../../api/client';
 import { Card } from '../../components/atoms/Card';
@@ -407,6 +408,7 @@ const AuditTrailPanel: React.FC = () => {
 const XrayLiveLogsPanel: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const toast = useToast();
+  const { t } = useTranslation();
   const logRef = useRef<HTMLPreElement | null>(null);
   const [logType, setLogType] = useState<XrayLogType>('access');
   const [lineLimit, setLineLimit] = useState(200);
@@ -635,7 +637,10 @@ const XrayLiveLogsPanel: React.FC = () => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      toast.error('Copy failed', 'Failed to copy logs');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('logs.toast.copyFailed', { defaultValue: 'Failed to copy logs' })
+      );
     }
   };
 

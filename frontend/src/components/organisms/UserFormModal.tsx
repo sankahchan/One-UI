@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useInbounds } from '../../hooks/useInbounds';
 import { useCreateUser, useUpdateUser } from '../../hooks/useUsers';
@@ -28,6 +29,7 @@ interface FormData {
 export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) {
   const isEdit = !!user;
   const [submitError, setSubmitError] = useState('');
+  const { t } = useTranslation();
 
   const { data: inboundsData } = useInbounds();
   const inbounds: Inbound[] = inboundsData || [];
@@ -123,7 +125,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       }
       onSuccess();
     } catch (error: any) {
-      setSubmitError(error?.message || 'Failed to save user');
+      setSubmitError(error?.message || t('users.form.saveFailed', { defaultValue: 'Failed to save user' }));
     }
   };
 
@@ -131,8 +133,14 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-2 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line/80 bg-card/95 shadow-soft backdrop-blur-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">{isEdit ? 'Edit User' : 'Add New User'}</h2>
-          <button onClick={onClose} className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground" aria-label="Close">
+          <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+            {isEdit ? t('users.editUser', { defaultValue: 'Edit User' }) : t('users.addUser', { defaultValue: 'Add User' })}
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
+            aria-label={t('common.close', { defaultValue: 'Close' })}
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -143,13 +151,13 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
           ) : null}
 
           <Input
-            label="Email *"
+            label={`${t('users.email', { defaultValue: 'Email' })} *`}
             type="email"
             {...register('email', {
-              required: 'Email is required',
+              required: t('users.form.validation.emailRequired', { defaultValue: 'Email is required' }),
               pattern: {
                 value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: 'Invalid email address'
+                message: t('users.form.validation.emailInvalid', { defaultValue: 'Invalid email address' })
               }
             })}
             error={errors.email?.message}
@@ -158,24 +166,24 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Data Limit (GB) *"
+              label={`${t('users.form.dataLimitLabel', { defaultValue: 'Data Limit (GB)' })} *`}
               type="number"
               {...register('dataLimit', {
                 valueAsNumber: true,
-                required: 'Data limit is required',
-                min: { value: 1, message: 'Minimum 1 GB' }
+                required: t('users.form.validation.dataLimitRequired', { defaultValue: 'Data limit is required' }),
+                min: { value: 1, message: t('users.form.validation.minGb', { defaultValue: 'Minimum 1 GB' }) }
               })}
               error={errors.dataLimit?.message}
               placeholder="50"
             />
 
             <Input
-              label="Expiry Days *"
+              label={`${t('users.expiryDays', { defaultValue: 'Expiry Days' })} *`}
               type="number"
               {...register('expiryDays', {
                 valueAsNumber: true,
-                required: 'Expiry days is required',
-                min: { value: 1, message: 'Minimum 1 day' }
+                required: t('users.form.validation.expiryDaysRequired', { defaultValue: 'Expiry days is required' }),
+                min: { value: 1, message: t('users.form.validation.minDay', { defaultValue: 'Minimum 1 day' }) }
               })}
               error={errors.expiryDays?.message}
               placeholder="30"
@@ -191,9 +199,14 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
                   className="mt-1 h-4 w-4 rounded border-line text-brand-500 focus:ring-brand-500/40"
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Start expiry on first connect</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {t('users.form.startOnFirstUseTitle', { defaultValue: 'Start expiry on first connect' })}
+                  </p>
                   <p className="mt-1 text-xs text-muted">
-                    The expiry timer begins when the user first connects (downloads subscription). Until then, the account stays active.
+                    {t('users.form.startOnFirstUseDescription', {
+                      defaultValue:
+                        'The expiry timer begins when the user first connects (downloads subscription). Until then, the account stays active.'
+                    })}
                   </p>
                 </div>
               </label>
@@ -202,33 +215,37 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="IP Limit"
+              label={t('users.form.ipLimitLabel', { defaultValue: 'IP Limit' })}
               type="number"
               {...register('ipLimit', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Must be 0 or greater' }
+                min: { value: 0, message: t('users.form.validation.minZero', { defaultValue: 'Must be 0 or greater' }) }
               })}
               error={errors.ipLimit?.message}
-              placeholder="0 = unlimited"
+              placeholder={t('users.ipLimitHint', { defaultValue: '0 = unlimited' })}
             />
 
             <Input
-              label="Device Limit"
+              label={t('users.form.deviceLimitLabel', { defaultValue: 'Device Limit' })}
               type="number"
               {...register('deviceLimit', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Must be 0 or greater' }
+                min: { value: 0, message: t('users.form.validation.minZero', { defaultValue: 'Must be 0 or greater' }) }
               })}
               error={(errors as any).deviceLimit?.message}
-              placeholder="0 = unlimited"
+              placeholder={t('users.ipLimitHint', { defaultValue: '0 = unlimited' })}
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted">Inbounds *</label>
+            <label className="mb-2 block text-sm font-medium text-muted">
+              {t('inbounds.title', { defaultValue: 'Inbounds' })} *
+            </label>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-line/80 bg-panel/55 p-3">
               {inbounds.length === 0 ? (
-                <p className="text-sm text-muted">No inbounds available. Create one first.</p>
+                <p className="text-sm text-muted">
+                  {t('users.form.noInboundsHint', { defaultValue: 'No inbounds available. Create one first.' })}
+                </p>
               ) : (
                 inbounds.map((inbound) => (
                   <label
@@ -239,7 +256,8 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
                       type="checkbox"
                       value={inbound.id}
                       {...register('inboundIds', {
-                        validate: (values) => (values && values.length > 0) || 'Select at least one inbound'
+                        validate: (values) =>
+                          (values && values.length > 0) || t('users.form.validation.inboundRequired', { defaultValue: 'Select at least one inbound' })
                       })}
                       className="h-4 w-4 rounded border-line text-brand-500 focus:ring-brand-500/40"
                     />
@@ -253,14 +271,20 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
             {errors.inboundIds ? <p className="mt-1 text-sm text-red-500 dark:text-red-300">{errors.inboundIds.message}</p> : null}
           </div>
 
-          <Input label="Note" {...register('note')} placeholder="Optional note about this user" />
+          <Input
+            label={t('users.note', { defaultValue: 'Note' })}
+            {...register('note')}
+            placeholder={t('users.form.notePlaceholder', { defaultValue: 'Optional note about this user' })}
+          />
 
           <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line/70 bg-card/95 pt-4 sm:flex-row">
             <Button type="submit" className="flex-1" loading={createUser.isPending || updateUser.isPending}>
-              {isEdit ? 'Update User' : 'Create User'}
+              {isEdit
+                ? t('users.form.updateUser', { defaultValue: 'Update User' })
+                : t('users.form.createUser', { defaultValue: 'Create User' })}
             </Button>
             <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-              Cancel
+              {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
           </div>
         </form>

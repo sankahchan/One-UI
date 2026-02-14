@@ -26,6 +26,7 @@
         "yes": "ဟုတ်ကဲ့",
         "no": "မဟုတ်ပါ",
         "actions": "လုပ်ဆောင်ချက်များ",
+        "moreActions": "ပိုမိုလုပ်ဆောင်ချက်များ",
         "status": "အခြေအနေ",
         "enabled": "ဖွင့်ထားသည်",
         "disabled": "ပိတ်ထားသည်",
@@ -57,6 +58,23 @@
         "selectAll": "အားလုံးရွေးရန်",
         "show": "ပြရန်",
         "system": "စနစ်",
+        "info": "အချက်အလက်",
+        "warning": "သတိပေးချက်",
+        "apply": "အသုံးချရန်",
+        "assign": "သတ်မှတ်ရန်",
+        "move": "ရွှေ့ရန်",
+        "remove": "ဖယ်ရှားရန်",
+        "rotate": "ပြန်ထုတ်ရန်",
+        "revoke": "ပယ်ဖျက်ရန်",
+        "disconnect": "ချိတ်ဆက်မှုဖြုတ်ရန်",
+        "regenerate": "ပြန်ထုတ်ရန်",
+        "extend": "တိုးချဲ့ရန်",
+        "open": "ဖွင့်ရန်",
+        "bulkActions": "အစုလိုက် လုပ်ဆောင်ချက်များ",
+        "clearSelection": "ရွေးထားမှု ရှင်းရန်",
+        "noChanges": "ပြောင်းလဲမှု မရှိပါ",
+        "noOverride": "Override မရှိ",
+        "drift": "ကွာဟမှု",
         "validationFailed": "စစ်ဆေးမှု မအောင်မြင်",
         "view": "ကြည့်ရန်"
     },
@@ -167,7 +185,375 @@
         "bulkQualityPreviewBody": "ရွေးထားသော အသုံးပြုသူများကို မကြာသေးမီ ချိတ်ဆက်မှုအချက်အလက်များအပေါ် မူတည်၍ ပြန်စီမည်။",
         "autoTuneFailedTitle": "အလိုအလျောက် ချိန်ညှိ မအောင်မြင်",
         "autoTuneFailedBody": "ရွေးထားသော အသုံးပြုသူများကို ချိန်ညှိ၍မရပါ",
-        "autoTuneAppliedTitle": "အလိုအလျောက် ချိန်ညှိပြီးပါပြီ"
+        "autoTuneAppliedTitle": "အလိုအလျောက် ချိန်ညှိပြီးပါပြီ",
+        "autoTuneAppliedBody": "အသုံးပြုသူ {{count}} ယောက်ကို ပြန်စီပြီးပါပြီ။",
+        "bulkProvision": "အစုလိုက် ဖန်တီး",
+        "uuid": "UUID",
+        "rendering": "အသုံးပြုသူ {{total}} ထဲမှ {{count}} ယောက်ကို ပြသနေသည်...",
+        "selectedCount": "{{count}} ယောက် ရွေးထားသည်",
+        "keysActive": "အွန်လိုင်း ကီး {{online}}/{{enabled}}",
+        "usagePercent": "{{percent}}% အသုံးပြုထား",
+        "limitIpShort": "IP {{count}}",
+        "limitDeviceShort": "DEV {{count}}",
+        "limitIpAbbrev": "IP",
+        "limitDeviceAbbrev": "DEV",
+        "startOnFirstConnect": "ပထမဆုံး ချိတ်ဆက်ချိန်မှ စတင်",
+        "startOnFirstConnectBadge": "ချိတ်ဆက်ပြီးမှ သက်တမ်းတွက်",
+        "startOnFirstConnectAfter": "ချိတ်ဆက်လျှင် {{days}} ရက် သက်တမ်း",
+        "sessionStream": "Session စီးကြောင်း",
+        "streamStatus": {
+            "idle": "အလုပ်မလုပ်",
+            "connecting": "ချိတ်ဆက်နေ",
+            "reconnecting": "ပြန်ချိတ်ဆက်နေ",
+            "connected": "ချိတ်ဆက်ပြီး"
+        },
+        "streamSnapshot": {
+            "none": "Snapshot မရှိသေးပါ",
+            "lastUpdate": "နောက်ဆုံး အပ်ဒိတ် {{time}}"
+        },
+        "sessions": {
+            "noActivity": "လှုပ်ရှားမှု မရှိ",
+            "liveNow": "လက်ရှိ Online",
+            "justNow": "အခုလေးတင်",
+            "minutesAgo": "{{count}} မိနစ် အရင်",
+            "hoursAgo": "{{count}} နာရီ အရင်",
+            "daysAgo": "{{count}} ရက် အရင်",
+            "lastSeenPrefix": "နောက်ဆုံး တွေ့: {{label}}"
+        },
+        "devices": {
+            "title": "စက်များ",
+            "loading": "လက်ရှိ စက်ဒေတာကို တင်နေသည်...",
+            "noneRecent": "ပြီးခဲ့သော {{minutes}} မိနစ်အတွင်း စက်ဒေတာ မရှိပါ။",
+            "unknownIp": "IP မသိ",
+            "lastSeen": "နောက်ဆုံး {{time}}",
+            "show": "စက်များ ပြရန်",
+            "hide": "စက်များ ဖျောက်ရန်",
+            "revokeTitle": "စက် Session ပယ်ဖျက်ရန်",
+            "revokeDescription": "ဒီစက်ကို ပယ်ဖျက်မလား? ပြန်ချိတ်ဆက်ရပါလိမ့်မယ်။"
+        },
+        "table": {
+            "user": "အသုံးပြုသူ",
+            "dataUsage": "ဒေတာ အသုံးပြုမှု",
+            "limits": "ကန့်သတ်ချက်များ"
+        },
+        "qrModal": {
+            "title": "QR အမြန်ကြည့်",
+            "noFormats": "Subscription format မရှိပါ။",
+            "loadFailed": "Subscription link မရယူနိုင်ပါ။",
+            "alt": "Subscription QR Code"
+        },
+        "actions": {
+            "showQr": "QR ပြရန်",
+            "quickEdit": "အမြန် ပြင်ရန်",
+            "increaseLimits": "ကန့်သတ်ချက် တိုးရန်",
+            "copySubscription": "Subscription ကူးရန်",
+            "regenerateToken": "Token ပြန်ထုတ်ရန်",
+            "extend7": "+7 ရက် တိုးရန်",
+            "extend30": "+30 ရက် တိုးရန်",
+            "resetTraffic": "Traffic ပြန်စရန်",
+            "disconnectSessions": "Sessions ဖြုတ်ရန်",
+            "rotateCredentials": "Credentials ပြန်ထုတ်ရန်",
+            "revokeAccess": "ဝင်ခွင့် ပယ်ဖျက်ရန်",
+            "disableUser": "အသုံးပြုသူ ပိတ်ရန်",
+            "deleteUser": "အသုံးပြုသူ ဖျက်ရန်",
+            "resetTrafficTitle": "Traffic ပြန်စမလား?",
+            "resetTrafficDescription": "ဒီအသုံးပြုသူ၏ upload/download counters ကို 0 သို့ ပြန်ထားမည်။",
+            "rotateTitle": "Credentials ပြန်ထုတ်မလား?",
+            "rotateDescription": "UUID၊ password၊ subscription token ကို အသစ်ပြောင်းမည်။ အဟောင်း config မလုပ်နိုင်တော့ပါ။",
+            "revokeTitle": "ဝင်ခွင့် ပယ်ဖျက်မလား?",
+            "revokeDescription": "အသုံးပြုသူ၏ keys ကို ချက်ချင်းပိတ်မည် (client များ ပြတ်သွားမည်)။",
+            "regenerateTitle": "Token ပြန်ထုတ်မလား?",
+            "regenerateDescription": "Subscription token ကို အသစ်ပြန်ထုတ်မည်။ အဟောင်း subscription link မရတော့ပါ။",
+            "disconnectTitle": "Sessions ဖြုတ်မလား?",
+            "disconnectDescription": "ဒီအသုံးပြုသူ၏ active sessions ကို ဖြုတ်မည်။",
+            "disableTitle": "အသုံးပြုသူ ပိတ်မလား?",
+            "disableDescription": "အသုံးပြုသူကို ပိတ်မည်။ ချိတ်ဆက်မရတော့ပါ။"
+        },
+        "bulk": {
+            "applyNow": "အခု အသုံးချရန်",
+            "daysToAdd": "တိုးမည့်ရက်",
+            "deleteTitle": "ရွေးထားသူများကို ဖျက်မလား?",
+            "deleteDescription": "ပြန်လည်ပြန်မရနိုင်ပါ။",
+            "resetTrafficTitle": "ရွေးထားသူများ၏ traffic ကို ပြန်စမလား?",
+            "resetTrafficDescription": "Upload/download counters ကို 0 သို့ ပြန်ထားမည်။",
+            "extendExpiryTitle": "ရွေးထားသူများ၏ သက်တမ်းတိုးရန်",
+            "extendExpiryDescription": "Expiry date သို့ ရက်ပေါင်း ထည့်မည်။",
+            "applyStatusTitle": "ရွေးထားသူများ၏ အခြေအနေ ပြောင်းရန်",
+            "applyStatusDescription": "ရွေးထားသော status ကို အားလုံးအပေါ် အသုံးချမည်။",
+            "rotateTitle": "ရွေးထားသူများ၏ credentials ပြန်ထုတ်မလား?",
+            "rotateDescription": "Rotated user များတွင် အဟောင်း config မလုပ်နိုင်တော့ပါ။",
+            "revokeTitle": "ရွေးထားသူများ၏ ဝင်ခွင့် ပယ်ဖျက်မလား?",
+            "revokeDescription": "ရွေးထားသူများ၏ keys ကို ချက်ချင်းပိတ်မည်။",
+            "assignTitle": "ရွေးထားသူများကို အုပ်စုသို့ ထည့်ရန်",
+            "assignDescription": "ရွေးထားသူများကို ရွေးထားသော အုပ်စုသို့ ထည့်မည်။",
+            "removeTitle": "ရွေးထားသူများကို အုပ်စုမှ ဖယ်ရန်",
+            "removeDescription": "ရွေးထားသူများကို ရွေးထားသော အုပ်စုမှ ဖယ်ရှားမည်။",
+            "moveTitle": "ရွေးထားသူများကို အုပ်စုသို့ ရွှေ့ရန်",
+            "moveDescription": "ရွေးထားသူများကို ရွေးထားသော အုပ်စုသို့ ရွှေ့မည်။",
+            "applyPolicyTitle": "ရွေးထားသူများအတွက် group policy အသုံးချရန်",
+            "applyPolicyConfirm": "Policy အသုံးချမည်",
+            "applyPolicyDescription": "အုပ်စု၏ လက်ရှိ policy settings ကို ရွေးထားသူများအပေါ် အသုံးချမည်။",
+            "policyDryRunTitle": "Policy စမ်းသပ် (dry run)",
+            "policyDryRunTarget": "ပစ်မှတ်အသုံးပြုသူ: {{count}}",
+            "policyDryRunWouldUpdate": "ပြောင်းမည့်သူ: {{count}}",
+            "policyDryRunSkipped": "ကျော်သွား: {{count}}"
+        },
+        "views": {
+            "nameLabel": "View အမည်",
+            "namePlaceholder": "ဥပမာ: Myanmar active",
+            "saveDescription": "လက်ရှိ filter ကို view အဖြစ် သိမ်းပါ။",
+            "savedToast": "View သိမ်းပြီးပါပြီ",
+            "saveFailed": "View သိမ်းမရပါ",
+            "removedToast": "View ဖယ်ရှားပြီးပါပြီ",
+            "removedToastGeneric": "View ဖယ်ရှားပြီးပါပြီ",
+            "appliedToast": "View အသုံးချပြီးပါပြီ"
+        },
+        "form": {
+            "createUser": "အသုံးပြုသူ ဖန်တီးရန်",
+            "updateUser": "အသုံးပြုသူ ပြင်ဆင်ရန်",
+            "saveFailed": "အသုံးပြုသူ သိမ်းဆည်းမရပါ",
+            "dataLimitLabel": "ဒေတာကန့်သတ်ချက် (GB)",
+            "ipLimitLabel": "IP ကန့်သတ်ချက်",
+            "deviceLimitLabel": "စက်ကန့်သတ်ချက်",
+            "noInboundsHint": "အင်းဘောင်း မရှိပါ။ ပထမဆုံး အင်းဘောင်းတစ်ခု ဖန်တီးပါ။",
+            "notePlaceholder": "ဒီအသုံးပြုသူအတွက် မှတ်ချက် (မဖြစ်မနေမဟုတ်)",
+            "startOnFirstUseTitle": "ပထမဆုံး ချိတ်ဆက်ချိန်မှ သက်တမ်းတွက်",
+            "startOnFirstUseDescription": "အသုံးပြုသူ ပထမဆုံး ချိတ်ဆက်သည့်အချိန် (subscription ဒေါင်းလုဒ်) မှ စပြီး သက်တမ်းတွက်မည်။ ထိုအချိန်မတိုင်မီ အကောင့်သည် Active အနေဖြင့် ဆက်ရှိနေမည်။",
+            "validation": {
+                "emailRequired": "အီးမေးလ် ထည့်ရန်လိုသည်",
+                "emailInvalid": "အီးမေးလ် ပုံစံမမှန်ပါ",
+                "dataLimitRequired": "ဒေတာကန့်သတ်ချက် ထည့်ရန်လိုသည်",
+                "expiryDaysRequired": "သက်တမ်းရက် ထည့်ရန်လိုသည်",
+                "inboundRequired": "အင်းဘောင်း အနည်းဆုံး ၁ ခု ရွေးပါ",
+                "minGb": "အနည်းဆုံး 1 GB",
+                "minDay": "အနည်းဆုံး 1 ရက်",
+                "minZero": "0 သို့မဟုတ် အထက် ဖြစ်ရမည်"
+            }
+        },
+        "quickEdit": {
+            "title": "အမြန် ပြင်ဆင်",
+            "saveChanges": "ပြောင်းလဲမှု သိမ်းရန်",
+            "saveFailed": "အသုံးပြုသူ ပြင်ဆင်မရပါ",
+            "dataLimitLabel": "ဒေတာကန့်သတ်ချက် (GB)",
+            "expiryDateLabel": "သက်တမ်းကုန်ရက်",
+            "ipLimitLabel": "IP ကန့်သတ်ချက် (0 = အကန့်အသတ်မရှိ)",
+            "deviceLimitLabel": "စက်ကန့်သတ်ချက် (0 = အကန့်အသတ်မရှိ)",
+            "helper": "သက်တမ်းကို \"ယနေ့မှ စပြီး ရက်အရေအတွက်\" အနေနဲ့ သိမ်းထားပါတယ်။ သိမ်းချိန်မှာ ဒီရက်စွဲကို အလိုအလျောက် ပြောင်းပေးပါတယ်။",
+            "validation": {
+                "expiryDateRequired": "သက်တမ်းကုန်ရက် ထည့်ရန်လိုသည်",
+                "minZero": "အနည်းဆုံး 0"
+            }
+        },
+        "bulkCreate": {
+            "title": "အစုလိုက် အသုံးပြုသူ ဖန်တီး",
+            "subtitle": "ကန့်သတ်ချက်များနှင့် inbound assignment များကို တူညီအောင်ထားပြီး အသုံးပြုသူများ အများအပြား ဖန်တီးပါ။",
+            "prefixLabel": "အီးမေးလ် Prefix",
+            "domainLabel": "ဒိုမိန်း",
+            "countLabel": "အရေအတွက်",
+            "startIndexLabel": "စတင်နံပါတ်",
+            "paddingLabel": "Padding",
+            "previewTitle": "အီးမေးလ် ကြိုတင်ကြည့်",
+            "previewEmpty": "prefix/domain ထည့်ပြီး ထွက်လာမည့် အီးမေးလ်များကို ကြိုတင်ကြည့်နိုင်သည်။",
+            "assignInboundsLabel": "Inbounds သတ်မှတ်ရန်",
+            "noActiveInbounds": "Active inbound မရှိပါ။",
+            "notePlaceholder": "ဖန်တီးမည့် အသုံးပြုသူအားလုံးအတွက် မှတ်ချက် (မဖြစ်မနေမဟုတ်)",
+            "submit": "အသုံးပြုသူများ ဖန်တီးပြီး Credentials ဒေါင်းလုဒ်",
+            "validation": {
+                "prefixRequired": "Prefix ထည့်ရန်လိုသည်",
+                "domainRequired": "Domain ထည့်ရန်လိုသည်",
+                "countRequired": "အရေအတွက် ထည့်ရန်လိုသည်",
+                "countMin": "အနည်းဆုံး 1",
+                "countMax": "အများဆုံး 200",
+                "startIndexRequired": "စတင်နံပါတ် ထည့်ရန်လိုသည်",
+                "paddingMax": "အများဆုံး 8"
+            },
+            "toast": {
+                "requested": "တောင်းဆိုထားသည်: {{count}}",
+                "created": "ဖန်တီးပြီး: {{count}}",
+                "failed": "မအောင်မြင်: {{count}}",
+                "csvDownloaded": "Credentials CSV ကို ဒေါင်းလုဒ်ပြီးပါပြီ။",
+                "failedBody": "အစုလိုက် အသုံးပြုသူ ဖန်တီးမရပါ"
+            }
+        },
+        "toast": {
+            "subscriptionCopied": "Subscription link ကူးယူပြီးပါပြီ။",
+            "clipboardUnavailableTitle": "Clipboard မရနိုင်ပါ",
+            "clipboardUnavailableBody": "Field ထဲကနေ လက်ဖြင့်ကူးယူပါ။",
+            "deleteFailed": "အသုံးပြုသူ ဖျက်မရပါ။",
+            "trafficReset": "Traffic ပြန်စပြီးပါပြီ။",
+            "resetFailed": "Traffic ပြန်စမရပါ။",
+            "rotated": "Credentials အသစ်ပြောင်းပြီးပါပြီ။",
+            "rotateFailed": "Credentials ပြောင်းမရပါ။",
+            "accessRevoked": "ဝင်ခွင့် ပယ်ဖျက်ပြီးပါပြီ။",
+            "revokeFailed": "ဝင်ခွင့် ပယ်ဖျက်မရပါ။",
+            "userDisabled": "အသုံးပြုသူ ပိတ်ပြီးပါပြီ။",
+            "disableFailed": "အသုံးပြုသူ ပိတ်မရပါ။",
+            "subscriptionRegenerated": "Subscription token အသစ်ပြန်ထုတ်ပြီးပါပြီ။",
+            "subscriptionRegeneratedCopied": "Subscription link အသစ်ကို ကူးယူပြီးပါပြီ။",
+            "regenerateFailed": "Token ပြန်ထုတ်မရပါ။",
+            "expiryExtended": "သက်တမ်း တိုးပြီးပါပြီ။",
+            "extendFailed": "သက်တမ်း တိုးမရပါ။",
+            "sessionsDisconnectedFallback": "Sessions ဖြုတ်ပြီးပါပြီ။",
+            "disconnectFailed": "Sessions ဖြုတ်မရပါ။",
+            "selectGroupFirst": "အုပ်စုကို အရင်ရွေးပါ။",
+            "groupInvalid": "အုပ်စုရွေးချယ်မှု မမှန်ပါ။",
+            "assignedToGroup": "အသုံးပြုသူများကို အုပ်စုသို့ ထည့်ပြီးပါပြီ။",
+            "assignFailed": "အုပ်စုသို့ ထည့်မရပါ။",
+            "removedFromGroup": "အုပ်စုမှ ဖယ်ရှားပြီးပါပြီ။",
+            "removeFailed": "အုပ်စုမှ ဖယ်မရပါ။",
+            "movedToGroup": "အသုံးပြုသူများကို အုပ်စုသို့ ရွှေ့ပြီးပါပြီ။",
+            "moveFailed": "အုပ်စုသို့ ရွှေ့မရပါ။",
+            "policyApplied": "Policy အသုံးချပြီးပါပြီ။",
+            "policyApplyFailed": "Policy အသုံးချမရပါ။",
+            "invalidDays": "ရက်အရေအတွက် မှန်ကန်စွာ ထည့်ပါ။",
+            "limitUpdateFailed": "Limit များ ပြောင်းမရပါ။",
+            "bulkDeleted": "ရွေးထားသူများ ဖျက်ပြီးပါပြီ။",
+            "bulkDeleteFailed": "ရွေးထားသူများ ဖျက်မရပါ။",
+            "bulkTrafficReset": "ရွေးထားသူများ Traffic ပြန်စပြီးပါပြီ။",
+            "bulkResetFailed": "ရွေးထားသူများ Traffic ပြန်စမရပါ။",
+            "bulkExpiryExtended": "ရွေးထားသူများ သက်တမ်း တိုးပြီးပါပြီ။",
+            "bulkExtendFailed": "ရွေးထားသူများ သက်တမ်း တိုးမရပါ။",
+            "bulkStatusUpdated": "ရွေးထားသူများ Status ပြောင်းပြီးပါပြီ။",
+            "bulkUpdateFailed": "ရွေးထားသူများ Status ပြောင်းမရပါ။",
+            "bulkRotated": "ရွေးထားသူများ Credentials အသစ်ပြောင်းပြီးပါပြီ။",
+            "bulkRotateFailed": "ရွေးထားသူများ Credentials ပြောင်းမရပါ။",
+            "bulkRevoked": "ရွေးထားသူများ ဝင်ခွင့် ပယ်ဖျက်ပြီးပါပြီ။",
+            "bulkRevokeFailed": "ရွေးထားသူများ ဝင်ခွင့် ပယ်ဖျက်မရပါ။",
+            "myanmarPriorityApplied": "Myanmar priority order ကို အသုံးချပြီးပါပြီ။",
+            "myanmarPriorityFailed": "Myanmar priority order ကို အသုံးချမရပါ။"
+        },
+        "preview": {
+            "totalKeys": "Key စုစုပေါင်း",
+            "matchedKeys": "ကိုက်ညီသော keys",
+            "telemetryKeys": "Telemetry ပါသော keys",
+            "keysToReorder": "ပြန်စီမည့် keys"
+        },
+        "detail": {
+            "subtitle": "အသုံးပြုသူ အသေးစိတ် နှင့် Access keys",
+            "notFound": "အသုံးပြုသူ မတွေ့ပါ",
+            "backToUsers": "အသုံးပြုသူများသို့ ပြန်သွားရန်",
+            "noKeysEnabled": "ဖွင့်ထားသော key မရှိပါ",
+            "keyFallback": "Key {{count}}",
+            "createdAt": "ဖန်တီးသည့်နေ့",
+            "copyUuid": "UUID ကူးရန်",
+            "copyPassword": "Password ကူးရန်",
+            "expiresIn": "သက်တမ်းကျန်",
+            "dataLimitCaption": "ကန့်သတ်: {{limit}}",
+            "remaining": "ကျန်သေးသောဒေတာ",
+            "remainingPercentLeft": "{{percent}}% ကျန်",
+            "expiry": {
+                "afterFirstConnect": "ပထမဆုံး ချိတ်ဆက်ပြီးနောက် {{days}} ရက်",
+                "daysValue": "{{count}} ရက်"
+            },
+            "actions": {
+                "resetTraffic": "Traffic ပြန်စရန်",
+                "resettingTraffic": "Traffic ပြန်စနေသည်...",
+                "deleteUser": "အသုံးပြုသူ ဖျက်ရန်",
+                "deletingUser": "ဖျက်နေသည်..."
+            },
+            "confirm": {
+                "deleteTitle": "အသုံးပြုသူ ဖျက်မလား?",
+                "deleteDescription": "ဒီအသုံးပြုသူကို ဖျက်လိုသည်မှာ သေချာပါသလား? ဤလုပ်ဆောင်ချက်ကို ပြန်မရနိုင်ပါ။"
+            },
+            "userInfoTitle": "အသုံးပြုသူ အချက်အလက်",
+            "effectiveInbounds": {
+                "title": "ထိရောက်သော inbound ဝင်ခွင့်",
+                "subtitle": "တိုက်ရိုက် သတ်မှတ်ထားမှုနှင့် အုပ်စုမှ အမွေဆက်ခံမှုတို့ကို ပေါင်းစပ်ပြသထားသည်။",
+                "loading": "ထိရောက်သော ဝင်ခွင့်ကို တင်နေသည်...",
+                "empty": "ဒီအသုံးပြုသူအတွက် ထိရောက်သော inbounds မတွေ့ပါ။",
+                "badgeEnabled": "Inbound ဖွင့်ထား",
+                "badgeDisabled": "Inbound ပိတ်ထား",
+                "sourceDirect": "တိုက်ရိုက်",
+                "sourceGroup": "အုပ်စု: {{name}}"
+            },
+            "policy": {
+                "title": "ထိရောက်သော policy",
+                "subtitle": "အသုံးပြုသူ တစ်ဦးချင်း policy နှင့် အုပ်စုမှ override များကို နှိုင်းယှဉ်ပါ။",
+                "loading": "ထိရောက်သော policy ကို တင်နေသည်...",
+                "unavailable": "ဒီအသုံးပြုသူအတွက် ထိရောက်သော policy မရနိုင်ပါ။",
+                "groupSources": "အုပ်စု policy အရင်းအမြစ်များ",
+                "noGroups": "Assign လုပ်ထားသော အုပ်စု မရှိပါ",
+                "table": {
+                    "field": "အချက်အလက်",
+                    "direct": "တိုက်ရိုက်",
+                    "inherited": "အမွေဆက်ခံ",
+                    "effective": "ထိရောက်",
+                    "trafficReset": "Traffic reset"
+                }
+            },
+            "keys": {
+                "title": "Access keys",
+                "subtitle": "Inbound အလိုက် keys၊ status၊ online ပြခြင်း နှင့် client templates ကို စီမံပါ။",
+                "empty": "ရွေးထားသော filter နဲ့ ကိုက်ညီသော key မရှိပါ။",
+                "usageLabel": "အသုံးပြုမှု",
+                "portLabelShort": "Port",
+                "devicesCount": "Devices {{online}}/{{seen}}",
+                "shortDays": "{{count}}ရ",
+                "dragHintEnabled": "Menu ကော်လံမှ row များကို ဆွဲ၍ priority order ပြန်စီနိုင်ပါသည်။ ဤအစီအစဉ်က subscription fallback ကို ထိန်းချုပ်သည်။",
+                "dragHintDisabled": "Filter: All keys နှင့် Sort: Priority ascending သတ်မှတ်လျှင် drag reorder ဖွင့်နိုင်ပါသည်။",
+                "dragHandleEnabled": "Priority ပြန်စီရန် ဆွဲပါ",
+                "dragHandleDisabled": "Priority ascending ဖြင့် sort လုပ်မှ ဆွဲ၍ ပြန်စီနိုင်ပါသည်။",
+                "filter": {
+                    "all": "Key အားလုံး"
+                },
+                "density": {
+                    "comfortable": "အဆင်ပြေ (အကြားကျယ်)",
+                    "compact": "သိပ်သည်း (compact)"
+                },
+                "table": {
+                    "menu": "Menu",
+                    "clientKey": "Client / Key",
+                    "protocol": "Protocol",
+                    "port": "Port",
+                    "priority": "Priority",
+                    "traffic": "Traffic",
+                    "expiration": "သက်တမ်း"
+                }
+            },
+            "keyMenu": {
+                "templates": "Client templates",
+                "copyingKey": "Key ကို ကူးနေသည်...",
+                "copyKeyUrl": "Key URL ကူးရန်",
+                "updating": "ပြင်နေသည်...",
+                "disableKey": "Key ပိတ်ရန်",
+                "enableKey": "Key ဖွင့်ရန်",
+                "moveUp": "အပေါ်သို့ (priority မြှင့်)",
+                "moveDown": "အောက်သို့ (priority လျှော့)",
+                "openInbounds": "Inbounds စာမျက်နှာသို့ သွားရန်"
+            },
+            "devicesSessions": {
+                "title": "Device sessions",
+                "subtitle": "အွန်လိုင်း {{online}} / စုစုပေါင်း {{total}} (ပြီးခဲ့သော {{minutes}} မိနစ်အတွင်း)",
+                "columns": {
+                    "fingerprint": "Fingerprint",
+                    "ip": "IP",
+                    "lastSeen": "နောက်ဆုံးတွေ့"
+                }
+            },
+            "toast": {
+                "noKeyUrl": "ဒီ inbound အတွက် key URL မရှိပါ",
+                "copyKeyFailed": "Key ကို ကူးမရပါ",
+                "keyStatusFailed": "Key status ပြောင်းမရပါ",
+                "keyPriorityFailed": "Key priority ပြောင်းမရပါ",
+                "reorderFailed": "Keys ကို ပြန်စီမရပါ",
+                "noKeys": "ဒီအသုံးပြုသူအတွက် keys မရှိပါ။",
+                "previewGenerateFailed": "Preview ဖန်တီးမရပါ",
+                "noMyanmarProfiles": "Myanmar အတွက် ကိုက်ညီသော profile မတွေ့ပါ (REALITY / VLESS WS TLS / TROJAN WS TLS လိုအပ်သည်)။",
+                "myanmarPreviewFailed": "Myanmar priority preview မဖန်တီးနိုင်ပါ",
+                "myanmarApplied": "ကိုက်ညီသော key {{count}} ခုကို မြှင့်တင်ပြီးပါပြီ။",
+                "myanmarApplyFailed": "Myanmar priority order ကို အသုံးချမရပါ",
+                "noTelemetry": "မကြာသေးမီ ချိတ်ဆက်မှု မတွေ့ပါ။ အနည်းဆုံး key တစ်ခုမှာ traffic ထုတ်ပြီး နောက်တစ်ကြိမ် စမ်းပါ။",
+                "qualityPreviewFailed": "Quality preview မဖန်တီးနိုင်ပါ",
+                "qualityApplied": "Telemetry ပါသော key {{count}} ခုကို ပြန်စီပြီးပါပြီ။",
+                "qualityApplyFailed": "Quality ordering ကို အသုံးချမရပါ",
+                "trafficReset": "အသုံးပြုသူ traffic counters ကို ပြန်စပြီးပါပြီ။",
+                "resetFailed": "Traffic ပြန်စမရပါ",
+                "userDeleted": "အသုံးပြုသူကို ဖျက်ပြီးပါပြီ။",
+                "deleteFailed": "အသုံးပြုသူကို ဖျက်မရပါ",
+                "deviceRevoked": "Device session ကို ပယ်ဖျက်ပြီးပါပြီ။",
+                "revokeFailed": "Device session ကို ပယ်ဖျက်မရပါ"
+            }
+        }
     },
     "groups": {
         "title": "အုပ်စုများ",
@@ -208,9 +594,32 @@
             "refreshedBody": "Groups, templates, schedules, rollouts များကို နောက်ဆုံးအခြေအနေအဖြစ် ပြန်လည်ရယူပြီးပါပြီ။",
             "refreshFailedTitle": "ပြန်လည်ဖော်ပြမှု မအောင်မြင်",
             "refreshFailedBody": "Group ဒေတာကို ပြန်လည်ရယူ၍မရပါ။",
+            "groupCreatedTitle": "အုပ်စု ဖန်တီးပြီးပါပြီ",
+            "groupCreatedBody": "\"{{name}}\" ကို ဖန်တီးပြီးပါပြီ။",
+            "groupUpdatedTitle": "အုပ်စု ပြင်ဆင်ပြီးပါပြီ",
+            "groupUpdatedBody": "\"{{name}}\" ကို ပြင်ဆင်ပြီးပါပြီ။",
             "groupDeletedTitle": "အုပ်စု ဖျက်ပြီးပါပြီ",
+            "saveGroupFailedTitle": "အုပ်စု သိမ်းမရပါ",
+            "saveGroupFailedBody": "အုပ်စုကို သိမ်းဆည်း၍မရပါ။",
+            "templateCreatedTitle": "Template ဖန်တီးပြီးပါပြီ",
+            "templateCreatedBody": "\"{{name}}\" ကို ဖန်တီးပြီးပါပြီ။",
+            "templateUpdatedTitle": "Template ပြင်ဆင်ပြီးပါပြီ",
+            "templateUpdatedBody": "\"{{name}}\" ကို ပြင်ဆင်ပြီးပါပြီ။",
             "templateDeletedTitle": "Template ဖျက်ပြီးပါပြီ",
             "scheduleDeletedTitle": "Schedule ဖျက်ပြီးပါပြီ",
+            "saveTemplateFailedTitle": "Template သိမ်းမရပါ",
+            "saveTemplateFailedBody": "Template ကို သိမ်းဆည်း၍မရပါ။",
+            "templateAppliedTitle": "Template အသုံးချပြီးပါပြီ",
+            "templateAppliedBodyNow": "Template ကို အသုံးချပြီးပါပြီ။",
+            "templateAppliedBodyValues": "Template values ကို အသုံးပြုသူ {{count}} ယောက်အပေါ် သတ်မှတ်ပြီးပါပြီ။",
+            "applyTemplateFailedTitle": "Template အသုံးချမရပါ",
+            "applyTemplateFailedBody": "Template ကို အသုံးချ၍မရပါ။",
+            "scheduleCreatedTitle": "Schedule ဖန်တီးပြီးပါပြီ",
+            "scheduleCreatedBody": "\"{{name}}\" ကို ဖန်တီးပြီးပါပြီ။",
+            "scheduleUpdatedTitle": "Schedule ပြင်ဆင်ပြီးပါပြီ",
+            "scheduleUpdatedBody": "\"{{name}}\" ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "saveScheduleFailedTitle": "Schedule သိမ်းမရပါ",
+            "saveScheduleFailedBody": "Schedule ကို သိမ်းဆည်း၍မရပါ။",
             "deletedBody": "\"{{name}}\" ကို ဖျက်ပြီးပါပြီ။",
             "deleteFailedTitle": "ဖျက်မရပါ",
             "deleteFailedBody": "\"{{name}}\" ကို ဖျက်၍မရပါ။",
@@ -401,6 +810,17 @@
         "onlineTotal": "{{online}} အွန်လိုင်း / {{total}} စုစုပေါင်း",
         "randomPort": "ကျပန်း",
         "randomPortTitle": "လွတ်နေသော Port ကို ကျပန်း သတ်မှတ်ရန်",
+        "actionMenu": {
+            "templates": "ကလိုင်ယင့် တမ်းပလိတ်များ",
+            "details": "Inbound အသေးစိတ်",
+            "randomPort": "လွတ်နေသော port ကို ကျပန်း သတ်မှတ်ရန်",
+            "randomPortPending": "ကျပန်း port သတ်မှတ်နေသည်...",
+            "clone": "Inbound ကူးယူရန်",
+            "clonePending": "ကူးယူနေသည်...",
+            "cloneEdit": "ကူးယူပြီး ပြင်ရန်",
+            "edit": "Inbound ပြင်ဆင်ရန်",
+            "delete": "Inbound ဖျက်ရန်"
+        },
         "refreshing": "Inbounds ကို ပြန်လည်ဖော်ပြနေသည်...",
         "stats": {
             "total": "Inbound စုစုပေါင်း",
@@ -468,6 +888,17 @@
         "cloneFailedBody": "Inbound ကို ကူးယူ၍မရပါ။",
         "randomPortFailedTitle": "Port ကျပန်း သတ်မှတ်မရပါ",
         "randomPortFailedBody": "Inbound port ကို ကျပန်း သတ်မှတ်၍မရပါ။",
+        "toast": {
+            "saveFailed": "Inbound ကို သိမ်းဆည်းမရပါ",
+            "randomPortFailed": "ကျပန်း port သတ်မှတ်မရပါ",
+            "realityKeygenFailed": "REALITY keys ကို ဖန်တီးမရပါ",
+            "wireguardKeygenFailed": "WireGuard keys ကို ဖန်တီးမရပါ",
+            "missingServerAddress": "Server address လိုအပ်ပါသည်။",
+            "destinationRequired": "Destination လိုအပ်ပါသည်",
+            "destinationReachable": "Destination ကို ချိတ်ဆက်ရနိုင်ပါသည်",
+            "destinationUnavailable": "Destination ကို မချိတ်ဆက်နိုင်ပါ",
+            "destinationTestFailed": "Destination စမ်းသပ်မှု မအောင်မြင်"
+        },
         "export": {
             "unavailableTitle": "ထုတ်မရပါ",
             "unavailableBody": "ထုတ်ရန် Inbound မရှိပါ။"
@@ -653,7 +1084,13 @@
         "confirmRevokeDevice": "ဤစက်ကို ပယ်ဖျက်မလား? ပြန်လည်ချိတ်ဆက်ရပါမည်။",
         "revoke": "ပယ်ဖျက်ရန်",
         "devicesRevoked": "စက်ကို ပယ်ဖျက်ပြီးပါပြီ။",
-        "showingFirst": "ပထမဆုံး"
+        "showingFirst": "ပထမဆုံး",
+        "toast": {
+            "refreshed": "Portal ဒေတာကို ပြန်လည်ရယူပြီးပါပြီ။",
+            "refreshFailed": "Portal ဒေတာကို ပြန်လည်ရယူမရပါ။",
+            "noNodes": "Subscription nodes မရှိပါ။",
+            "revokeFailed": "စက်ကို ပယ်ဖျက်မရပါ။"
+        }
     },
     "logs": {
         "title": "ချိတ်ဆက်မှုမှတ်တမ်းများ",
@@ -663,6 +1100,271 @@
         "connect": "ချိတ်ဆက်",
         "disconnect": "ချိတ်ဆက်မှုဖြတ်တောက်",
         "filter": "စစ်ထုတ်ရန်",
-        "refresh": "ပြန်လည်ဖတ်ရန်"
+        "refresh": "ပြန်လည်ဖတ်ရန်",
+        "toast": {
+            "copyFailed": "ကလစ်ဘုတ်သို့ ကူးယူ၍မရပါ။"
+        }
+    },
+    "backupSettings": {
+        "manual": {
+            "title": "လက်ဖြင့် Backup",
+            "body": "Database၊ SSL certificates နဲ့ configuration files အားလုံးကို အပြည့်အဝ backup ပြုလုပ်ပါ။",
+            "createNow": "Backup ဖန်တီးမည်"
+        },
+        "scheduled": {
+            "title": "အလိုအလျောက် Backup",
+            "scheduleLabel": "အချိန်ဇယား",
+            "scheduleValue": "နေ့တိုင်း မနက် 2:00",
+            "retentionLabel": "သိမ်းဆည်းထားမည့်ကာလ",
+            "retentionValue": "7 ရက်",
+            "locationLabel": "တည်နေရာ"
+        },
+        "toast": {
+            "created": "Backup ကို အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ။",
+            "failed": "Backup ဖန်တီးမရပါ"
+        }
+    },
+    "sslSettings": {
+        "current": {
+            "title": "လက်ရှိ Certificate",
+            "domain": "Domain",
+            "validUntil": "သက်တမ်းကုန်ချိန်",
+            "daysRemaining": "ကျန်သေးသောရက်",
+            "daysRemainingValue": "{{count}} ရက်",
+            "renew": "Certificate သက်တမ်းတိုးရန်"
+        },
+        "issue": {
+            "title": {
+                "enabled": "Certificate အသစ် ထုတ်ရန်",
+                "disabled": "SSL Certificate ထုတ်ရန်"
+            },
+            "noteTitle": "မှတ်ချက်",
+            "noteBody": "Cloudflare DNS validation ဖြင့် *.yourdomain.com အတွက် wildcard certificate ကို ထုတ်ပေးမည်။ Domain nameservers များ Cloudflare သို့ညွှန်ထားကြောင်း သေချာပါစေ။",
+            "submit": "Certificate ထုတ်မည်"
+        },
+        "form": {
+            "domainLabel": "Domain",
+            "domainPlaceholder": "yourdomain.com",
+            "domainRequired": "Domain လိုအပ်ပါသည်",
+            "cloudflareEmailLabel": "Cloudflare အီးမေးလ်",
+            "cloudflareEmailPlaceholder": "your@email.com",
+            "cloudflareEmailRequired": "Cloudflare အီးမေးလ် လိုအပ်ပါသည်",
+            "cloudflareApiKeyLabel": "Cloudflare API key",
+            "cloudflareApiKeyPlaceholder": "Cloudflare API key",
+            "cloudflareApiKeyRequired": "API key လိုအပ်ပါသည်"
+        },
+        "toast": {
+            "issued": "SSL certificate ကို အောင်မြင်စွာ ထုတ်ပြီးပါပြီ။",
+            "issueFailed": "SSL certificate ထုတ်မရပါ",
+            "renewed": "SSL certificate ကို အောင်မြင်စွာ သက်တမ်းတိုးပြီးပါပြီ။",
+            "renewFailed": "SSL certificate သက်တမ်းတိုးမရပါ"
+        }
+    },
+    "telegramSettings": {
+        "link": {
+            "title": "Telegram admin ချိတ်ဆက်မှု",
+            "loading": "Telegram link status ကို တင်နေသည်...",
+            "statusLabel": "အခြေအနေ",
+            "statusLinked": "ချိတ်ဆက်ပြီး",
+            "statusNotLinked": "မချိတ်ဆက်ရသေး",
+            "currentIdLabel": "လက်ရှိ ID",
+            "telegramIdLabel": "Telegram ID",
+            "telegramIdPlaceholder": "123456789",
+            "linkButton": "Telegram ချိတ်ဆက်မည်",
+            "unlinkButton": "Telegram ဖြုတ်မည်"
+        },
+        "bot": {
+            "title": "Telegram bot ပြင်ဆင်မှု",
+            "botTokenLabel": "Bot token",
+            "adminIdsLabel": "Admin chat IDs (comma ဖြင့် ခွဲ)",
+            "helpTitle": "Chat ID ရယူနည်း",
+            "helpStep1": "1. Telegram မှာ @userinfobot ကို မက်ဆေ့ခ် ပို့ပါ",
+            "helpStep2": "2. Chat ID ကို ပြန်ပြပါလိမ့်မယ်",
+            "helpStep3": "3. အထက်က field ထဲ ထည့်ပါ",
+            "saveButton": "Settings သိမ်းရန်"
+        },
+        "toast": {
+            "saved": "ပြောင်းလဲမှု အသက်သွင်းရန် backend ကို restart လုပ်ပါ။",
+            "saveFailed": "Telegram settings ကို သိမ်းမရပါ",
+            "linked": "Telegram account ကို လက်ရှိ admin သို့ ချိတ်ဆက်ပြီးပါပြီ။",
+            "linkFailed": "Telegram account ချိတ်ဆက်မရပါ",
+            "unlinked": "Telegram account ကို လက်ရှိ admin မှ ဖြုတ်ပြီးပါပြီ။",
+            "unlinkFailed": "Telegram account ဖြုတ်မရပါ"
+        }
+    },
+    "toolsSettings": {
+        "title": "Tools နှင့် Utilities",
+        "dns": {
+            "title": "Cloudflare DNS record စီမံခန့်ခွဲမှု",
+            "subtitle": "Cloudflare account ထဲမှာ DNS records ကို အလွယ်တကူ ထည့်/ပြင်နိုင်ပါသည်။",
+            "domainLabel": "Domain",
+            "domainPlaceholder": "sub.example.com",
+            "typeLabel": "Type",
+            "contentLabel": "Content",
+            "contentPlaceholder": "1.2.3.4",
+            "proxiedLabel": "Proxied",
+            "updateButton": "Record ပြင်မည်"
+        },
+        "cdnScan": {
+            "title": "Cloudflare CDN IP စမ်းသပ်ခြင်း",
+            "subtitle": "သင့်တည်နေရာအတွက် အမြန်ဆုံး Cloudflare IP များကို ရှာဖွေပါ။ Latency ကို ကောင်းမွန်စေရန် ကူညီသည်။",
+            "startButton": "Scan စတင်မည်",
+            "table": {
+                "ip": "IP လိပ်စာ",
+                "latency": "Latency"
+            }
+        },
+        "toast": {
+            "scanFailed": "Scan မအောင်မြင်",
+            "dnsUpdated": "DNS record ကို အောင်မြင်စွာ ပြင်ပြီးပါပြီ။",
+            "dnsUpdateFailed": "DNS ပြင်ဆင်မရပါ",
+            "ipCopied": "IP ကို ကလစ်ဘုတ်သို့ ကူးယူပြီးပါပြီ။"
+        }
+    },
+    "notificationsSettings": {
+        "channels": {
+            "title": "အကြောင်းကြားမှု Channels",
+            "loading": "Notification settings ကို တင်နေသည်...",
+            "lastUpdated": "နောက်ဆုံး ပြင်ဆင်ချိန်",
+            "created": "ဖန်တီးချိန်",
+            "enableWebhook": "Webhook ဖြင့် ပို့ခြင်း ဖွင့်ရန်",
+            "webhookUrlLabel": "Webhook URL",
+            "webhookUrlPlaceholder": "https://your-notify-service.example/webhook",
+            "webhookSecretLabel": "Webhook secret",
+            "webhookSecretKeepLabel": "Webhook secret (လက်ရှိကို ထိန်းထားလိုလျှင် အလွတ်ထားပါ)",
+            "webhookSecretPlaceholder": "Webhook signing secret ထည့်ပါ",
+            "timeoutLabel": "Timeout (ms)",
+            "retryAttemptsLabel": "ပြန်ကြိုးစား次数",
+            "retryDelayLabel": "ပြန်ကြိုးစား ကြာချိန် (ms)",
+            "defaultRouteTitle": "Default route",
+            "route": {
+                "webhook": "Webhook",
+                "telegram": "Telegram",
+                "systemLog": "System log"
+            },
+            "routeMatrixLabel": "Route matrix (JSON)",
+            "routeMatrixHelp": "Event name (ဥပမာ auth.login.success) သို့မဟုတ် wildcard prefix (ဥပမာ user.*) ကို အသုံးပြုပါ။",
+            "saveButton": "Notification settings သိမ်းရန်"
+        },
+        "test": {
+            "title": "Test notification ပို့ရန်",
+            "channelLabel": "Channel",
+            "channelAll": "Channels အားလုံး",
+            "channelWebhook": "Webhook သာ",
+            "channelTelegram": "Telegram သာ",
+            "channelSystemLog": "System log သာ",
+            "eventLabel": "Event name",
+            "payloadLabel": "Test payload (JSON)",
+            "dispatchButton": "Test ပို့မည်"
+        },
+        "audit": {
+            "title": "Notification audit history",
+            "refreshButton": "Audit ပြန်လည်ဖော်ပြရန်",
+            "loading": "Audit history ကို တင်နေသည်...",
+            "empty": "Audit မှတ်တမ်း မရှိသေးပါ။",
+            "pageLine": "စာမျက်နှာ {{page}} / {{pages}} (စုစုပေါင်း {{total}} ခု)",
+            "table": {
+                "time": "အချိန်",
+                "admin": "အက်ဒမင်",
+                "ip": "IP",
+                "changedKeys": "ပြောင်းလဲခဲ့သော keys"
+            }
+        },
+        "errors": {
+            "routesMustBeObject": "Routes JSON သည် object ဖြစ်ရမည်",
+            "invalidRoutesJson": "Routes JSON မမှန်ကန်ပါ",
+            "saveFailed": "Notification settings ကို သိမ်းမရပါ",
+            "testDataMustBeObject": "Test data သည် JSON object ဖြစ်ရမည်",
+            "invalidTestPayload": "Test payload JSON မမှန်ကန်ပါ"
+        },
+        "toast": {
+            "saved": "Notification settings ကို သိမ်းပြီးပါပြီ။",
+            "testSent": "Test notification ကို ပို့ပြီးပါပြီ။",
+            "testFailed": "Test notification ပို့မရပါ"
+        }
+    },
+    "brandingSettings": {
+        "toast": {
+            "created": "Branding ဖန်တီးပြီးပါပြီ",
+            "updated": "Branding ပြင်ဆင်ပြီးပါပြီ",
+            "deleted": "Branding ဖျက်ပြီးပါပြီ",
+            "deleteFailed": "Branding ဖျက်မရပါ",
+            "saveFailed": "Branding သိမ်းမရပါ",
+            "invalidJson": "Custom apps JSON မမှန်ကန်ပါ။",
+            "statusUpdated": "Branding status ပြောင်းပြီးပါပြီ",
+            "statusUpdateFailed": "Branding status ပြောင်းမရပါ"
+        }
+    },
+    "securitySettings": {
+        "toast": {
+            "profileUpdated": "Profile ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "profileUpdatedCredentials": "Profile ပြင်ဆင်ပြီးပါပြီ။ ပြန်လည်ဝင်ရောက်ရန် လိုအပ်ပါသည်။",
+            "profileUpdateFailed": "Profile ကို ပြင်ဆင်မရပါ။",
+            "otpSetupInitialized": "2FA setup ကို စတင်ပြီးပါပြီ။",
+            "otpSetupFailed": "2FA setup ကို စတင်မရပါ။",
+            "otpEnabled": "2FA ကို ဖွင့်ပြီးပါပြီ။",
+            "otpEnableFailed": "2FA ကို ဖွင့်မရပါ။",
+            "otpDisabled": "2FA ကို ပိတ်ပြီးပါပြီ။",
+            "otpDisableFailed": "2FA ကို ပိတ်မရပါ။",
+            "sessionRevoked": "Session ကို ပယ်ဖျက်ပြီးပါပြီ။",
+            "sessionRevokeFailed": "Session ကို ပယ်ဖျက်မရပါ။",
+            "sessionsRevoked": "Sessions ကို ပယ်ဖျက်ပြီးပါပြီ။",
+            "sessionsRevokeFailed": "Sessions ကို ပယ်ဖျက်မရပါ။",
+            "allowlistUpdated": "Allowlist ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "allowlistUpdateFailed": "Allowlist ကို ပြင်ဆင်မရပါ။",
+            "policiesUpdated": "Security policies ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "policiesUpdateFailed": "Security policies ကို ပြင်ဆင်မရပါ။",
+            "ruleCreated": "Rule ဖန်တီးပြီးပါပြီ။",
+            "ruleCreateFailed": "Rule ဖန်တီးမရပါ။",
+            "ruleUpdated": "Rule ပြင်ဆင်ပြီးပါပြီ။",
+            "ruleUpdateFailed": "Rule ပြင်ဆင်မရပါ။",
+            "ruleDeleted": "Rule ဖျက်ပြီးပါပြီ။",
+            "ruleDeleteFailed": "Rule ဖျက်မရပါ။",
+            "escalationUpdated": "Escalation route ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "escalationUpdateFailed": "Escalation route ကို ပြင်ဆင်မရပါ။",
+            "testAlertSent": "Test alert ကို ပို့ပြီးပါပြီ။",
+            "testAlertFailed": "Test alert ပို့မရပါ။"
+        }
+    },
+    "systemSettings": {
+        "toast": {
+            "restartSuccess": "Xray ကို အောင်မြင်စွာ Restart ပြုလုပ်ပြီးပါပြီ။",
+            "restartFailed": "Xray ကို Restart မလုပ်နိုင်ပါ။",
+            "geodataUpdated": "Geo data ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "geodataUpdateFailed": "Geo data ကို ပြင်ဆင်မရပါ။",
+            "routingUpdated": "Routing rules ကို ပြင်ဆင်ပြီးပါပြီ။",
+            "routingUpdateFailed": "Routing rules ကို ပြင်ဆင်မရပါ။",
+            "snapshotCreated": "Snapshot ဖန်တီးပြီးပါပြီ။",
+            "snapshotFailed": "Snapshot ဖန်တီးမရပါ။",
+            "selectSnapshot": "အရင်ဆုံး Snapshot ကို ရွေးပါ။",
+            "configReloaded": "Config ကို Reload ပြုလုပ်ပြီးပါပြီ။",
+            "configReloadFailed": "Config ကို Reload မလုပ်နိုင်ပါ။",
+            "confdirSynced": "Confdir sync အောင်မြင်ပါပြီ။",
+            "confdirSyncFailed": "Confdir sync မအောင်မြင်ပါ။",
+            "copyConfigFailed": "Config ကို ကလစ်ဘုတ်သို့ ကူးယူမရပါ။",
+            "unlockFailed": "Updater ကို unlock မလုပ်နိုင်ပါ။",
+            "updateLockReleased": "Update lock ကို ဖြုတ်ပြီးပါပြီ။",
+            "updateLockNotReleased": "Update lock ကို ဖြုတ်မရပါ။",
+            "noRollbackTag": "Rollback tag ကို မရွေးထားပါ။",
+            "rollbackComplete": "Rollback အောင်မြင်ပါပြီ။",
+            "rollbackCompleteWithTag": "Rollback အောင်မြင်ပါပြီ ({{tag}})။",
+            "rollbackFailed": "Rollback မအောင်မြင်ပါ။",
+            "configRollbackComplete": "Rollback အောင်မြင်ပါပြီ။",
+            "configRollbackFailed": "Rollback မအောင်မြင်ပါ။",
+            "preflightBlocked": "Preflight ကို တားဆီးထားသည်။ ဆက်လုပ်ရန် အရင်ဆုံး ပြဿနာများကို ဖြေရှင်းပါ။",
+            "copyPreflightFixesSuccess": "Preflight fixes ကို ကူးယူပြီးပါပြီ။",
+            "copyPreflightFixesFailed": "Fixes ကို ကူးယူမရပါ။",
+            "manualModeGuidedUnavailable": "Manual mode တွင် Guided update မရပါ။",
+            "manualModeScriptedDisabled": "Manual mode တွင် Scripted updates ကို ပိတ်ထားသည်။",
+            "manualModeRollbackDisabled": "Manual mode တွင် Rollback ကို ပိတ်ထားသည်။",
+            "releaseIntelRefreshed": "Release intel ကို ပြန်လည်ဖော်ပြပြီးပါပြီ။",
+            "releaseIntelRefreshFailed": "Release intel ကို ပြန်လည်ရယူမရပါ။",
+            "guidedPaused": "Guided update ကို ရပ်ထားသည်။",
+            "guidedComplete": "Guided update ကို အောင်မြင်စွာ ပြီးဆုံးပါပြီ။",
+            "canaryComplete": "Canary rollout ကို အောင်မြင်စွာ ပြီးဆုံးပါပြီ။",
+            "canaryFailed": "Canary rollout မအောင်မြင်ပါ။",
+            "fullRolloutComplete": "Full rollout ကို အောင်မြင်စွာ ပြီးဆုံးပါပြီ။",
+            "fullRolloutFailed": "Full rollout မအောင်မြင်ပါ။"
+        }
     }
 }

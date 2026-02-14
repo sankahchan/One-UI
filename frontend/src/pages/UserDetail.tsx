@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   ArrowDown,
   ArrowLeft,
@@ -106,18 +107,23 @@ const REFRESH_OPTIONS = [
   { label: 'Manual', value: 0 }
 ];
 
-const getRelativeLastSeenLabel = (isOnline: boolean, lastActivity: string | null, nowTimestamp: number) => {
+const getRelativeLastSeenLabel = (
+  t: TFunction,
+  isOnline: boolean,
+  lastActivity: string | null,
+  nowTimestamp: number
+) => {
   if (isOnline) {
-    return 'Live now';
+    return t('users.sessions.liveNow', { defaultValue: 'Live now' });
   }
 
   if (!lastActivity) {
-    return 'No recent activity';
+    return t('users.sessions.noActivity', { defaultValue: 'No activity' });
   }
 
   const lastSeenAt = new Date(lastActivity).getTime();
   if (Number.isNaN(lastSeenAt)) {
-    return 'No recent activity';
+    return t('users.sessions.noActivity', { defaultValue: 'No activity' });
   }
 
   const elapsedMs = Math.max(0, nowTimestamp - lastSeenAt);
@@ -125,19 +131,23 @@ const getRelativeLastSeenLabel = (isOnline: boolean, lastActivity: string | null
   const elapsedHours = Math.floor(elapsedMinutes / 60);
   const elapsedDays = Math.floor(elapsedHours / 24);
 
-  if (elapsedMinutes < 1) {
-    return 'Last seen just now';
-  }
+  const relativeLabel = (() => {
+    if (elapsedMinutes < 1) {
+      return t('users.sessions.justNow', { defaultValue: 'just now' });
+    }
 
-  if (elapsedMinutes < 60) {
-    return `Last seen ${elapsedMinutes}m ago`;
-  }
+    if (elapsedMinutes < 60) {
+      return t('users.sessions.minutesAgo', { defaultValue: '{{count}}m ago', count: elapsedMinutes });
+    }
 
-  if (elapsedHours < 24) {
-    return `Last seen ${elapsedHours}h ago`;
-  }
+    if (elapsedHours < 24) {
+      return t('users.sessions.hoursAgo', { defaultValue: '{{count}}h ago', count: elapsedHours });
+    }
 
-  return `Last seen ${elapsedDays}d ago`;
+    return t('users.sessions.daysAgo', { defaultValue: '{{count}}d ago', count: elapsedDays });
+  })();
+
+  return t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: relativeLabel });
 };
 
 export const UserDetail: React.FC = () => {
@@ -237,8 +247,8 @@ export const UserDetail: React.FC = () => {
 
   const isUserOnline = Boolean(session?.online);
   const lastSeenLabel = useMemo(
-    () => getRelativeLastSeenLabel(isUserOnline, session?.lastSeenAt ?? null, nowTimestamp),
-    [isUserOnline, nowTimestamp, session?.lastSeenAt]
+    () => getRelativeLastSeenLabel(t, isUserOnline, session?.lastSeenAt ?? null, nowTimestamp),
+    [isUserOnline, nowTimestamp, session?.lastSeenAt, t]
   );
   const isRefreshingOnline = userSessionQuery.isFetching || userSessionQuery.streamStatus === 'connecting';
   const userDevices = useMemo(() => userDevicesQuery.data?.data?.devices ?? [], [userDevicesQuery.data?.data?.devices]);
@@ -290,7 +300,10 @@ export const UserDetail: React.FC = () => {
     return inboundRows.map((relation, index) => ({
       relation,
       index,
-      label: relation.inbound.remark || relation.inbound.tag || `Key ${index + 1}`,
+      label:
+        relation.inbound.remark
+        || relation.inbound.tag
+        || t('users.detail.keyFallback', { defaultValue: 'Key {{count}}', count: index + 1 }),
       protocol: relation.inbound.protocol,
       port: Number(relation.inbound.port || 0),
       priority: Number.isInteger(Number(relation.priority)) ? Number(relation.priority) : 100 + index,
@@ -337,7 +350,7 @@ export const UserDetail: React.FC = () => {
       })(),
       expirationDays: daysRemaining
     }));
-  }, [daysRemaining, inboundDeviceStats, isUserOnline, session?.lastSeenAt, user?.inbounds]);
+  }, [daysRemaining, inboundDeviceStats, isUserOnline, session?.lastSeenAt, t, user?.inbounds]);
 
   const enabledKeyCount = useMemo(() => accessKeyRows.filter((row) => row.enabled).length, [accessKeyRows]);
   const onlineKeyCount = useMemo(() => accessKeyRows.filter((row) => row.online).length, [accessKeyRows]);
@@ -403,9 +416,9 @@ export const UserDetail: React.FC = () => {
   if (!user) {
     return (
       <div className="py-12 text-center">
-        <p className="text-muted">User not found</p>
+        <p className="text-muted">{t('users.detail.notFound', { defaultValue: 'User not found' })}</p>
         <Button className="mt-4" onClick={() => navigate('/users')}>
-          Back to Users
+          {t('users.detail.backToUsers', { defaultValue: 'Back to Users' })}
         </Button>
       </div>
     );
@@ -447,15 +460,25 @@ export const UserDetail: React.FC = () => {
         {online ? (
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
         ) : null}
-        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
+      <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
       </span>
-      <span>{online ? 'Online' : 'Offline'}</span>
+      <span>
+        {online
+          ? t('common.online', { defaultValue: 'Online' })
+          : t('common.offline', { defaultValue: 'Offline' })}
+      </span>
     </span>
   );
 
   const renderOnlineKeysPill = (onlineCount: number, enabledCount: number) => {
     const hasOnlineKeys = onlineCount > 0;
-    const label = enabledCount > 0 ? `Keys online ${onlineCount}/${enabledCount}` : 'No keys enabled';
+    const label = enabledCount > 0
+      ? t('users.keysActive', {
+          defaultValue: 'Keys online {{online}}/{{enabled}}',
+          online: onlineCount,
+          enabled: enabledCount
+        })
+      : t('users.detail.noKeysEnabled', { defaultValue: 'No keys enabled' });
     return (
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -480,19 +503,19 @@ export const UserDetail: React.FC = () => {
         key: 'enabled',
         dotClass: 'bg-sky-400',
         value: row.enabled ? 1 : 0,
-        label: 'Enabled'
+        label: t('common.enabled', { defaultValue: 'Enabled' })
       },
       {
         key: 'disabled',
         dotClass: 'bg-rose-400',
         value: row.enabled ? 0 : 1,
-        label: 'Disabled'
+        label: t('common.disabled', { defaultValue: 'Disabled' })
       },
       {
         key: 'online',
         dotClass: 'bg-emerald-400',
         value: row.online ? 1 : 0,
-        label: 'Online'
+        label: t('common.online', { defaultValue: 'Online' })
       }
     ];
 
@@ -593,12 +616,15 @@ export const UserDetail: React.FC = () => {
       const templates = payload?.data?.templates || [];
       const keyUrl = getFirstTemplateUrl(templates);
       if (!keyUrl) {
-        throw new Error('No key URL available for this inbound');
+        throw new Error(t('users.detail.toast.noKeyUrl', { defaultValue: 'No key URL available for this inbound' }));
       }
 
       await copyToClipboard(`key-${row.inboundId}`, keyUrl);
     } catch (error: any) {
-      toast.error('Copy failed', error?.message || 'Failed to copy key');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.copyKeyFailed', { defaultValue: 'Failed to copy key' })
+      );
     } finally {
       setCopyingKeyInboundId(null);
     }
@@ -618,7 +644,10 @@ export const UserDetail: React.FC = () => {
       });
       void refetch();
     } catch (error: any) {
-      toast.error('Update failed', error?.message || 'Failed to update key status');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.keyStatusFailed', { defaultValue: 'Failed to update key status' })
+      );
     } finally {
       setTogglingInboundId(null);
     }
@@ -644,7 +673,10 @@ export const UserDetail: React.FC = () => {
       });
       void refetch();
     } catch (error: any) {
-      toast.error('Priority update failed', error?.message || 'Failed to update key priority');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.keyPriorityFailed', { defaultValue: 'Failed to update key priority' })
+      );
     } finally {
       setUpdatingPriorityInboundId(null);
     }
@@ -661,14 +693,18 @@ export const UserDetail: React.FC = () => {
     }> = [
       {
         key: 'reset-traffic',
-        label: resetTraffic.isPending ? 'Resetting traffic…' : 'Reset traffic',
+        label: resetTraffic.isPending
+          ? t('users.detail.actions.resettingTraffic', { defaultValue: 'Resetting traffic...' })
+          : t('users.detail.actions.resetTraffic', { defaultValue: 'Reset traffic' }),
         icon: RotateCcw,
         disabled: resetTraffic.isPending,
         onClick: () => handleResetTraffic()
       },
       {
         key: 'delete-user',
-        label: deleteUser.isPending ? 'Deleting user…' : 'Delete user',
+        label: deleteUser.isPending
+          ? t('users.detail.actions.deletingUser', { defaultValue: 'Deleting user...' })
+          : t('users.detail.actions.deleteUser', { defaultValue: 'Delete user' }),
         icon: Trash2,
         tone: 'danger',
         disabled: deleteUser.isPending,
@@ -680,12 +716,12 @@ export const UserDetail: React.FC = () => {
       <details className="relative">
         <summary
           className="list-none cursor-pointer rounded-xl border border-line/70 bg-card/75 px-3 py-2 text-foreground transition hover:bg-panel/60 [&::-webkit-details-marker]:hidden"
-          aria-label="More actions"
-          title="More actions"
+          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
+          title={t('common.moreActions', { defaultValue: 'More actions' })}
         >
           <span className="inline-flex items-center gap-2">
             <MoreVertical className="h-4 w-4" />
-            <span className="text-sm font-medium">Actions</span>
+            <span className="text-sm font-medium">{t('common.actions', { defaultValue: 'Actions' })}</span>
           </span>
         </summary>
         <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
@@ -731,42 +767,48 @@ export const UserDetail: React.FC = () => {
     }> = [
       {
         key: 'templates',
-        label: 'Client templates',
+        label: t('users.detail.keyMenu.templates', { defaultValue: 'Client templates' }),
         icon: FileCode2,
         disabled: !row.inbound,
         onClick: () => setProfileInbound(row.inbound)
       },
       {
         key: 'copy',
-        label: isCopying ? 'Copying key…' : 'Copy key URL',
+        label: isCopying
+          ? t('users.detail.keyMenu.copyingKey', { defaultValue: 'Copying key...' })
+          : t('users.detail.keyMenu.copyKeyUrl', { defaultValue: 'Copy key URL' }),
         icon: Copy,
         disabled: inboundId <= 0 || isCopying,
         onClick: () => void copyKeyForInbound(row)
       },
       {
         key: 'toggle',
-        label: isToggling ? 'Updating…' : (row.enabled ? 'Disable key' : 'Enable key'),
+        label: isToggling
+          ? t('users.detail.keyMenu.updating', { defaultValue: 'Updating...' })
+          : row.enabled
+          ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+          : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' }),
         icon: row.enabled ? PowerOff : Power,
         disabled: inboundId <= 0 || isToggling,
         onClick: () => void handleToggleInboundKey(row)
       },
       {
         key: 'move-up',
-        label: 'Move up (higher priority)',
+        label: t('users.detail.keyMenu.moveUp', { defaultValue: 'Move up (higher priority)' }),
         icon: ArrowUp,
         disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority <= 1,
         onClick: () => void handleAdjustInboundPriority(row, -1)
       },
       {
         key: 'move-down',
-        label: 'Move down (lower priority)',
+        label: t('users.detail.keyMenu.moveDown', { defaultValue: 'Move down (lower priority)' }),
         icon: ArrowDown,
         disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority >= 9999,
         onClick: () => void handleAdjustInboundPriority(row, 1)
       },
       {
         key: 'open-inbounds',
-        label: 'Open inbounds page',
+        label: t('users.detail.keyMenu.openInbounds', { defaultValue: 'Open inbounds page' }),
         icon: ExternalLink,
         onClick: () => navigate('/inbounds?tab=inbounds')
       }
@@ -778,8 +820,8 @@ export const UserDetail: React.FC = () => {
           className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
             mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
           }`}
-          aria-label="More actions"
-          title="More actions"
+          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
+          title={t('common.moreActions', { defaultValue: 'More actions' })}
           onClick={(event) => event.stopPropagation()}
         >
           <span className="inline-flex items-center">
@@ -816,7 +858,10 @@ export const UserDetail: React.FC = () => {
       (row) => Number.isInteger(Number(row.inboundId)) && Number(row.inboundId) > 0
     );
     if (userInbounds.length === 0) {
-      toast.error('No keys found', 'No keys available for this user.');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('users.detail.toast.noKeys', { defaultValue: 'No keys available for this user.' })
+      );
       return;
     }
 
@@ -825,13 +870,15 @@ export const UserDetail: React.FC = () => {
       const dryRunResponse = await usersApi.previewUserInboundPatternReorder(user.id, 'myanmar');
       const dryRunData = dryRunResponse.data;
       if (!dryRunData) {
-        throw new Error('Failed to generate preview');
+        throw new Error(t('users.detail.toast.previewGenerateFailed', { defaultValue: 'Failed to generate preview' }));
       }
 
       if ((dryRunData.matchedKeys || 0) === 0) {
         toast.error(
-          'No matching profiles',
-          'No Myanmar-compatible profiles found (expected REALITY / VLESS WS TLS / TROJAN WS TLS).'
+          t('common.error', { defaultValue: 'Error' }),
+          t('users.detail.toast.noMyanmarProfiles', {
+            defaultValue: 'No Myanmar-compatible profiles found (expected REALITY / VLESS WS TLS / TROJAN WS TLS).'
+          })
         );
         return;
       }
@@ -843,7 +890,10 @@ export const UserDetail: React.FC = () => {
         newTop3: dryRunData.newTop3 || []
       });
     } catch (error: any) {
-      toast.error('Preview failed', error?.message || 'Failed to apply Myanmar priority order');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.myanmarPreviewFailed', { defaultValue: 'Failed to preview Myanmar priority order' })
+      );
     } finally {
       setIsApplyingMyanmarPriority(false);
     }
@@ -865,11 +915,17 @@ export const UserDetail: React.FC = () => {
       setMyanmarPreviewState(null);
       void refetch();
       toast.success(
-        'Myanmar priority applied',
-        `Promoted ${appliedData?.matchedKeys ?? myanmarPreviewState.matchedKeys ?? 0} matching key(s).`
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.detail.toast.myanmarApplied', {
+          defaultValue: 'Promoted {{count}} matching key(s).',
+          count: appliedData?.matchedKeys ?? myanmarPreviewState.matchedKeys ?? 0
+        })
       );
     } catch (error: any) {
-      toast.error('Apply failed', error?.message || 'Failed to apply Myanmar priority order');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.myanmarApplyFailed', { defaultValue: 'Failed to apply Myanmar priority order' })
+      );
     } finally {
       setIsApplyingMyanmarPriority(false);
     }
@@ -884,7 +940,10 @@ export const UserDetail: React.FC = () => {
       (row) => Number.isInteger(Number(row.inboundId)) && Number(row.inboundId) > 0
     );
     if (userInbounds.length === 0) {
-      toast.error('No keys found', 'No keys available for this user.');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('users.detail.toast.noKeys', { defaultValue: 'No keys available for this user.' })
+      );
       return;
     }
 
@@ -893,13 +952,15 @@ export const UserDetail: React.FC = () => {
       const previewResponse = await usersApi.previewUserInboundQualityReorder(user.id, { windowMinutes: 60 });
       const previewData = previewResponse.data;
       if (!previewData) {
-        throw new Error('Failed to generate preview');
+        throw new Error(t('users.detail.toast.previewGenerateFailed', { defaultValue: 'Failed to generate preview' }));
       }
 
       if ((previewData.scoredKeys || 0) === 0) {
-        toast.error(
-          'No telemetry yet',
-          'No recent connections were detected. Generate traffic on at least one key and try again.'
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('users.detail.toast.noTelemetry', {
+            defaultValue: 'No recent connections were detected. Generate traffic on at least one key and try again.'
+          })
         );
         return;
       }
@@ -919,7 +980,10 @@ export const UserDetail: React.FC = () => {
         previewLines
       });
     } catch (error: any) {
-      toast.error('Preview failed', error?.message || 'Failed to generate quality preview');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.qualityPreviewFailed', { defaultValue: 'Failed to generate quality preview' })
+      );
     } finally {
       setIsApplyingQualityOrder(false);
     }
@@ -943,11 +1007,17 @@ export const UserDetail: React.FC = () => {
       setQualityPreviewState(null);
       void refetch();
       toast.success(
-        'Auto-tune applied',
-        `Reordered ${appliedData?.scoredKeys ?? qualityPreviewState.scoredKeys} key(s) with telemetry.`
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.detail.toast.qualityApplied', {
+          defaultValue: 'Reordered {{count}} key(s) with telemetry.',
+          count: appliedData?.scoredKeys ?? qualityPreviewState.scoredKeys
+        })
       );
     } catch (error: any) {
-      toast.error('Apply failed', error?.message || 'Failed to apply quality ordering');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.qualityApplyFailed', { defaultValue: 'Failed to apply quality ordering' })
+      );
     } finally {
       setIsApplyingQualityOrder(false);
     }
@@ -1015,7 +1085,10 @@ export const UserDetail: React.FC = () => {
       });
       void refetch();
     } catch (error: any) {
-      toast.error('Reorder failed', error?.message || 'Failed to reorder keys');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.toast.reorderFailed', { defaultValue: 'Failed to reorder keys' })
+      );
     } finally {
       setIsReorderingByDrag(false);
       clearDragState();
@@ -1045,11 +1118,17 @@ export const UserDetail: React.FC = () => {
     try {
       if (pendingConfirm.type === 'reset-traffic') {
         await resetTraffic.mutateAsync(user.id);
-        toast.success('Traffic reset', 'User traffic counters were reset.');
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('users.detail.toast.trafficReset', { defaultValue: 'User traffic counters were reset.' })
+        );
         void refetch();
       } else if (pendingConfirm.type === 'delete-user') {
         await deleteUser.mutateAsync(user.id);
-        toast.success('User deleted', 'User was deleted successfully.');
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('users.detail.toast.userDeleted', { defaultValue: 'User was deleted successfully.' })
+        );
         setPendingConfirm(null);
         navigate('/users');
         return;
@@ -1058,41 +1137,55 @@ export const UserDetail: React.FC = () => {
           id: user.id,
           fingerprint: pendingConfirm.fingerprint
         });
-        toast.success('Device revoked', 'Device session was revoked.');
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('users.detail.toast.deviceRevoked', { defaultValue: 'Device session was revoked.' })
+        );
         void userDevicesQuery.refetch();
         void userSessionQuery.refetch();
       }
       setPendingConfirm(null);
     } catch (error: any) {
       if (pendingConfirm.type === 'reset-traffic') {
-        toast.error('Reset failed', error?.message || 'Failed to reset traffic');
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          error?.message || t('users.detail.toast.resetFailed', { defaultValue: 'Failed to reset traffic' })
+        );
       } else if (pendingConfirm.type === 'delete-user') {
-        toast.error('Delete failed', error?.message || 'Failed to delete user');
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          error?.message || t('users.detail.toast.deleteFailed', { defaultValue: 'Failed to delete user' })
+        );
       } else {
-        toast.error('Revoke failed', error?.message || 'Failed to revoke device session');
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          error?.message || t('users.detail.toast.revokeFailed', { defaultValue: 'Failed to revoke device session' })
+        );
       }
     }
   };
 
   const confirmTitle = pendingConfirm?.type === 'reset-traffic'
-    ? 'Reset Traffic'
+    ? t('users.actions.resetTrafficTitle', { defaultValue: 'Reset traffic?' })
     : pendingConfirm?.type === 'delete-user'
-    ? 'Delete User'
+    ? t('users.detail.confirm.deleteTitle', { defaultValue: 'Delete user?' })
     : pendingConfirm?.type === 'revoke-device'
-    ? 'Revoke Device Session'
+    ? t('users.devices.revokeTitle', { defaultValue: 'Revoke Device Session' })
     : '';
   const confirmDescription = pendingConfirm?.type === 'reset-traffic'
-    ? 'Reset traffic for this user?'
+    ? t('users.actions.resetTrafficDescription', { defaultValue: "Reset this user's upload/download counters." })
     : pendingConfirm?.type === 'delete-user'
-    ? 'Are you sure you want to delete this user? This action cannot be undone.'
+    ? t('users.detail.confirm.deleteDescription', {
+        defaultValue: 'Are you sure you want to delete this user? This action cannot be undone.'
+      })
     : pendingConfirm?.type === 'revoke-device'
-    ? 'Revoke this device session? The device will need to fetch subscription again.'
+    ? t('users.devices.revokeDescription', { defaultValue: 'Revoke this device? It will need to reconnect.' })
     : '';
   const confirmLabel = pendingConfirm?.type === 'delete-user'
-    ? 'Delete'
+    ? t('common.delete', { defaultValue: 'Delete' })
     : pendingConfirm?.type === 'reset-traffic'
-    ? 'Reset'
-    : 'Revoke';
+    ? t('common.reset', { defaultValue: 'Reset' })
+    : t('common.revoke', { defaultValue: 'Revoke' });
   const confirmTone = pendingConfirm?.type === 'delete-user' ? 'danger' : 'primary';
 
   const getStatusBadge = () => {
@@ -1115,7 +1208,9 @@ export const UserDetail: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{user.email}</h1>
-            <p className="mt-1 text-sm text-muted">User Details &amp; Access Keys</p>
+            <p className="mt-1 text-sm text-muted">
+              {t('users.detail.subtitle', { defaultValue: 'User details & access keys' })}
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {renderOnlineKeysPill(onlineKeyCount, enabledKeyCount)}
             </div>
@@ -1125,7 +1220,7 @@ export const UserDetail: React.FC = () => {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           <Button variant="secondary" onClick={() => setShowEditModal(true)}>
             <Edit className="mr-2 h-4 w-4" />
-            Edit
+            {t('common.edit', { defaultValue: 'Edit' })}
           </Button>
           {renderUserHeaderActionMenu()}
         </div>
@@ -1133,38 +1228,61 @@ export const UserDetail: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
         <Card>
-          <p className="text-sm text-muted">Status</p>
+          <p className="text-sm text-muted">{t('common.status', { defaultValue: 'Status' })}</p>
           <div className="mt-2">{getStatusBadge()}</div>
         </Card>
 
         <Card>
-          <p className="text-sm text-muted">Online</p>
+          <p className="text-sm text-muted">{t('common.online', { defaultValue: 'Online' })}</p>
           <div className="mt-2">{renderOnlinePill(isUserOnline)}</div>
           <p className="mt-1 text-xs text-muted">{lastSeenLabel}</p>
         </Card>
 
         <Card>
-          <p className="text-sm text-muted">Data Used</p>
+          <p className="text-sm text-muted">{t('users.dataUsed', { defaultValue: 'Data Used' })}</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{formatBytes(totalUsed)}</p>
-          <p className="mt-1 text-xs text-muted">of {formatBytes(dataLimit)}</p>
+          <p className="mt-1 text-xs text-muted">
+            {t('users.detail.dataLimitCaption', {
+              defaultValue: 'Limit: {{limit}}',
+              limit: formatBytes(dataLimit)
+            })}
+          </p>
         </Card>
 
         <Card>
-          <p className="text-sm text-muted">Remaining</p>
+          <p className="text-sm text-muted">{t('users.detail.remaining', { defaultValue: 'Remaining' })}</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{formatBytes(remaining)}</p>
-          <p className="mt-1 text-xs text-muted">{remainingPercent.toFixed(1)}% left</p>
+          <p className="mt-1 text-xs text-muted">
+            {t('users.detail.remainingPercentLeft', {
+              defaultValue: '{{percent}}% left',
+              percent: remainingPercent.toFixed(1)
+            })}
+          </p>
         </Card>
 
         <Card>
-          <p className="text-sm text-muted">{isDeferredExpiry ? 'Expiry' : 'Expires In'}</p>
+          <p className="text-sm text-muted">
+            {isDeferredExpiry
+              ? t('common.expiry', { defaultValue: 'Expiry' })
+              : t('users.detail.expiresIn', { defaultValue: 'Expires in' })}
+          </p>
           {isDeferredExpiry ? (
             <>
-              <p className="mt-2 text-base font-semibold text-foreground">Starts on first connect</p>
-              <p className="mt-1 text-xs text-muted">{daysRemaining} days after first connect</p>
+              <p className="mt-2 text-base font-semibold text-foreground">
+                {t('users.startOnFirstConnect', { defaultValue: 'Starts on first connect' })}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {t('users.detail.expiry.afterFirstConnect', {
+                  defaultValue: '{{days}} days after first connect',
+                  days: daysRemaining
+                })}
+              </p>
             </>
           ) : (
             <>
-              <p className="mt-1 text-2xl font-bold text-foreground">{daysRemaining} days</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
+                {t('users.detail.expiry.daysValue', { defaultValue: '{{count}} days', count: daysRemaining })}
+              </p>
               <p className="mt-1 text-xs text-muted">{formatDate(user.expireDate)}</p>
             </>
           )}
@@ -1172,15 +1290,17 @@ export const UserDetail: React.FC = () => {
       </div>
 
       <Card>
-        <h2 className="mb-4 text-xl font-bold text-foreground">User Information</h2>
+        <h2 className="mb-4 text-xl font-bold text-foreground">
+          {t('users.detail.userInfoTitle', { defaultValue: 'User Information' })}
+        </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
-            <label className="text-sm text-muted">Email</label>
+            <label className="text-sm text-muted">{t('users.email', { defaultValue: 'Email' })}</label>
             <p className="mt-1 font-medium text-foreground">{user.email}</p>
           </div>
 
           <div>
-            <label className="text-sm text-muted">UUID</label>
+            <label className="text-sm text-muted">{t('users.uuid', { defaultValue: 'UUID' })}</label>
             <div className="mt-1 flex items-center gap-2">
               <code className="rounded-lg border border-line/70 bg-panel/70 px-2 py-1 font-mono text-sm text-foreground">
                 {user.uuid}
@@ -1190,7 +1310,7 @@ export const UserDetail: React.FC = () => {
                   void copyToClipboard('uuid', user.uuid);
                 }}
                 className="rounded p-1 transition-colors hover:bg-card"
-                aria-label="Copy UUID"
+                aria-label={t('users.detail.copyUuid', { defaultValue: 'Copy UUID' })}
               >
                 {copiedField === 'uuid' ? (
                   <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -1202,7 +1322,7 @@ export const UserDetail: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-sm text-muted">Password</label>
+            <label className="text-sm text-muted">{t('auth.password', { defaultValue: 'Password' })}</label>
             <div className="mt-1 flex items-center gap-2">
               <code className="rounded-lg border border-line/70 bg-panel/70 px-2 py-1 font-mono text-sm text-foreground">
                 {user.password}
@@ -1212,7 +1332,7 @@ export const UserDetail: React.FC = () => {
                   void copyToClipboard('password', user.password);
                 }}
                 className="rounded p-1 transition-colors hover:bg-card"
-                aria-label="Copy password"
+                aria-label={t('users.detail.copyPassword', { defaultValue: 'Copy password' })}
               >
                 {copiedField === 'password' ? (
                   <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -1224,13 +1344,13 @@ export const UserDetail: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-sm text-muted">Created At</label>
+            <label className="text-sm text-muted">{t('users.detail.createdAt', { defaultValue: 'Created at' })}</label>
             <p className="mt-1 text-foreground">{formatDate(user.createdAt)}</p>
           </div>
 
           {user.note ? (
             <div className="md:col-span-2">
-              <label className="text-sm text-muted">Note</label>
+              <label className="text-sm text-muted">{t('users.note', { defaultValue: 'Note' })}</label>
               <p className="mt-1 text-foreground">{user.note}</p>
             </div>
           ) : null}
@@ -1240,9 +1360,13 @@ export const UserDetail: React.FC = () => {
       <Card>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Effective Inbound Access</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {t('users.detail.effectiveInbounds.title', { defaultValue: 'Effective inbound access' })}
+            </h2>
             <p className="mt-1 text-sm text-muted">
-              Combined view of direct assignments and inherited group mappings.
+              {t('users.detail.effectiveInbounds.subtitle', {
+                defaultValue: 'Combined view of direct assignments and inherited group mappings.'
+              })}
             </p>
           </div>
           <Button
@@ -1254,15 +1378,17 @@ export const UserDetail: React.FC = () => {
             }}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            {t('common.refresh', { defaultValue: 'Refresh' })}
           </Button>
         </div>
 
         {effectiveInboundsQuery.isLoading ? (
-          <div className="py-4 text-sm text-muted">Loading effective access...</div>
+          <div className="py-4 text-sm text-muted">
+            {t('users.detail.effectiveInbounds.loading', { defaultValue: 'Loading effective access...' })}
+          </div>
         ) : !effectiveInboundsPayload || effectiveInboundsPayload.effectiveInbounds.length === 0 ? (
           <div className="rounded-xl border border-line/70 bg-panel/55 p-4 text-sm text-muted">
-            No effective inbounds found for this user.
+            {t('users.detail.effectiveInbounds.empty', { defaultValue: 'No effective inbounds found for this user.' })}
           </div>
         ) : (
           <div className="space-y-3">
@@ -1279,7 +1405,9 @@ export const UserDetail: React.FC = () => {
                     <p className="text-sm text-muted">{entry.inbound.remark || entry.inbound.tag}</p>
                   </div>
                   <Badge variant={entry.inbound.enabled ? 'success' : 'warning'}>
-                    {entry.inbound.enabled ? 'Inbound enabled' : 'Inbound disabled'}
+                    {entry.inbound.enabled
+                      ? t('users.detail.effectiveInbounds.badgeEnabled', { defaultValue: 'Inbound enabled' })
+                      : t('users.detail.effectiveInbounds.badgeDisabled', { defaultValue: 'Inbound disabled' })}
                   </Badge>
                 </div>
 
@@ -1293,7 +1421,12 @@ export const UserDetail: React.FC = () => {
                           : 'bg-violet-500/20 text-violet-200'
                       }`}
                     >
-                      {source.type === 'DIRECT' ? 'Direct' : `Group: ${source.groupName || source.groupId}`}
+                      {source.type === 'DIRECT'
+                        ? t('users.detail.effectiveInbounds.sourceDirect', { defaultValue: 'Direct' })
+                        : t('users.detail.effectiveInbounds.sourceGroup', {
+                            defaultValue: 'Group: {{name}}',
+                            name: source.groupName || String(source.groupId)
+                          })}
                     </span>
                   ))}
                 </div>
@@ -1306,9 +1439,13 @@ export const UserDetail: React.FC = () => {
       <Card>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Effective Policy</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {t('users.detail.policy.title', { defaultValue: 'Effective policy' })}
+            </h2>
             <p className="mt-1 text-sm text-muted">
-              Compare direct user policy with inherited group policy overrides.
+              {t('users.detail.policy.subtitle', {
+                defaultValue: 'Compare direct user policy with inherited group policy overrides.'
+              })}
             </p>
           </div>
           <Button
@@ -1320,15 +1457,17 @@ export const UserDetail: React.FC = () => {
             }}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            {t('common.refresh', { defaultValue: 'Refresh' })}
           </Button>
         </div>
 
         {effectivePolicyQuery.isLoading ? (
-          <div className="py-4 text-sm text-muted">Loading effective policy...</div>
+          <div className="py-4 text-sm text-muted">
+            {t('users.detail.policy.loading', { defaultValue: 'Loading effective policy...' })}
+          </div>
         ) : !effectivePolicyPayload ? (
           <div className="rounded-xl border border-line/70 bg-panel/55 p-4 text-sm text-muted">
-            Effective policy is unavailable for this user.
+            {t('users.detail.policy.unavailable', { defaultValue: 'Effective policy is unavailable for this user.' })}
           </div>
         ) : (
           <div className="space-y-4">
@@ -1336,71 +1475,99 @@ export const UserDetail: React.FC = () => {
               <table className="min-w-[760px] w-full text-sm">
                 <thead className="bg-panel/80 text-xs uppercase tracking-wide text-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left">Field</th>
-                    <th className="px-4 py-3 text-left">Direct</th>
-                    <th className="px-4 py-3 text-left">Inherited</th>
-                    <th className="px-4 py-3 text-left">Effective</th>
+                    <th className="px-4 py-3 text-left">
+                      {t('users.detail.policy.table.field', { defaultValue: 'Field' })}
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      {t('users.detail.policy.table.direct', { defaultValue: 'Direct' })}
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      {t('users.detail.policy.table.inherited', { defaultValue: 'Inherited' })}
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      {t('users.detail.policy.table.effective', { defaultValue: 'Effective' })}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-t border-line/70">
-                    <td className="px-4 py-3 font-medium text-foreground">Data Limit</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {t('users.dataLimit', { defaultValue: 'Data Limit' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">
                       {formatBytes(Number(effectivePolicyPayload.directPolicy.dataLimit || 0))}
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.inheritedPolicy.dataLimit !== null
                         ? formatBytes(Number(effectivePolicyPayload.inheritedPolicy.dataLimit || 0))
-                        : 'No override'}
+                        : t('common.noOverride', { defaultValue: 'No override' })}
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {formatBytes(Number(effectivePolicyPayload.effectivePolicy.dataLimit || 0))}
                       {effectivePolicyPayload.drift.dataLimit ? (
-                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">Drift</span>
+                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                          {t('common.drift', { defaultValue: 'Drift' })}
+                        </span>
                       ) : null}
                     </td>
                   </tr>
                   <tr className="border-t border-line/70">
-                    <td className="px-4 py-3 font-medium text-foreground">Expiry</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {t('common.expiry', { defaultValue: 'Expiry' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">{formatDate(effectivePolicyPayload.directPolicy.expireDate)}</td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.inheritedPolicy.expireDate
                         ? formatDate(effectivePolicyPayload.inheritedPolicy.expireDate)
-                        : 'No override'}
+                        : t('common.noOverride', { defaultValue: 'No override' })}
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {formatDate(effectivePolicyPayload.effectivePolicy.expireDate)}
                       {effectivePolicyPayload.drift.expireDate ? (
-                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">Drift</span>
+                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                          {t('common.drift', { defaultValue: 'Drift' })}
+                        </span>
                       ) : null}
                     </td>
                   </tr>
                   <tr className="border-t border-line/70">
-                    <td className="px-4 py-3 font-medium text-foreground">IP Limit</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {t('users.form.ipLimitLabel', { defaultValue: 'IP Limit' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">{effectivePolicyPayload.directPolicy.ipLimit}</td>
                     <td className="px-4 py-3 text-foreground">
-                      {effectivePolicyPayload.inheritedPolicy.ipLimit ?? 'No override'}
+                      {effectivePolicyPayload.inheritedPolicy.ipLimit ?? t('common.noOverride', { defaultValue: 'No override' })}
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.effectivePolicy.ipLimit}
                       {effectivePolicyPayload.drift.ipLimit ? (
-                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">Drift</span>
+                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                          {t('common.drift', { defaultValue: 'Drift' })}
+                        </span>
                       ) : null}
                     </td>
                   </tr>
                   <tr className="border-t border-line/70">
-                    <td className="px-4 py-3 font-medium text-foreground">Status</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {t('common.status', { defaultValue: 'Status' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">{effectivePolicyPayload.directPolicy.status}</td>
-                    <td className="px-4 py-3 text-foreground">{effectivePolicyPayload.inheritedPolicy.status || 'No override'}</td>
+                    <td className="px-4 py-3 text-foreground">
+                      {effectivePolicyPayload.inheritedPolicy.status || t('common.noOverride', { defaultValue: 'No override' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.effectivePolicy.status}
                       {effectivePolicyPayload.drift.status ? (
-                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">Drift</span>
+                        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                          {t('common.drift', { defaultValue: 'Drift' })}
+                        </span>
                       ) : null}
                     </td>
                   </tr>
                   <tr className="border-t border-line/70">
-                    <td className="px-4 py-3 font-medium text-foreground">Traffic Reset</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {t('users.detail.policy.table.trafficReset', { defaultValue: 'Traffic reset' })}
+                    </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.directPolicy.trafficResetPeriod}
                       {effectivePolicyPayload.directPolicy.trafficResetDay
@@ -1414,7 +1581,7 @@ export const UserDetail: React.FC = () => {
                               ? ` @${effectivePolicyPayload.inheritedPolicy.trafficResetDay}`
                               : ''
                           }`
-                        : 'No override'}
+                        : t('common.noOverride', { defaultValue: 'No override' })}
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.effectivePolicy.trafficResetPeriod}
@@ -1428,10 +1595,14 @@ export const UserDetail: React.FC = () => {
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted">Group policy sources</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                {t('users.detail.policy.groupSources', { defaultValue: 'Group policy sources' })}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {effectivePolicyPayload.groups.length === 0 ? (
-                  <span className="text-sm text-muted">No active groups assigned</span>
+                  <span className="text-sm text-muted">
+                    {t('users.detail.policy.noGroups', { defaultValue: 'No active groups assigned' })}
+                  </span>
                 ) : (
                   effectivePolicyPayload.groups.map((group) => (
                     <span
@@ -1452,9 +1623,13 @@ export const UserDetail: React.FC = () => {
         <div className="border-b border-line/70 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-foreground">Access Keys</h2>
+              <h2 className="text-xl font-bold text-foreground">
+                {t('users.detail.keys.title', { defaultValue: 'Access keys' })}
+              </h2>
               <p className="mt-1 text-sm text-muted">
-                Manage per-inbound keys, key status, online visibility, and quick template actions.
+                {t('users.detail.keys.subtitle', {
+                  defaultValue: 'Manage per-inbound keys, status, online visibility, and client templates.'
+                })}
               </p>
             </div>
 
@@ -1464,11 +1639,11 @@ export const UserDetail: React.FC = () => {
                 onChange={(event) => setAccessKeyFilter(event.target.value as AccessKeyFilter)}
                 className="rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-xs text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
               >
-                <option value="all">All Keys</option>
-                <option value="enabled">Enabled</option>
-                <option value="disabled">Disabled</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
+                <option value="all">{t('users.detail.keys.filter.all', { defaultValue: 'All keys' })}</option>
+                <option value="enabled">{t('common.enabled', { defaultValue: 'Enabled' })}</option>
+                <option value="disabled">{t('common.disabled', { defaultValue: 'Disabled' })}</option>
+                <option value="online">{t('common.online', { defaultValue: 'Online' })}</option>
+                <option value="offline">{t('common.offline', { defaultValue: 'Offline' })}</option>
               </select>
 
               <select
@@ -1478,7 +1653,7 @@ export const UserDetail: React.FC = () => {
               >
                 {REFRESH_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    Refresh {option.label}
+                    {t('common.refresh', { defaultValue: 'Refresh' })} {option.label}
                   </option>
                 ))}
               </select>
@@ -1488,8 +1663,8 @@ export const UserDetail: React.FC = () => {
                 onChange={(event) => setAccessKeyDensity(event.target.value as AccessKeyDensity)}
                 className="rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-xs text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
               >
-                <option value="comfortable">Comfortable rows</option>
-                <option value="compact">Compact rows</option>
+                <option value="comfortable">{t('users.detail.keys.density.comfortable', { defaultValue: 'Comfortable rows' })}</option>
+                <option value="compact">{t('users.detail.keys.density.compact', { defaultValue: 'Compact rows' })}</option>
               </select>
 
               <Button
@@ -1535,35 +1710,59 @@ export const UserDetail: React.FC = () => {
           </div>
           <p className="mt-2 text-xs text-muted">
             {isDragReorderEnabled
-              ? 'Drag rows from the Menu column to reorder key priority. New order controls subscription fallback.'
-              : 'Enable drag reorder by setting Filter: All Keys and Sort: Priority ascending.'}
+              ? t('users.detail.keys.dragHintEnabled', {
+                  defaultValue: 'Drag rows from the Menu column to reorder key priority. The order controls subscription fallback.'
+                })
+              : t('users.detail.keys.dragHintDisabled', {
+                  defaultValue: 'Enable drag reorder by setting Filter: All keys and Sort: Priority ascending.'
+                })}
           </p>
         </div>
 
         {filteredAndSortedKeyRows.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-muted">No keys match the selected filter.</div>
+          <div className="px-5 py-8 text-sm text-muted">
+            {t('users.detail.keys.empty', { defaultValue: 'No keys match the selected filter.' })}
+          </div>
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
               <table className={`min-w-[1100px] w-full ${accessKeyDensity === 'compact' ? 'text-xs' : 'text-sm'}`}>
                 <thead className="bg-panel/65">
                   <tr className="border-b border-line/70 text-left text-xs uppercase tracking-wide text-muted">
-                    <th className={tableHeaderCellClass}>Menu</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Enabled', 'enabled')}</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Online', 'online')}</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Client / Key', 'key')}</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Protocol', 'protocol')}</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Port', 'port')}</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Priority', 'priority')}</th>
-                    <th className={tableHeaderCellClass}>Traffic</th>
-                    <th className={tableHeaderCellClass}>{renderSortableHeader('Expiration', 'expiration')}</th>
+                    <th className={tableHeaderCellClass}>
+                      {t('users.detail.keys.table.menu', { defaultValue: 'Menu' })}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('common.enabled', { defaultValue: 'Enabled' }), 'enabled')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('common.online', { defaultValue: 'Online' }), 'online')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('users.detail.keys.table.clientKey', { defaultValue: 'Client / Key' }), 'key')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('users.detail.keys.table.protocol', { defaultValue: 'Protocol' }), 'protocol')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('users.detail.keys.table.port', { defaultValue: 'Port' }), 'port')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('users.detail.keys.table.priority', { defaultValue: 'Priority' }), 'priority')}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {t('users.detail.keys.table.traffic', { defaultValue: 'Traffic' })}
+                    </th>
+                    <th className={tableHeaderCellClass}>
+                      {renderSortableHeader(t('users.detail.keys.table.expiration', { defaultValue: 'Expiration' }), 'expiration')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAndSortedKeyRows.map((keyRow) => {
                     const row = keyRow.relation;
                     const inboundId = Number.parseInt(String(row.inboundId || 0), 10);
-                    const rowLastSeenLabel = getRelativeLastSeenLabel(keyRow.online, keyRow.lastSeenAt, nowTimestamp);
+                    const rowLastSeenLabel = getRelativeLastSeenLabel(t, keyRow.online, keyRow.lastSeenAt, nowTimestamp);
                     const isInboundDragEnabled = isDragReorderEnabled && inboundId > 0 && !isReorderingByDrag;
                     const isDraggedRow = draggingInboundId === inboundId;
                     const isDropTargetRow = dragOverInboundId === inboundId && draggingInboundId !== inboundId;
@@ -1591,7 +1790,13 @@ export const UserDetail: React.FC = () => {
                               className={`inline-flex items-center rounded p-1 ${
                                 isInboundDragEnabled ? 'cursor-grab text-muted hover:bg-panel/70 hover:text-foreground' : 'text-muted/40'
                               }`}
-                              title={isDragReorderEnabled ? 'Drag to reorder priority' : 'Sort by priority asc to enable drag reorder'}
+                              title={
+                                isDragReorderEnabled
+                                  ? t('users.detail.keys.dragHandleEnabled', { defaultValue: 'Drag to reorder priority' })
+                                  : t('users.detail.keys.dragHandleDisabled', {
+                                      defaultValue: 'Sort by priority ascending to enable drag reorder'
+                                    })
+                              }
                             >
                               <GripVertical className="h-4 w-4" />
                             </span>
@@ -1604,8 +1809,16 @@ export const UserDetail: React.FC = () => {
                             type="button"
                             role="switch"
                             aria-checked={row.enabled}
-                            aria-label={row.enabled ? 'Disable key' : 'Enable key'}
-                            title={row.enabled ? 'Disable key' : 'Enable key'}
+                            aria-label={
+                              row.enabled
+                                ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+                                : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' })
+                            }
+                            title={
+                              row.enabled
+                                ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+                                : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' })
+                            }
                             disabled={togglingInboundId === row.inboundId}
                             onClick={() => {
                               void handleToggleInboundKey(row);
@@ -1627,7 +1840,11 @@ export const UserDetail: React.FC = () => {
                           <p className="mt-1 text-[11px] text-muted">{rowLastSeenLabel}</p>
                           {keyRow.seenDevices > 0 ? (
                             <p className="mt-0.5 text-[11px] text-muted">
-                              Devices {keyRow.onlineDevices}/{keyRow.seenDevices}
+                              {t('users.detail.keys.devicesCount', {
+                                defaultValue: 'Devices {{online}}/{{seen}}',
+                                online: keyRow.onlineDevices,
+                                seen: keyRow.seenDevices
+                              })}
                             </p>
                           ) : null}
                         </td>
@@ -1678,7 +1895,9 @@ export const UserDetail: React.FC = () => {
                                 : 'bg-brand-500/20 text-brand-200'
                             }`}
                           >
-                            {keyRow.expirationDays <= 0 ? 'Expired' : `${keyRow.expirationDays}d`}
+                            {keyRow.expirationDays <= 0
+                              ? t('common.expired', { defaultValue: 'Expired' })
+                              : t('users.detail.keys.shortDays', { defaultValue: '{{count}}d', count: keyRow.expirationDays })}
                           </span>
                         </td>
                       </tr>
@@ -1691,14 +1910,14 @@ export const UserDetail: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 p-4 lg:hidden">
               {filteredAndSortedKeyRows.map((keyRow) => {
                 const row = keyRow.relation;
-                const rowLastSeenLabel = getRelativeLastSeenLabel(keyRow.online, keyRow.lastSeenAt, nowTimestamp);
+                const rowLastSeenLabel = getRelativeLastSeenLabel(t, keyRow.online, keyRow.lastSeenAt, nowTimestamp);
                 return (
                   <div key={`mobile-${row.id}`} className={`rounded-xl border border-line/70 bg-card/70 ${mobileCardPaddingClass}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-foreground">{keyRow.label}</p>
                         <p className="text-xs text-muted">
-                          {keyRow.protocol} · Port {keyRow.port}
+                          {keyRow.protocol} · {t('users.detail.keys.portLabelShort', { defaultValue: 'Port' })} {keyRow.port}
                         </p>
                         {renderSignalCounters(keyRow)}
                       </div>
@@ -1710,7 +1929,11 @@ export const UserDetail: React.FC = () => {
                         <p className="text-[11px] text-muted">{rowLastSeenLabel}</p>
                         {keyRow.seenDevices > 0 ? (
                           <p className="text-[11px] text-muted">
-                            Devices {keyRow.onlineDevices}/{keyRow.seenDevices}
+                            {t('users.detail.keys.devicesCount', {
+                              defaultValue: 'Devices {{online}}/{{seen}}',
+                              online: keyRow.onlineDevices,
+                              seen: keyRow.seenDevices
+                            })}
                           </p>
                         ) : null}
                       </div>
@@ -1718,13 +1941,14 @@ export const UserDetail: React.FC = () => {
 
                     <div className={`mt-3 ${mobileSectionSpacingClass}`}>
                       <p className="text-xs text-muted">
-                        Priority:{' '}
+                        {t('users.detail.keys.table.priority', { defaultValue: 'Priority' })}:{' '}
                         <span className="inline-flex items-center rounded-full border border-line/70 bg-card/70 px-2 py-0.5 text-[11px] font-semibold text-foreground">
                           {keyRow.priority}
                         </span>
                       </p>
                       <p className="text-xs text-muted">
-                        Usage: {formatBytes(totalUsed)} / {dataLimit > 0 ? formatBytes(dataLimit) : '∞'}
+                        {t('users.detail.keys.usageLabel', { defaultValue: 'Usage' })}:{' '}
+                        {formatBytes(totalUsed)} / {dataLimit > 0 ? formatBytes(dataLimit) : '∞'}
                       </p>
                       <div className="h-2 rounded-full bg-panel/80">
                         <div
@@ -1733,18 +1957,29 @@ export const UserDetail: React.FC = () => {
                         />
                       </div>
                       <p className="text-xs text-muted">
-                        Expiration: {keyRow.expirationDays <= 0 ? 'Expired' : `${keyRow.expirationDays} days`}
+                        {t('users.detail.keys.table.expiration', { defaultValue: 'Expiration' })}:{' '}
+                        {keyRow.expirationDays <= 0
+                          ? t('common.expired', { defaultValue: 'Expired' })
+                          : t('common.daysLeft', { defaultValue: '{{count}} days left', count: keyRow.expirationDays })}
                       </p>
                     </div>
 
                     <div className={`${mobileActionsMarginClass} flex items-center justify-between rounded-xl border border-line/70 bg-panel/40 px-3 py-2`}>
-                      <span className="text-xs font-medium text-foreground">Enabled</span>
+                      <span className="text-xs font-medium text-foreground">{t('common.enabled', { defaultValue: 'Enabled' })}</span>
                       <button
                         type="button"
                         role="switch"
                         aria-checked={row.enabled}
-                        aria-label={row.enabled ? 'Disable key' : 'Enable key'}
-                        title={row.enabled ? 'Disable key' : 'Enable key'}
+                        aria-label={
+                          row.enabled
+                            ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+                            : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' })
+                        }
+                        title={
+                          row.enabled
+                            ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+                            : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' })
+                        }
                         disabled={togglingInboundId === row.inboundId}
                         onClick={() => {
                           void handleToggleInboundKey(row);
@@ -1771,9 +2006,16 @@ export const UserDetail: React.FC = () => {
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Device Sessions</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {t('users.detail.devicesSessions.title', { defaultValue: 'Device sessions' })}
+            </h2>
             <p className="text-xs text-muted">
-              {userDevicesQuery.data?.data?.online || 0} online / {userDevicesQuery.data?.data?.total || 0} seen in last 60 minutes
+              {t('users.detail.devicesSessions.subtitle', {
+                defaultValue: '{{online}} online / {{total}} seen in last {{minutes}} minutes',
+                online: userDevicesQuery.data?.data?.online || 0,
+                total: userDevicesQuery.data?.data?.total || 0,
+                minutes: 60
+              })}
             </p>
           </div>
           <Button
@@ -1794,28 +2036,30 @@ export const UserDetail: React.FC = () => {
             <Skeleton className="h-10 w-full" />
           </div>
         ) : userDevices.length === 0 ? (
-          <p className="text-sm text-muted">No tracked devices yet.</p>
+          <p className="text-sm text-muted">
+            {t('users.devices.noneRecent', { defaultValue: 'No devices tracked in the last {{minutes}} minutes.', minutes: 60 })}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted">
                 <tr className="border-b border-line/70">
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Fingerprint</th>
-                  <th className="py-2 pr-3">IP</th>
-                  <th className="py-2 pr-3">Last Seen</th>
-                  <th className="py-2 text-right">Action</th>
+                  <th className="py-2 pr-3">{t('common.status', { defaultValue: 'Status' })}</th>
+                  <th className="py-2 pr-3">{t('users.detail.devicesSessions.columns.fingerprint', { defaultValue: 'Fingerprint' })}</th>
+                  <th className="py-2 pr-3">{t('users.detail.devicesSessions.columns.ip', { defaultValue: 'IP' })}</th>
+                  <th className="py-2 pr-3">{t('users.detail.devicesSessions.columns.lastSeen', { defaultValue: 'Last seen' })}</th>
+                  <th className="py-2 text-right">{t('common.action', { defaultValue: 'Action' })}</th>
                 </tr>
               </thead>
               <tbody>
                 {userDevices.slice(0, 12).map((device) => (
                   <tr key={device.fingerprint} className="border-b border-line/50">
                     <td className="py-2 pr-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
-                          device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
-                        }`}
-                      >
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
+                            device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
+                          }`}
+                        >
                         <span className="relative inline-flex h-2.5 w-2.5">
                           {device.online ? (
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
@@ -1826,7 +2070,9 @@ export const UserDetail: React.FC = () => {
                             }`}
                           />
                         </span>
-                        {device.online ? 'Online' : 'Offline'}
+                        {device.online
+                          ? t('common.online', { defaultValue: 'Online' })
+                          : t('common.offline', { defaultValue: 'Offline' })}
                       </span>
                     </td>
                     <td className="py-2 pr-3 font-mono text-xs text-muted">{device.shortFingerprint}</td>
@@ -1841,7 +2087,7 @@ export const UserDetail: React.FC = () => {
                         }}
                         loading={revokeUserDevice.isPending}
                       >
-                        Revoke
+                        {t('common.revoke', { defaultValue: 'Revoke' })}
                       </Button>
                     </td>
                   </tr>
@@ -1886,7 +2132,7 @@ export const UserDetail: React.FC = () => {
         title={confirmTitle}
         description={confirmDescription}
         confirmLabel={confirmLabel}
-        cancelLabel="Cancel"
+        cancelLabel={t('common.cancel', { defaultValue: 'Cancel' })}
         tone={confirmTone}
         loading={confirmLoading}
         onCancel={() => {
@@ -1904,9 +2150,9 @@ export const UserDetail: React.FC = () => {
         title={t('users.myanmarPriorityPreviewTitle', { defaultValue: 'Myanmar Priority Preview' })}
         description={t('users.myanmarPriorityPreviewBody', { defaultValue: 'Review current and new fallback order before applying.' })}
         summaryRows={[
-          { label: 'Total Keys', value: myanmarPreviewState?.totalKeys ?? 0 },
-          { label: 'Matched Keys', value: myanmarPreviewState?.matchedKeys ?? 0 },
-          { label: 'Keys To Reorder', value: myanmarPreviewState?.changedKeys ?? 0 }
+          { label: t('users.preview.totalKeys', { defaultValue: 'Total keys' }), value: myanmarPreviewState?.totalKeys ?? 0 },
+          { label: t('users.preview.matchedKeys', { defaultValue: 'Matched keys' }), value: myanmarPreviewState?.matchedKeys ?? 0 },
+          { label: t('users.preview.keysToReorder', { defaultValue: 'Keys to reorder' }), value: myanmarPreviewState?.changedKeys ?? 0 }
         ]}
         currentTop3={myanmarPreviewState?.currentTop3 || []}
         newTop3={myanmarPreviewState?.newTop3 || []}
@@ -1928,9 +2174,9 @@ export const UserDetail: React.FC = () => {
         title={t('users.qualityAutoTunePreviewTitle', { defaultValue: 'Quality Auto-tune Preview' })}
         description={t('users.qualityAutoTunePreviewBody', { defaultValue: 'Reorder keys based on recent connect success, rejects, and reconnects.' })}
         summaryRows={[
-          { label: 'Total Keys', value: qualityPreviewState?.totalKeys ?? 0 },
-          { label: 'Telemetry Keys', value: qualityPreviewState?.scoredKeys ?? 0 },
-          { label: 'Keys To Reorder', value: qualityPreviewState?.changedKeys ?? 0 }
+          { label: t('users.preview.totalKeys', { defaultValue: 'Total keys' }), value: qualityPreviewState?.totalKeys ?? 0 },
+          { label: t('users.preview.telemetryKeys', { defaultValue: 'Telemetry keys' }), value: qualityPreviewState?.scoredKeys ?? 0 },
+          { label: t('users.preview.keysToReorder', { defaultValue: 'Keys to reorder' }), value: qualityPreviewState?.changedKeys ?? 0 }
         ]}
         currentTop3={(qualityPreviewState?.currentTop3 || []).map((entry) => ({ key: entry.key, toPriority: entry.fromPriority }))}
         newTop3={(qualityPreviewState?.newTop3 || []).map((entry) => ({ key: entry.key, toPriority: entry.toPriority }))}

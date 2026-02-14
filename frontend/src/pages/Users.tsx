@@ -294,27 +294,35 @@ export function Users() {
 
   const streamStatusLabel = useMemo(() => {
     if (userSessionsQuery.streamStatus === 'connected') {
-      return 'Connected';
+      return t('users.streamStatus.connected', { defaultValue: 'Connected' });
     }
     if (userSessionsQuery.streamStatus === 'connecting') {
-      return userSessionsQuery.reconnectAttempts > 0 ? `Reconnecting (${userSessionsQuery.reconnectAttempts})` : 'Connecting';
+      return userSessionsQuery.reconnectAttempts > 0
+        ? t('users.streamStatus.reconnecting', {
+            defaultValue: 'Reconnecting ({{count}})',
+            count: userSessionsQuery.reconnectAttempts
+          })
+        : t('users.streamStatus.connecting', { defaultValue: 'Connecting' });
     }
     if (userSessionsQuery.streamStatus === 'error') {
-      return 'Error';
+      return t('common.error', { defaultValue: 'Error' });
     }
-    return 'Idle';
-  }, [userSessionsQuery.reconnectAttempts, userSessionsQuery.streamStatus]);
+    return t('users.streamStatus.idle', { defaultValue: 'Idle' });
+  }, [t, userSessionsQuery.reconnectAttempts, userSessionsQuery.streamStatus]);
 
   const streamLastSeenLabel = useMemo(() => {
     if (!userSessionsQuery.lastSnapshotAt) {
-      return 'No live snapshot yet';
+      return t('users.streamSnapshot.none', { defaultValue: 'No live snapshot yet' });
     }
     const parsed = new Date(userSessionsQuery.lastSnapshotAt);
     if (Number.isNaN(parsed.getTime())) {
-      return 'No live snapshot yet';
+      return t('users.streamSnapshot.none', { defaultValue: 'No live snapshot yet' });
     }
-    return `Last update ${parsed.toLocaleTimeString()}`;
-  }, [userSessionsQuery.lastSnapshotAt]);
+    return t('users.streamSnapshot.lastUpdate', {
+      defaultValue: 'Last update {{time}}',
+      time: parsed.toLocaleTimeString()
+    });
+  }, [t, userSessionsQuery.lastSnapshotAt]);
 
   useEffect(() => {
     setPage(1);
@@ -418,9 +426,9 @@ export function Users() {
 
   const handleDelete = async (userId: number) => {
     if (!(await requestConfirm({
-      title: 'Delete User',
-      description: t('users.deleteConfirm', 'Are you sure you want to delete this user?'),
-      confirmLabel: 'Delete',
+      title: t('users.deleteUser', { defaultValue: 'Delete User' }),
+      description: t('users.confirmDelete', { defaultValue: 'Are you sure you want to delete this user?' }),
+      confirmLabel: t('common.delete', { defaultValue: 'Delete' }),
       tone: 'danger'
     }))) {
       return;
@@ -429,9 +437,15 @@ export function Users() {
     try {
       await deleteUserMutation.mutateAsync(userId);
       await refreshUsersAndSessions();
-      toast.success('User deleted');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.userDeleted', { defaultValue: 'User deleted successfully' })
+      );
     } catch (error: any) {
-      toast.error('Delete failed', error?.message || 'Failed to delete user');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.deleteFailed', { defaultValue: 'Failed to delete user' })
+      );
     }
   };
 
@@ -441,7 +455,16 @@ export function Users() {
     }
 
     const csv = [
-      ['Email', 'UUID', 'Status', 'Data Used', 'Data Limit', 'Expire Date'].map(csvCell).join(','),
+      [
+        t('users.email', { defaultValue: 'Email' }),
+        t('users.uuid', { defaultValue: 'UUID' }),
+        t('common.status', { defaultValue: 'Status' }),
+        t('users.dataUsed', { defaultValue: 'Data Used' }),
+        t('users.dataLimit', { defaultValue: 'Data Limit' }),
+        t('users.expireDate', { defaultValue: 'Expire Date' })
+      ]
+        .map(csvCell)
+        .join(','),
       ...users.map((user) =>
         [
           user.email,
@@ -512,11 +535,13 @@ export function Users() {
 
   const handleSaveCurrentView = async () => {
     const name = await requestPrompt({
-      title: 'Save View',
-      description: 'Create a reusable filter preset for this Users page.',
-      label: 'View name',
-      placeholder: 'My team filter',
-      confirmLabel: 'Save View'
+      title: t('common.saveView', { defaultValue: 'Save View' }),
+      description: t('users.views.saveDescription', {
+        defaultValue: 'Create a reusable filter preset for this Users page.'
+      }),
+      label: t('users.views.nameLabel', { defaultValue: 'View name' }),
+      placeholder: t('users.views.namePlaceholder', { defaultValue: 'My team filter' }),
+      confirmLabel: t('common.saveView', { defaultValue: 'Save View' })
     });
     if (!name || !name.trim()) {
       return;
@@ -529,9 +554,15 @@ export function Users() {
         viewMode
       });
       setSelectedViewId(view.id);
-      toast.success('Saved view', `View "${view.name}" saved`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.views.savedToast', { defaultValue: 'View "{{name}}" saved', name: view.name })
+      );
     } catch (error: any) {
-      toast.error('Unable to save view', error?.message || 'Unknown error');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.views.saveFailed', { defaultValue: 'Unable to save view' })
+      );
     }
   };
 
@@ -549,7 +580,10 @@ export function Users() {
       status: selected.filters.status || '',
       viewMode: selected.filters.viewMode || 'auto'
     }));
-    toast.success('View applied', `Applied "${selected.name}"`);
+    toast.success(
+      t('common.success', { defaultValue: 'Success' }),
+      t('users.views.appliedToast', { defaultValue: 'Applied "{{name}}"', name: selected.name })
+    );
   };
 
   const removeSelectedView = () => {
@@ -560,7 +594,12 @@ export function Users() {
     const selected = savedViews.find((view) => view.id === selectedViewId);
     deleteView(selectedViewId);
     setSelectedViewId('');
-    toast.info('View removed', selected ? `Removed "${selected.name}"` : 'Saved view removed');
+    toast.info(
+      t('common.info', { defaultValue: 'Info' }),
+      selected
+        ? t('users.views.removedToast', { defaultValue: 'Removed "{{name}}"', name: selected.name })
+        : t('users.views.removedToastGeneric', { defaultValue: 'Saved view removed' })
+    );
   };
 
   const handleBulkDelete = async () => {
@@ -569,9 +608,12 @@ export function Users() {
     }
 
     if (!(await requestConfirm({
-      title: 'Delete Selected Users',
-      description: `Delete ${selectedUserIds.length} selected users? This cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: t('users.bulk.deleteTitle', { defaultValue: 'Delete Selected Users' }),
+      description: t('users.bulk.deleteDescription', {
+        defaultValue: 'Delete {{count}} selected users? This cannot be undone.',
+        count: selectedUserIds.length
+      }),
+      confirmLabel: t('common.delete', { defaultValue: 'Delete' }),
       tone: 'danger'
     }))) {
       return;
@@ -581,9 +623,15 @@ export function Users() {
       await bulkDeleteMutation.mutateAsync(selectedUserIds);
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Users deleted', `${selectedUserIds.length} user(s) deleted.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkDeleted', { defaultValue: '{{count}} user(s) deleted.', count: selectedUserIds.length })
+      );
     } catch (error: any) {
-      toast.error('Bulk delete failed', error?.message || 'Failed to delete selected users');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkDeleteFailed', { defaultValue: 'Failed to delete selected users' })
+      );
     }
   };
 
@@ -593,9 +641,12 @@ export function Users() {
     }
 
     if (!(await requestConfirm({
-      title: 'Reset Traffic',
-      description: `Reset traffic for ${selectedUserIds.length} selected users?`,
-      confirmLabel: 'Reset',
+      title: t('users.bulk.resetTrafficTitle', { defaultValue: 'Reset Traffic' }),
+      description: t('users.bulk.resetTrafficDescription', {
+        defaultValue: 'Reset traffic for {{count}} selected users?',
+        count: selectedUserIds.length
+      }),
+      confirmLabel: t('common.reset', { defaultValue: 'Reset' }),
       tone: 'primary'
     }))) {
       return;
@@ -605,9 +656,15 @@ export function Users() {
       await bulkResetTrafficMutation.mutateAsync(selectedUserIds);
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Traffic reset', `${selectedUserIds.length} user(s) reset.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkTrafficReset', { defaultValue: '{{count}} user(s) reset.', count: selectedUserIds.length })
+      );
     } catch (error: any) {
-      toast.error('Bulk reset failed', error?.message || 'Failed to reset traffic');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkResetFailed', { defaultValue: 'Failed to reset traffic' })
+      );
     }
   };
 
@@ -617,12 +674,15 @@ export function Users() {
     }
 
     const daysInput = await requestPrompt({
-      title: 'Extend Expiry',
-      description: `Extend expiry for ${selectedUserIds.length} selected users.`,
-      label: 'Days to add',
+      title: t('users.bulk.extendExpiryTitle', { defaultValue: 'Extend Expiry' }),
+      description: t('users.bulk.extendExpiryDescription', {
+        defaultValue: 'Extend expiry for {{count}} selected users.',
+        count: selectedUserIds.length
+      }),
+      label: t('users.bulk.daysToAdd', { defaultValue: 'Days to add' }),
       defaultValue: '30',
       inputType: 'number',
-      confirmLabel: 'Extend'
+      confirmLabel: t('common.extend', { defaultValue: 'Extend' })
     });
     if (!daysInput || !daysInput.trim()) {
       return;
@@ -630,7 +690,10 @@ export function Users() {
 
     const days = Number.parseInt(daysInput, 10);
     if (Number.isNaN(days) || days < 1) {
-      toast.warning('Invalid input', 'Please enter a valid positive number of days.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.invalidDays', { defaultValue: 'Please enter a valid positive number of days.' })
+      );
       return;
     }
 
@@ -638,9 +701,19 @@ export function Users() {
       await bulkExtendExpiryMutation.mutateAsync({ userIds: selectedUserIds, days });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Expiry extended', `${selectedUserIds.length} user(s) extended by ${days} day(s).`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkExpiryExtended', {
+          defaultValue: '{{count}} user(s) extended by {{days}} day(s).',
+          count: selectedUserIds.length,
+          days
+        })
+      );
     } catch (error: any) {
-      toast.error('Bulk extend failed', error?.message || 'Failed to extend expiry');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkExtendFailed', { defaultValue: 'Failed to extend expiry' })
+      );
     }
   };
 
@@ -650,9 +723,13 @@ export function Users() {
     }
 
     if (!(await requestConfirm({
-      title: 'Apply Status',
-      description: `Set status to ${bulkStatus} for ${selectedUserIds.length} selected users?`,
-      confirmLabel: 'Apply',
+      title: t('users.bulk.applyStatusTitle', { defaultValue: 'Apply Status' }),
+      description: t('users.bulk.applyStatusDescription', {
+        defaultValue: 'Set status to {{status}} for {{count}} selected users?',
+        status: bulkStatus,
+        count: selectedUserIds.length
+      }),
+      confirmLabel: t('common.apply', { defaultValue: 'Apply' }),
       tone: 'primary'
     }))) {
       return;
@@ -662,9 +739,19 @@ export function Users() {
       await bulkUpdateStatusMutation.mutateAsync({ userIds: selectedUserIds, status: bulkStatus });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Status updated', `${selectedUserIds.length} user(s) set to ${bulkStatus}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkStatusUpdated', {
+          defaultValue: '{{count}} user(s) set to {{status}}.',
+          count: selectedUserIds.length,
+          status: bulkStatus
+        })
+      );
     } catch (error: any) {
-      toast.error('Bulk update failed', error?.message || 'Failed to update status');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkUpdateFailed', { defaultValue: 'Failed to update status' })
+      );
     }
   };
 
@@ -674,9 +761,12 @@ export function Users() {
     }
 
     if (!(await requestConfirm({
-      title: 'Rotate Credentials',
-      description: `Rotate credentials for ${selectedUserIds.length} selected users?`,
-      confirmLabel: 'Rotate',
+      title: t('users.bulk.rotateTitle', { defaultValue: 'Rotate Credentials' }),
+      description: t('users.bulk.rotateDescription', {
+        defaultValue: 'Rotate credentials for {{count}} selected users?',
+        count: selectedUserIds.length
+      }),
+      confirmLabel: t('common.rotate', { defaultValue: 'Rotate' }),
       tone: 'primary'
     }))) {
       return;
@@ -693,9 +783,15 @@ export function Users() {
       });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Credentials rotated', `${selectedUserIds.length} user(s) rotated.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkRotated', { defaultValue: '{{count}} user(s) rotated.', count: selectedUserIds.length })
+      );
     } catch (error: any) {
-      toast.error('Bulk rotate failed', error?.message || 'Failed to rotate selected user keys');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkRotateFailed', { defaultValue: 'Failed to rotate selected user keys' })
+      );
     }
   };
 
@@ -705,9 +801,12 @@ export function Users() {
     }
 
     if (!(await requestConfirm({
-      title: 'Revoke Access',
-      description: `Revoke access for ${selectedUserIds.length} selected users?`,
-      confirmLabel: 'Revoke',
+      title: t('users.bulk.revokeTitle', { defaultValue: 'Revoke Access' }),
+      description: t('users.bulk.revokeDescription', {
+        defaultValue: 'Revoke access for {{count}} selected users?',
+        count: selectedUserIds.length
+      }),
+      confirmLabel: t('common.revoke', { defaultValue: 'Revoke' }),
       tone: 'danger'
     }))) {
       return;
@@ -724,9 +823,15 @@ export function Users() {
       });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Access revoked', `${selectedUserIds.length} user(s) revoked.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.bulkRevoked', { defaultValue: '{{count}} user(s) revoked.', count: selectedUserIds.length })
+      );
     } catch (error: any) {
-      toast.error('Bulk revoke failed', error?.message || 'Failed to revoke selected user access');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.bulkRevokeFailed', { defaultValue: 'Failed to revoke selected user access' })
+      );
     }
   };
 
@@ -738,7 +843,10 @@ export function Users() {
       });
       await refreshUsersAndSessions();
     } catch (error: any) {
-      toast.error('Limit update failed', error?.message || 'Failed to update user limits');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.limitUpdateFailed', { defaultValue: 'Failed to update user limits' })
+      );
     }
   };
 
@@ -748,13 +856,19 @@ export function Users() {
     }
 
     if (!selectedGroupId) {
-      toast.warning('Select a group first');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.selectGroupFirst', { defaultValue: 'Select a group first' })
+      );
       return;
     }
 
     const groupId = Number.parseInt(selectedGroupId, 10);
     if (!Number.isInteger(groupId) || groupId < 1) {
-      toast.warning('Selected group is invalid.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.groupInvalid', { defaultValue: 'Selected group is invalid.' })
+      );
       return;
     }
 
@@ -762,9 +876,13 @@ export function Users() {
     const targetLabel = targetGroup?.name || `#${groupId}`;
 
     if (!(await requestConfirm({
-      title: 'Assign To Group',
-      description: `Assign ${selectedUserIds.length} selected users to group "${targetLabel}"?`,
-      confirmLabel: 'Assign',
+      title: t('users.bulk.assignTitle', { defaultValue: 'Assign To Group' }),
+      description: t('users.bulk.assignDescription', {
+        defaultValue: 'Assign {{count}} selected users to group "{{group}}"?',
+        count: selectedUserIds.length,
+        group: targetLabel
+      }),
+      confirmLabel: t('common.assign', { defaultValue: 'Assign' }),
       tone: 'primary'
     }))) {
       return;
@@ -777,9 +895,19 @@ export function Users() {
       });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Group assignment updated', `${selectedUserIds.length} user(s) assigned to ${targetLabel}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.assignedToGroup', {
+          defaultValue: '{{count}} user(s) assigned to {{group}}.',
+          count: selectedUserIds.length,
+          group: targetLabel
+        })
+      );
     } catch (error: any) {
-      toast.error('Assign failed', error?.message || 'Failed to assign users to group');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.assignFailed', { defaultValue: 'Failed to assign users to group' })
+      );
     }
   };
 
@@ -789,13 +917,19 @@ export function Users() {
     }
 
     if (!selectedGroupId) {
-      toast.warning('Select a group first');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.selectGroupFirst', { defaultValue: 'Select a group first' })
+      );
       return;
     }
 
     const groupId = Number.parseInt(selectedGroupId, 10);
     if (!Number.isInteger(groupId) || groupId < 1) {
-      toast.warning('Selected group is invalid.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.groupInvalid', { defaultValue: 'Selected group is invalid.' })
+      );
       return;
     }
 
@@ -803,9 +937,13 @@ export function Users() {
     const targetLabel = targetGroup?.name || `#${groupId}`;
 
     if (!(await requestConfirm({
-      title: 'Remove From Group',
-      description: `Remove ${selectedUserIds.length} selected users from group "${targetLabel}"?`,
-      confirmLabel: 'Remove',
+      title: t('users.bulk.removeTitle', { defaultValue: 'Remove From Group' }),
+      description: t('users.bulk.removeDescription', {
+        defaultValue: 'Remove {{count}} selected users from group "{{group}}"?',
+        count: selectedUserIds.length,
+        group: targetLabel
+      }),
+      confirmLabel: t('common.remove', { defaultValue: 'Remove' }),
       tone: 'danger'
     }))) {
       return;
@@ -818,9 +956,19 @@ export function Users() {
       });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Group assignment updated', `${selectedUserIds.length} user(s) removed from ${targetLabel}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.removedFromGroup', {
+          defaultValue: '{{count}} user(s) removed from {{group}}.',
+          count: selectedUserIds.length,
+          group: targetLabel
+        })
+      );
     } catch (error: any) {
-      toast.error('Remove failed', error?.message || 'Failed to remove users from group');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.removeFailed', { defaultValue: 'Failed to remove users from group' })
+      );
     }
   };
 
@@ -830,13 +978,19 @@ export function Users() {
     }
 
     if (!selectedGroupId) {
-      toast.warning('Select a group first');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.selectGroupFirst', { defaultValue: 'Select a group first' })
+      );
       return;
     }
 
     const groupId = Number.parseInt(selectedGroupId, 10);
     if (!Number.isInteger(groupId) || groupId < 1) {
-      toast.warning('Selected group is invalid.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.groupInvalid', { defaultValue: 'Selected group is invalid.' })
+      );
       return;
     }
 
@@ -844,9 +998,13 @@ export function Users() {
     const targetLabel = targetGroup?.name || `#${groupId}`;
 
     if (!(await requestConfirm({
-      title: 'Move To Group',
-      description: `Move ${selectedUserIds.length} selected users exclusively to group "${targetLabel}"?`,
-      confirmLabel: 'Move',
+      title: t('users.bulk.moveTitle', { defaultValue: 'Move To Group' }),
+      description: t('users.bulk.moveDescription', {
+        defaultValue: 'Move {{count}} selected users exclusively to group "{{group}}"?',
+        count: selectedUserIds.length,
+        group: targetLabel
+      }),
+      confirmLabel: t('common.move', { defaultValue: 'Move' }),
       tone: 'primary'
     }))) {
       return;
@@ -859,9 +1017,19 @@ export function Users() {
       });
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Users moved', `${selectedUserIds.length} user(s) moved to ${targetLabel}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.movedToGroup', {
+          defaultValue: '{{count}} user(s) moved to {{group}}.',
+          count: selectedUserIds.length,
+          group: targetLabel
+        })
+      );
     } catch (error: any) {
-      toast.error('Move failed', error?.message || 'Failed to move users to group');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.moveFailed', { defaultValue: 'Failed to move users to group' })
+      );
     }
   };
 
@@ -871,13 +1039,19 @@ export function Users() {
     }
 
     if (!selectedGroupId) {
-      toast.warning('Select a group first');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.selectGroupFirst', { defaultValue: 'Select a group first' })
+      );
       return;
     }
 
     const groupId = Number.parseInt(selectedGroupId, 10);
     if (!Number.isInteger(groupId) || groupId < 1) {
-      toast.warning('Selected group is invalid.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('users.toast.groupInvalid', { defaultValue: 'Selected group is invalid.' })
+      );
       return;
     }
 
@@ -899,24 +1073,27 @@ export function Users() {
 
       const previewLine = preview
         .slice(0, 2)
-        .map((item: any) => `${item.email}: ${Object.keys(item.changes || {}).join(', ') || 'no changes'}`)
+        .map((item: any) => `${item.email}: ${Object.keys(item.changes || {}).join(', ') || t('common.noChanges', { defaultValue: 'no changes' })}`)
         .join('\n');
 
       const confirmMessage = [
-        `Group policy dry-run for "${targetLabel}":`,
-        `- target users: ${summary.targetUsers ?? selectedUserIds.length}`,
-        `- would update: ${summary.wouldUpdateUsers ?? 0}`,
-        `- skipped: ${summary.skippedUsers ?? 0}`,
-        previewLine ? `\nPreview:\n${previewLine}` : '',
-        '\nApply now?'
+        t('users.bulk.policyDryRunTitle', { defaultValue: 'Group policy dry-run for "{{group}}":', group: targetLabel }),
+        t('users.bulk.policyDryRunTarget', {
+          defaultValue: '- target users: {{count}}',
+          count: summary.targetUsers ?? selectedUserIds.length
+        }),
+        t('users.bulk.policyDryRunWouldUpdate', { defaultValue: '- would update: {{count}}', count: summary.wouldUpdateUsers ?? 0 }),
+        t('users.bulk.policyDryRunSkipped', { defaultValue: '- skipped: {{count}}', count: summary.skippedUsers ?? 0 }),
+        previewLine ? `\n${t('common.preview', { defaultValue: 'Preview' })}:\n${previewLine}` : '',
+        `\n${t('users.bulk.applyNow', { defaultValue: 'Apply now?' })}`
       ]
         .filter(Boolean)
         .join('\n');
 
       if (!(await requestConfirm({
-        title: 'Apply Group Policy',
+        title: t('users.bulk.applyPolicyTitle', { defaultValue: 'Apply Group Policy' }),
         description: confirmMessage,
-        confirmLabel: 'Apply Policy',
+        confirmLabel: t('users.bulk.applyPolicyConfirm', { defaultValue: 'Apply Policy' }),
         tone: 'primary'
       }))) {
         return;
@@ -932,9 +1109,19 @@ export function Users() {
 
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Group policy applied', `${selectedUserIds.length} user(s) updated from ${targetLabel}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.policyApplied', {
+          defaultValue: '{{count}} user(s) updated from {{group}}.',
+          count: selectedUserIds.length,
+          group: targetLabel
+        })
+      );
     } catch (error: any) {
-      toast.error('Policy apply failed', error?.message || 'Failed to apply group policy');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.policyApplyFailed', { defaultValue: 'Failed to apply group policy' })
+      );
     }
   };
 
@@ -973,7 +1160,10 @@ export function Users() {
         previewLines: previewLine
       });
     } catch (error: any) {
-      toast.error('Myanmar priority failed', error?.message || 'Failed to reorder selected users');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.myanmarPriorityFailed', { defaultValue: 'Failed to reorder selected users' })
+      );
     }
   };
 
@@ -992,9 +1182,15 @@ export function Users() {
       setBulkMyanmarPreviewState(null);
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success('Myanmar priority applied', `${updatedCount} user(s) reordered.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.myanmarPriorityApplied', { defaultValue: '{{count}} user(s) reordered.', count: updatedCount })
+      );
     } catch (error: any) {
-      toast.error('Myanmar priority failed', error?.message || 'Failed to reorder selected users');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.myanmarPriorityFailed', { defaultValue: 'Failed to reorder selected users' })
+      );
     }
   };
 
@@ -1057,7 +1253,10 @@ export function Users() {
       setBulkQualityPreviewState(null);
       clearSelection();
       await refreshUsersAndSessions();
-      toast.success(t('users.autoTuneAppliedTitle', { defaultValue: 'Auto-tune applied' }), `${updatedCount} user(s) reordered.`);
+      toast.success(
+        t('users.autoTuneAppliedTitle', { defaultValue: 'Auto-tune applied' }),
+        t('users.autoTuneAppliedBody', { defaultValue: '{{count}} user(s) reordered.', count: updatedCount })
+      );
     } catch (error: any) {
       toast.error(
         t('users.autoTuneFailedTitle', { defaultValue: 'Auto-tune failed' }),
@@ -1068,9 +1267,12 @@ export function Users() {
 
   const handleRotateUserKeys = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Rotate Credentials',
-      description: `Rotate all credentials for ${user.email}?`,
-      confirmLabel: 'Rotate',
+      title: t('users.actions.rotateTitle', { defaultValue: 'Rotate Credentials' }),
+      description: t('users.actions.rotateDescription', {
+        defaultValue: 'Rotate all credentials for {{email}}?',
+        email: user.email
+      }),
+      confirmLabel: t('common.rotate', { defaultValue: 'Rotate' }),
       tone: 'primary'
     }))) {
       return;
@@ -1086,17 +1288,26 @@ export function Users() {
         }
       });
       await refreshUsersAndSessions();
-      toast.success('Credentials rotated', `Updated ${user.email}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.rotated', { defaultValue: 'Updated {{email}}.', email: user.email })
+      );
     } catch (error: any) {
-      toast.error('Rotate failed', error?.message || 'Failed to rotate user keys');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.rotateFailed', { defaultValue: 'Failed to rotate user keys' })
+      );
     }
   };
 
   const handleRevokeUserKeys = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Revoke User Access',
-      description: `Revoke all access for ${user.email}? This will disable the user.`,
-      confirmLabel: 'Revoke',
+      title: t('users.actions.revokeTitle', { defaultValue: 'Revoke User Access' }),
+      description: t('users.actions.revokeDescription', {
+        defaultValue: 'Revoke all access for {{email}}? This will disable the user.',
+        email: user.email
+      }),
+      confirmLabel: t('common.revoke', { defaultValue: 'Revoke' }),
       tone: 'danger'
     }))) {
       return;
@@ -1112,17 +1323,26 @@ export function Users() {
         }
       });
       await refreshUsersAndSessions();
-      toast.success('Access revoked', `${user.email} was disabled.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.accessRevoked', { defaultValue: '{{email}} was disabled.', email: user.email })
+      );
     } catch (error: any) {
-      toast.error('Revoke failed', error?.message || 'Failed to revoke user access');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.revokeFailed', { defaultValue: 'Failed to revoke user access' })
+      );
     }
   };
 
   const handleRegenerateSubscription = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Regenerate Subscription Token',
-      description: `Regenerate subscription token for ${user.email}?`,
-      confirmLabel: 'Regenerate',
+      title: t('users.actions.regenerateTitle', { defaultValue: 'Regenerate Subscription Token' }),
+      description: t('users.actions.regenerateDescription', {
+        defaultValue: 'Regenerate subscription token for {{email}}?',
+        email: user.email
+      }),
+      confirmLabel: t('common.regenerate', { defaultValue: 'Regenerate' }),
       tone: 'primary'
     }))) {
       return;
@@ -1143,21 +1363,39 @@ export function Users() {
       }
 
       if (copied) {
-        toast.success('Subscription regenerated', `New link for ${user.email} was copied.`);
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('users.toast.subscriptionRegeneratedCopied', {
+            defaultValue: 'New link for {{email}} was copied.',
+            email: user.email
+          })
+        );
       } else {
-        toast.success('Subscription regenerated', `Token updated for ${user.email}.`);
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('users.toast.subscriptionRegenerated', {
+            defaultValue: 'Token updated for {{email}}.',
+            email: user.email
+          })
+        );
       }
       await refreshUsersAndSessions();
     } catch (error: any) {
-      toast.error('Token regeneration failed', error?.message || 'Failed to regenerate subscription token');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.regenerateFailed', { defaultValue: 'Failed to regenerate subscription token' })
+      );
     }
   };
 
   const handleQuickResetTraffic = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Reset User Traffic',
-      description: `Reset traffic for ${user.email}?`,
-      confirmLabel: 'Reset',
+      title: t('users.actions.resetTrafficTitle', { defaultValue: 'Reset User Traffic' }),
+      description: t('users.actions.resetTrafficDescription', {
+        defaultValue: 'Reset traffic for {{email}}?',
+        email: user.email
+      }),
+      confirmLabel: t('common.reset', { defaultValue: 'Reset' }),
       tone: 'primary'
     }))) {
       return;
@@ -1166,9 +1404,15 @@ export function Users() {
     try {
       await usersApi.resetTraffic(user.id);
       await refreshUsersAndSessions();
-      toast.success('Traffic reset', `${user.email} counters were reset.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.trafficReset', { defaultValue: '{{email}} counters were reset.', email: user.email })
+      );
     } catch (error: any) {
-      toast.error('Reset failed', error?.message || 'Failed to reset user traffic');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.resetFailed', { defaultValue: 'Failed to reset user traffic' })
+      );
     }
   };
 
@@ -1176,17 +1420,27 @@ export function Users() {
     try {
       await usersApi.extendExpiry(user.id, days);
       await refreshUsersAndSessions();
-      toast.success('Expiry extended', `${user.email} extended by ${days} day(s).`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.expiryExtended', {
+          defaultValue: '{{email}} extended by {{days}} day(s).',
+          email: user.email,
+          days
+        })
+      );
     } catch (error: any) {
-      toast.error('Extend failed', error?.message || 'Failed to extend user expiry');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.extendFailed', { defaultValue: 'Failed to extend user expiry' })
+      );
     }
   };
 
   const handleQuickDisableUser = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Disable User',
-      description: `Disable ${user.email}?`,
-      confirmLabel: 'Disable',
+      title: t('users.actions.disableTitle', { defaultValue: 'Disable User' }),
+      description: t('users.actions.disableDescription', { defaultValue: 'Disable {{email}}?', email: user.email }),
+      confirmLabel: t('common.disable', { defaultValue: 'Disable' }),
       tone: 'danger'
     }))) {
       return;
@@ -1196,17 +1450,29 @@ export function Users() {
       await usersApi.updateUser(user.id, { status: 'DISABLED' });
       await usersApi.disconnectUserSessions(user.id);
       await refreshUsersAndSessions();
-      toast.success('User banned', `${user.email} is now disabled and disconnected.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.userDisabled', {
+          defaultValue: '{{email}} is now disabled and disconnected.',
+          email: user.email
+        })
+      );
     } catch (error: any) {
-      toast.error('Ban failed', error?.message || 'Failed to disable user');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.disableFailed', { defaultValue: 'Failed to disable user' })
+      );
     }
   };
 
   const handleQuickDisconnectSessions = async (user: User) => {
     if (!(await requestConfirm({
-      title: 'Disconnect Sessions',
-      description: `Disconnect all active sessions for ${user.email}?`,
-      confirmLabel: 'Disconnect',
+      title: t('users.actions.disconnectTitle', { defaultValue: 'Disconnect Sessions' }),
+      description: t('users.actions.disconnectDescription', {
+        defaultValue: 'Disconnect all active sessions for {{email}}?',
+        email: user.email
+      }),
+      confirmLabel: t('common.disconnect', { defaultValue: 'Disconnect' }),
       tone: 'danger'
     }))) {
       return;
@@ -1217,10 +1483,13 @@ export function Users() {
       await refreshUsersAndSessions();
       const summary = response?.data
         ? `${response.data.disconnectedDevices} device(s), ${response.data.disconnectedIps} IP(s)`
-        : 'Active sessions disconnected.';
-      toast.success('Sessions disconnected', summary);
+        : t('users.toast.sessionsDisconnectedFallback', { defaultValue: 'Active sessions disconnected.' });
+      toast.success(t('common.success', { defaultValue: 'Success' }), summary);
     } catch (error: any) {
-      toast.error('Disconnect failed', error?.message || 'Failed to disconnect active sessions');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.disconnectFailed', { defaultValue: 'Failed to disconnect active sessions' })
+      );
     }
   };
 
@@ -1228,9 +1497,19 @@ export function Users() {
     const link = `${window.location.origin}/sub/${user.subscriptionToken}?target=v2ray`;
     try {
       await navigator.clipboard.writeText(link);
-      toast.success('Copied to clipboard', 'Subscription link copied to clipboard.');
+      toast.success(
+        t('common.copied', { defaultValue: 'Copied' }),
+        t('users.toast.subscriptionCopied', { defaultValue: 'Subscription link copied to clipboard.' })
+      );
     } catch {
-      toast.warning('Clipboard unavailable', `Copy failed. Use this link manually:\n${link}`, 10000);
+      toast.warning(
+        t('users.toast.clipboardUnavailableTitle', { defaultValue: 'Clipboard unavailable' }),
+        t('users.toast.clipboardUnavailableBody', {
+          defaultValue: 'Copy failed. Use this link manually:\n{{link}}',
+          link
+        }),
+        10000
+      );
     }
   };
 
@@ -1239,16 +1518,18 @@ export function Users() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">{t('users.title')}</h1>
-          <p className="mt-1 text-sm text-muted">{t('users.subtitle', 'Manage your VPN users and subscriptions')}</p>
+          <p className="mt-1 text-sm text-muted">
+            {t('users.subtitle', { defaultValue: 'Manage your VPN users and subscriptions' })}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={handleExport} disabled={users.length === 0}>
             <Download className="mr-2 h-4 w-4" />
-            {t('common.export', 'Export CSV')}
+            {t('common.export', { defaultValue: 'Export CSV' })}
           </Button>
           <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
             <UsersIcon className="mr-2 h-4 w-4" />
-            Bulk Provision
+            {t('users.bulkProvision', { defaultValue: 'Bulk Provision' })}
           </Button>
           <Button onClick={() => setShowAddModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -1272,7 +1553,7 @@ export function Users() {
           <p className="text-2xl font-bold text-emerald-500">{activeCount}</p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">Online</p>
+          <p className="text-sm text-muted">{t('common.online', { defaultValue: 'Online' })}</p>
           <div className="flex items-center gap-2">
             <span className="relative inline-flex h-3 w-3">
               {onlineCount > 0 ? (
@@ -1283,7 +1564,7 @@ export function Users() {
             <p className="text-2xl font-bold text-foreground">{onlineCount}</p>
           </div>
           <p className="mt-1 text-xs text-muted">
-            Session stream: {streamStatusLabel}
+            {t('users.sessionStream', { defaultValue: 'Session stream' })}: {streamStatusLabel}
           </p>
           <p className="mt-0.5 text-[11px] text-muted">
             {streamLastSeenLabel}
@@ -1291,7 +1572,7 @@ export function Users() {
           </p>
         </Card>
         <Card>
-          <p className="text-sm text-muted">{t('users.limited', 'Limited Users')}</p>
+          <p className="text-sm text-muted">{t('users.limited', { defaultValue: 'Limited Users' })}</p>
           <p className="text-2xl font-bold text-amber-500">{limitedCount}</p>
         </Card>
         <Card>
@@ -1307,7 +1588,7 @@ export function Users() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
                 <Input
-                  placeholder={t('users.searchPlaceholder', 'Search by email or UUID...')}
+                  placeholder={t('users.searchPlaceholder', { defaultValue: 'Search by email or UUID...' })}
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   className="pl-10"
@@ -1320,11 +1601,11 @@ export function Users() {
               value={status}
               onChange={(event) => setStatus(event.target.value as UserStatus | '')}
             >
-              <option value="">{t('users.allStatus', 'All Status')}</option>
+              <option value="">{t('users.allStatus', { defaultValue: 'All Status' })}</option>
               <option value="ACTIVE">{t('status.active')}</option>
-              <option value="LIMITED">{t('status.limited', 'Limited')}</option>
-              <option value="DISABLED">{t('status.disabled', 'Disabled')}</option>
-              <option value="EXPIRED">{t('status.expired', 'Expired')}</option>
+              <option value="LIMITED">{t('status.limited', { defaultValue: 'Limited' })}</option>
+              <option value="DISABLED">{t('status.disabled', { defaultValue: 'Disabled' })}</option>
+              <option value="EXPIRED">{t('status.expired', { defaultValue: 'Expired' })}</option>
             </select>
 
             <Button
@@ -1334,7 +1615,7 @@ export function Users() {
               }}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${usersQuery.isFetching || userSessionsQuery.isFetching ? 'animate-spin' : ''}`} />
-              {t('common.refresh', 'Refresh')}
+              {t('common.refresh', { defaultValue: 'Refresh' })}
             </Button>
           </div>
 
@@ -1342,9 +1623,13 @@ export function Users() {
             <details className="group lg:hidden">
               <summary className="flex list-none items-center justify-between gap-3 rounded-xl px-2 py-2 text-left text-sm font-medium text-foreground transition hover:bg-panel/50 [&::-webkit-details-marker]:hidden">
                 <div className="min-w-0">
-                  <p className="truncate">Advanced controls</p>
+                  <p className="truncate">{t('common.advancedControls', { defaultValue: 'Advanced controls' })}</p>
                   <p className="mt-0.5 text-xs font-normal text-muted">
-                    Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                    {t('autoRefresh.line', {
+                      defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
+                      status: autoRefresh.statusLabel,
+                      seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
+                    })}
                   </p>
                 </div>
                 <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -1357,7 +1642,7 @@ export function Users() {
                     value={selectedViewId}
                     onChange={(event) => applySavedView(event.target.value)}
                   >
-                    <option value="">Saved views</option>
+                    <option value="">{t('common.savedViews', { defaultValue: 'Saved views' })}</option>
                     {savedViews.map((view) => (
                       <option key={view.id} value={view.id}>
                         {view.name}
@@ -1371,10 +1656,10 @@ export function Users() {
                       void handleSaveCurrentView();
                     }}
                   >
-                    Save View
+                    {t('common.saveView', { defaultValue: 'Save View' })}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={removeSelectedView} disabled={!selectedViewId}>
-                    Remove View
+                    {t('common.removeView', { defaultValue: 'Remove View' })}
                   </Button>
                 </div>
 
@@ -1396,7 +1681,9 @@ export function Users() {
                     ))}
                   </div>
                   <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-                    {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                    {autoRefresh.paused
+                      ? t('autoRefresh.resume', { defaultValue: 'Resume Auto' })
+                      : t('autoRefresh.pause', { defaultValue: 'Pause Auto' })}
                   </Button>
                 </div>
               </div>
@@ -1409,7 +1696,7 @@ export function Users() {
                   value={selectedViewId}
                   onChange={(event) => applySavedView(event.target.value)}
                 >
-                  <option value="">Saved views</option>
+                  <option value="">{t('common.savedViews', { defaultValue: 'Saved views' })}</option>
                   {savedViews.map((view) => (
                     <option key={view.id} value={view.id}>
                       {view.name}
@@ -1423,10 +1710,10 @@ export function Users() {
                     void handleSaveCurrentView();
                   }}
                 >
-                  Save View
+                  {t('common.saveView', { defaultValue: 'Save View' })}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={removeSelectedView} disabled={!selectedViewId}>
-                  Remove View
+                  {t('common.removeView', { defaultValue: 'Remove View' })}
                 </Button>
               </div>
 
@@ -1448,10 +1735,16 @@ export function Users() {
                   ))}
                 </div>
                 <Button size="sm" variant="ghost" onClick={autoRefresh.togglePaused}>
-                  {autoRefresh.paused ? 'Resume Auto' : 'Pause Auto'}
+                  {autoRefresh.paused
+                    ? t('autoRefresh.resume', { defaultValue: 'Resume Auto' })
+                    : t('autoRefresh.pause', { defaultValue: 'Pause Auto' })}
                 </Button>
                 <span className="text-xs text-muted">
-                  Auto refresh: {autoRefresh.statusLabel} ({Math.ceil(autoRefresh.nextRunInMs / 1000)}s)
+                  {t('autoRefresh.line', {
+                    defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
+                    status: autoRefresh.statusLabel,
+                    seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
+                  })}
                 </span>
               </div>
             </div>
@@ -1464,7 +1757,7 @@ export function Users() {
           <div className="border-b border-line/70 bg-panel/50 px-4 py-3 sm:px-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="text-sm text-foreground">
-                {selectedUserIds.length} selected
+                {t('users.selectedCount', { defaultValue: '{{count}} selected', count: selectedUserIds.length })}
                 {selectedUsers.length > 0 ? ` (${selectedUsers.map((user) => user.email).slice(0, 2).join(', ')}${selectedUsers.length > 2 ? ', ...' : ''})` : ''}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1479,7 +1772,7 @@ export function Users() {
                   >
                     <Button size="sm" variant="secondary" disabled={isBulkMutating}>
                       <MoreVertical className="mr-2 h-4 w-4" />
-                      Bulk actions
+                      {t('common.bulkActions', { defaultValue: 'Bulk actions' })}
                       <ChevronDown className="ml-2 h-4 w-4 text-muted transition-transform group-open:rotate-180" />
                     </Button>
                   </summary>
@@ -1492,7 +1785,7 @@ export function Users() {
                         onClick={(event) => runBulkMenuAction(event, clearSelection)}
                         disabled={isBulkMutating}
                       >
-                        Clear selection
+                        {t('common.clearSelection', { defaultValue: 'Clear selection' })}
                       </button>
 
                       <button
@@ -1687,7 +1980,7 @@ export function Users() {
           </div>
         ) : users.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-muted">{t('users.noUsers', 'No users found')}</p>
+            <p className="text-muted">{t('users.noUsers', { defaultValue: 'No users found' })}</p>
             <Button className="mt-4" onClick={() => setShowAddModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
               {t('users.addFirst')}

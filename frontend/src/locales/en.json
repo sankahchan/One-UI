@@ -26,6 +26,7 @@
         "yes": "Yes",
         "no": "No",
         "actions": "Actions",
+        "moreActions": "More actions",
         "status": "Status",
         "enabled": "Enabled",
         "disabled": "Disabled",
@@ -57,6 +58,23 @@
         "selectAll": "Select All",
         "show": "Show",
         "system": "system",
+        "info": "Info",
+        "warning": "Warning",
+        "apply": "Apply",
+        "assign": "Assign",
+        "move": "Move",
+        "remove": "Remove",
+        "rotate": "Rotate",
+        "revoke": "Revoke",
+        "disconnect": "Disconnect",
+        "regenerate": "Regenerate",
+        "extend": "Extend",
+        "open": "Open",
+        "bulkActions": "Bulk actions",
+        "clearSelection": "Clear selection",
+        "noChanges": "No changes",
+        "noOverride": "No override",
+        "drift": "Drift",
         "validationFailed": "Validation failed",
         "view": "View"
     },
@@ -167,7 +185,375 @@
         "bulkQualityPreviewBody": "Reorder selected users by recent connect success, rejects, and reconnects.",
         "autoTuneFailedTitle": "Auto-tune failed",
         "autoTuneFailedBody": "Failed to auto-tune selected users",
-        "autoTuneAppliedTitle": "Auto-tune applied"
+        "autoTuneAppliedTitle": "Auto-tune applied",
+        "autoTuneAppliedBody": "{{count}} user(s) reordered.",
+        "bulkProvision": "Bulk Provision",
+        "uuid": "UUID",
+        "rendering": "Rendering {{count}} of {{total}} users...",
+        "selectedCount": "{{count}} selected",
+        "keysActive": "Keys online {{online}}/{{enabled}}",
+        "usagePercent": "{{percent}}% used",
+        "limitIpShort": "IP {{count}}",
+        "limitDeviceShort": "DEV {{count}}",
+        "limitIpAbbrev": "IP",
+        "limitDeviceAbbrev": "DEV",
+        "startOnFirstConnect": "Starts on first connect",
+        "startOnFirstConnectBadge": "Starts when user connects",
+        "startOnFirstConnectAfter": "Starts after {{days}} days remaining",
+        "sessionStream": "Session stream",
+        "streamStatus": {
+            "idle": "Idle",
+            "connecting": "Connecting",
+            "reconnecting": "Reconnecting",
+            "connected": "Connected"
+        },
+        "streamSnapshot": {
+            "none": "No snapshots yet",
+            "lastUpdate": "Last update {{time}}"
+        },
+        "sessions": {
+            "noActivity": "No activity",
+            "liveNow": "Live now",
+            "justNow": "just now",
+            "minutesAgo": "{{count}}m ago",
+            "hoursAgo": "{{count}}h ago",
+            "daysAgo": "{{count}}d ago",
+            "lastSeenPrefix": "Last seen {{label}}"
+        },
+        "devices": {
+            "title": "Devices",
+            "loading": "Loading active devices...",
+            "noneRecent": "No devices tracked in the last {{minutes}} minutes.",
+            "unknownIp": "unknown IP",
+            "lastSeen": "Last {{time}}",
+            "show": "Show devices",
+            "hide": "Hide devices",
+            "revokeTitle": "Revoke Device Session",
+            "revokeDescription": "Revoke this device? It will need to reconnect."
+        },
+        "table": {
+            "user": "User",
+            "dataUsage": "Data Usage",
+            "limits": "Limits"
+        },
+        "qrModal": {
+            "title": "Quick QR",
+            "noFormats": "No subscription formats available.",
+            "loadFailed": "Failed to load subscription links.",
+            "alt": "Subscription QR code"
+        },
+        "actions": {
+            "showQr": "Show QR",
+            "quickEdit": "Quick Edit",
+            "increaseLimits": "Increase limits",
+            "copySubscription": "Copy Subscription",
+            "regenerateToken": "Regenerate Token",
+            "extend7": "Extend +7 Days",
+            "extend30": "Extend +30 Days",
+            "resetTraffic": "Reset Traffic",
+            "disconnectSessions": "Disconnect Sessions",
+            "rotateCredentials": "Rotate Credentials",
+            "revokeAccess": "Revoke Access",
+            "disableUser": "Disable User",
+            "deleteUser": "Delete User",
+            "resetTrafficTitle": "Reset traffic?",
+            "resetTrafficDescription": "Reset this user's upload/download counters.",
+            "rotateTitle": "Rotate credentials?",
+            "rotateDescription": "Rotate UUID, password, and subscription token. Old configs will stop working.",
+            "revokeTitle": "Revoke access?",
+            "revokeDescription": "Disable the user's keys immediately (clients will disconnect).",
+            "regenerateTitle": "Regenerate token?",
+            "regenerateDescription": "Regenerate the subscription token. Old subscription links will stop working.",
+            "disconnectTitle": "Disconnect sessions?",
+            "disconnectDescription": "Disconnect active sessions for this user.",
+            "disableTitle": "Disable user?",
+            "disableDescription": "Disable this user. They will not be able to connect."
+        },
+        "bulk": {
+            "applyNow": "Apply now",
+            "daysToAdd": "Days to add",
+            "deleteTitle": "Delete selected users?",
+            "deleteDescription": "This action cannot be undone.",
+            "resetTrafficTitle": "Reset traffic for selected users?",
+            "resetTrafficDescription": "Upload/download counters will be reset.",
+            "extendExpiryTitle": "Extend expiry for selected users",
+            "extendExpiryDescription": "Add days to the expiry date.",
+            "applyStatusTitle": "Update status for selected users",
+            "applyStatusDescription": "Apply the selected status to all selected users.",
+            "rotateTitle": "Rotate credentials for selected users?",
+            "rotateDescription": "Old configs will stop working for the rotated users.",
+            "revokeTitle": "Revoke access for selected users?",
+            "revokeDescription": "Disable keys immediately for the selected users.",
+            "assignTitle": "Assign selected users to group",
+            "assignDescription": "Add selected users to the chosen group.",
+            "removeTitle": "Remove selected users from group",
+            "removeDescription": "Remove selected users from the chosen group.",
+            "moveTitle": "Move selected users to group",
+            "moveDescription": "Move selected users to the chosen group.",
+            "applyPolicyTitle": "Apply group policy to selected users",
+            "applyPolicyConfirm": "Apply policy",
+            "applyPolicyDescription": "Apply current group policy settings to selected users.",
+            "policyDryRunTitle": "Policy dry run",
+            "policyDryRunTarget": "Target users: {{count}}",
+            "policyDryRunWouldUpdate": "Would update: {{count}}",
+            "policyDryRunSkipped": "Skipped: {{count}}"
+        },
+        "views": {
+            "nameLabel": "View name",
+            "namePlaceholder": "e.g., Myanmar active",
+            "saveDescription": "Save current filters as a view.",
+            "savedToast": "View saved",
+            "saveFailed": "Failed to save view",
+            "removedToast": "View removed",
+            "removedToastGeneric": "View removed",
+            "appliedToast": "View applied"
+        },
+        "form": {
+            "createUser": "Create User",
+            "updateUser": "Update User",
+            "saveFailed": "Failed to save user",
+            "dataLimitLabel": "Data Limit (GB)",
+            "ipLimitLabel": "IP Limit",
+            "deviceLimitLabel": "Device Limit",
+            "noInboundsHint": "No inbounds available. Create one first.",
+            "notePlaceholder": "Optional note about this user",
+            "startOnFirstUseTitle": "Start expiry on first connect",
+            "startOnFirstUseDescription": "The expiry timer begins when the user first connects (downloads subscription). Until then, the account stays active.",
+            "validation": {
+                "emailRequired": "Email is required",
+                "emailInvalid": "Invalid email address",
+                "dataLimitRequired": "Data limit is required",
+                "expiryDaysRequired": "Expiry days is required",
+                "inboundRequired": "Select at least one inbound",
+                "minGb": "Minimum 1 GB",
+                "minDay": "Minimum 1 day",
+                "minZero": "Must be 0 or greater"
+            }
+        },
+        "quickEdit": {
+            "title": "Quick Edit",
+            "saveChanges": "Save Changes",
+            "saveFailed": "Failed to update user",
+            "dataLimitLabel": "Data Limit (GB)",
+            "expiryDateLabel": "Expiry Date",
+            "ipLimitLabel": "IP Limit (0 = unlimited)",
+            "deviceLimitLabel": "Device Limit (0 = unlimited)",
+            "helper": "Expiry is stored as days from now. We convert this date automatically when saving.",
+            "validation": {
+                "expiryDateRequired": "Expiry date is required",
+                "minZero": "Minimum 0"
+            }
+        },
+        "bulkCreate": {
+            "title": "Bulk User Provisioning",
+            "subtitle": "Create multiple users with consistent limits and inbound assignments.",
+            "prefixLabel": "Email Prefix",
+            "domainLabel": "Domain",
+            "countLabel": "Count",
+            "startIndexLabel": "Start Index",
+            "paddingLabel": "Padding",
+            "previewTitle": "Email Preview",
+            "previewEmpty": "Enter prefix/domain to preview generated emails.",
+            "assignInboundsLabel": "Assign Inbounds",
+            "noActiveInbounds": "No active inbounds available.",
+            "notePlaceholder": "Optional note applied to all created users",
+            "submit": "Create Users & Download Credentials",
+            "validation": {
+                "prefixRequired": "Prefix is required",
+                "domainRequired": "Domain is required",
+                "countRequired": "Count is required",
+                "countMin": "Minimum 1",
+                "countMax": "Maximum 200",
+                "startIndexRequired": "Start index is required",
+                "paddingMax": "Maximum 8"
+            },
+            "toast": {
+                "requested": "Requested: {{count}}",
+                "created": "Created: {{count}}",
+                "failed": "Failed: {{count}}",
+                "csvDownloaded": "Credentials CSV downloaded.",
+                "failedBody": "Failed to create users in bulk"
+            }
+        },
+        "toast": {
+            "subscriptionCopied": "Subscription link copied.",
+            "clipboardUnavailableTitle": "Clipboard unavailable",
+            "clipboardUnavailableBody": "Copy manually from the field.",
+            "deleteFailed": "Failed to delete user.",
+            "trafficReset": "Traffic reset.",
+            "resetFailed": "Failed to reset traffic.",
+            "rotated": "Credentials rotated.",
+            "rotateFailed": "Failed to rotate credentials.",
+            "accessRevoked": "Access revoked.",
+            "revokeFailed": "Failed to revoke access.",
+            "userDisabled": "User disabled.",
+            "disableFailed": "Failed to disable user.",
+            "subscriptionRegenerated": "Subscription token regenerated.",
+            "subscriptionRegeneratedCopied": "New subscription link copied.",
+            "regenerateFailed": "Failed to regenerate token.",
+            "expiryExtended": "Expiry extended.",
+            "extendFailed": "Failed to extend expiry.",
+            "sessionsDisconnectedFallback": "Sessions disconnected.",
+            "disconnectFailed": "Failed to disconnect sessions.",
+            "selectGroupFirst": "Select a group first.",
+            "groupInvalid": "Invalid group selection.",
+            "assignedToGroup": "Users assigned to group.",
+            "assignFailed": "Failed to assign users to group.",
+            "removedFromGroup": "Users removed from group.",
+            "removeFailed": "Failed to remove users from group.",
+            "movedToGroup": "Users moved to group.",
+            "moveFailed": "Failed to move users to group.",
+            "policyApplied": "Policy applied.",
+            "policyApplyFailed": "Failed to apply policy.",
+            "invalidDays": "Enter a valid number of days.",
+            "limitUpdateFailed": "Failed to update limits.",
+            "bulkDeleted": "Users deleted.",
+            "bulkDeleteFailed": "Failed to delete selected users.",
+            "bulkTrafficReset": "Traffic reset for selected users.",
+            "bulkResetFailed": "Failed to reset traffic for selected users.",
+            "bulkExpiryExtended": "Expiry extended for selected users.",
+            "bulkExtendFailed": "Failed to extend expiry for selected users.",
+            "bulkStatusUpdated": "Status updated for selected users.",
+            "bulkUpdateFailed": "Failed to update status for selected users.",
+            "bulkRotated": "Credentials rotated for selected users.",
+            "bulkRotateFailed": "Failed to rotate credentials for selected users.",
+            "bulkRevoked": "Access revoked for selected users.",
+            "bulkRevokeFailed": "Failed to revoke access for selected users.",
+            "myanmarPriorityApplied": "Myanmar priority order applied.",
+            "myanmarPriorityFailed": "Failed to apply Myanmar priority order."
+        },
+        "preview": {
+            "totalKeys": "Total keys",
+            "matchedKeys": "Matched keys",
+            "telemetryKeys": "Telemetry keys",
+            "keysToReorder": "Keys to reorder"
+        },
+        "detail": {
+            "subtitle": "User details & access keys",
+            "notFound": "User not found",
+            "backToUsers": "Back to Users",
+            "noKeysEnabled": "No keys enabled",
+            "keyFallback": "Key {{count}}",
+            "createdAt": "Created at",
+            "copyUuid": "Copy UUID",
+            "copyPassword": "Copy password",
+            "expiresIn": "Expires in",
+            "dataLimitCaption": "Limit: {{limit}}",
+            "remaining": "Remaining",
+            "remainingPercentLeft": "{{percent}}% left",
+            "expiry": {
+                "afterFirstConnect": "{{days}} days after first connect",
+                "daysValue": "{{count}} days"
+            },
+            "actions": {
+                "resetTraffic": "Reset traffic",
+                "resettingTraffic": "Resetting traffic...",
+                "deleteUser": "Delete user",
+                "deletingUser": "Deleting user..."
+            },
+            "confirm": {
+                "deleteTitle": "Delete user?",
+                "deleteDescription": "Are you sure you want to delete this user? This action cannot be undone."
+            },
+            "userInfoTitle": "User Information",
+            "effectiveInbounds": {
+                "title": "Effective inbound access",
+                "subtitle": "Combined view of direct assignments and inherited group mappings.",
+                "loading": "Loading effective access...",
+                "empty": "No effective inbounds found for this user.",
+                "badgeEnabled": "Inbound enabled",
+                "badgeDisabled": "Inbound disabled",
+                "sourceDirect": "Direct",
+                "sourceGroup": "Group: {{name}}"
+            },
+            "policy": {
+                "title": "Effective policy",
+                "subtitle": "Compare direct user policy with inherited group policy overrides.",
+                "loading": "Loading effective policy...",
+                "unavailable": "Effective policy is unavailable for this user.",
+                "groupSources": "Group policy sources",
+                "noGroups": "No active groups assigned",
+                "table": {
+                    "field": "Field",
+                    "direct": "Direct",
+                    "inherited": "Inherited",
+                    "effective": "Effective",
+                    "trafficReset": "Traffic reset"
+                }
+            },
+            "keys": {
+                "title": "Access keys",
+                "subtitle": "Manage per-inbound keys, status, online visibility, and client templates.",
+                "empty": "No keys match the selected filter.",
+                "usageLabel": "Usage",
+                "portLabelShort": "Port",
+                "devicesCount": "Devices {{online}}/{{seen}}",
+                "shortDays": "{{count}}d",
+                "dragHintEnabled": "Drag rows from the Menu column to reorder key priority. The order controls subscription fallback.",
+                "dragHintDisabled": "Enable drag reorder by setting Filter: All keys and Sort: Priority ascending.",
+                "dragHandleEnabled": "Drag to reorder priority",
+                "dragHandleDisabled": "Sort by priority ascending to enable drag reorder",
+                "filter": {
+                    "all": "All keys"
+                },
+                "density": {
+                    "comfortable": "Comfortable rows",
+                    "compact": "Compact rows"
+                },
+                "table": {
+                    "menu": "Menu",
+                    "clientKey": "Client / Key",
+                    "protocol": "Protocol",
+                    "port": "Port",
+                    "priority": "Priority",
+                    "traffic": "Traffic",
+                    "expiration": "Expiration"
+                }
+            },
+            "keyMenu": {
+                "templates": "Client templates",
+                "copyingKey": "Copying key...",
+                "copyKeyUrl": "Copy key URL",
+                "updating": "Updating...",
+                "disableKey": "Disable key",
+                "enableKey": "Enable key",
+                "moveUp": "Move up (higher priority)",
+                "moveDown": "Move down (lower priority)",
+                "openInbounds": "Open inbounds page"
+            },
+            "devicesSessions": {
+                "title": "Device sessions",
+                "subtitle": "{{online}} online / {{total}} seen in last {{minutes}} minutes",
+                "columns": {
+                    "fingerprint": "Fingerprint",
+                    "ip": "IP",
+                    "lastSeen": "Last seen"
+                }
+            },
+            "toast": {
+                "noKeyUrl": "No key URL available for this inbound",
+                "copyKeyFailed": "Failed to copy key",
+                "keyStatusFailed": "Failed to update key status",
+                "keyPriorityFailed": "Failed to update key priority",
+                "reorderFailed": "Failed to reorder keys",
+                "noKeys": "No keys available for this user.",
+                "previewGenerateFailed": "Failed to generate preview",
+                "noMyanmarProfiles": "No Myanmar-compatible profiles found (expected REALITY / VLESS WS TLS / TROJAN WS TLS).",
+                "myanmarPreviewFailed": "Failed to preview Myanmar priority order",
+                "myanmarApplied": "Promoted {{count}} matching key(s).",
+                "myanmarApplyFailed": "Failed to apply Myanmar priority order",
+                "noTelemetry": "No recent connections were detected. Generate traffic on at least one key and try again.",
+                "qualityPreviewFailed": "Failed to generate quality preview",
+                "qualityApplied": "Reordered {{count}} key(s) with telemetry.",
+                "qualityApplyFailed": "Failed to apply quality ordering",
+                "trafficReset": "User traffic counters were reset.",
+                "resetFailed": "Failed to reset traffic",
+                "userDeleted": "User was deleted successfully.",
+                "deleteFailed": "Failed to delete user",
+                "deviceRevoked": "Device session was revoked.",
+                "revokeFailed": "Failed to revoke device session"
+            }
+        }
     },
     "groups": {
         "title": "Groups",
@@ -208,9 +594,32 @@
             "refreshedBody": "Groups, templates, schedules, and rollouts are up to date.",
             "refreshFailedTitle": "Refresh failed",
             "refreshFailedBody": "Failed to refresh group data.",
+            "groupCreatedTitle": "Group created",
+            "groupCreatedBody": "\"{{name}}\" was created.",
+            "groupUpdatedTitle": "Group updated",
+            "groupUpdatedBody": "\"{{name}}\" was updated.",
             "groupDeletedTitle": "Group deleted",
+            "saveGroupFailedTitle": "Save group failed",
+            "saveGroupFailedBody": "Failed to save group.",
+            "templateCreatedTitle": "Template created",
+            "templateCreatedBody": "\"{{name}}\" was created.",
+            "templateUpdatedTitle": "Template updated",
+            "templateUpdatedBody": "\"{{name}}\" was updated.",
             "templateDeletedTitle": "Template deleted",
+            "saveTemplateFailedTitle": "Save template failed",
+            "saveTemplateFailedBody": "Failed to save template.",
+            "templateAppliedTitle": "Template applied",
+            "templateAppliedBodyNow": "Template applied.",
+            "templateAppliedBodyValues": "Applied template values to {{count}} users.",
+            "applyTemplateFailedTitle": "Apply template failed",
+            "applyTemplateFailedBody": "Failed to apply template.",
+            "scheduleCreatedTitle": "Schedule created",
+            "scheduleCreatedBody": "\"{{name}}\" was created.",
+            "scheduleUpdatedTitle": "Schedule updated",
+            "scheduleUpdatedBody": "\"{{name}}\" was updated.",
             "scheduleDeletedTitle": "Schedule deleted",
+            "saveScheduleFailedTitle": "Save schedule failed",
+            "saveScheduleFailedBody": "Failed to save schedule.",
             "deletedBody": "\"{{name}}\" was deleted.",
             "deleteFailedTitle": "Delete failed",
             "deleteFailedBody": "Failed to delete \"{{name}}\".",
@@ -401,6 +810,17 @@
         "onlineTotal": "{{online}} online / {{total}} total",
         "randomPort": "Random",
         "randomPortTitle": "Assign random free port",
+        "actionMenu": {
+            "templates": "Client templates",
+            "details": "Inbound details",
+            "randomPort": "Assign random free port",
+            "randomPortPending": "Assigning random port...",
+            "clone": "Clone inbound",
+            "clonePending": "Cloning...",
+            "cloneEdit": "Clone + edit",
+            "edit": "Edit inbound",
+            "delete": "Delete inbound"
+        },
         "refreshing": "Refreshing inbounds...",
         "stats": {
             "total": "Total Inbounds",
@@ -517,6 +937,17 @@
             "assignedSummary": "Assigned to {{users}} user(s) and {{groups}} group(s).",
             "failedTitle": "Myanmar pack failed",
             "failedBody": "Failed to apply Myanmar pack"
+        },
+        "toast": {
+            "saveFailed": "Failed to save inbound",
+            "randomPortFailed": "Failed to assign random port",
+            "realityKeygenFailed": "Failed to generate REALITY keys",
+            "wireguardKeygenFailed": "Failed to generate WireGuard keys",
+            "missingServerAddress": "Server address is required.",
+            "destinationRequired": "Destination is required",
+            "destinationReachable": "Destination is reachable",
+            "destinationUnavailable": "Destination is unreachable",
+            "destinationTestFailed": "Destination test failed"
         }
     },
     "compatibility": {
@@ -595,6 +1026,268 @@
         "restoreBackup": "Restore Backup",
         "updateGeoFiles": "Update Geo Files"
     },
+    "sslSettings": {
+        "current": {
+            "title": "Current certificate",
+            "domain": "Domain",
+            "validUntil": "Valid until",
+            "daysRemaining": "Days remaining",
+            "daysRemainingValue": "{{count}} days",
+            "renew": "Renew certificate"
+        },
+        "issue": {
+            "title": {
+                "enabled": "Issue new certificate",
+                "disabled": "Issue SSL certificate"
+            },
+            "noteTitle": "Note",
+            "noteBody": "This will issue a wildcard certificate for *.yourdomain.com using Cloudflare DNS validation. Make sure your domain nameservers point to Cloudflare.",
+            "submit": "Issue certificate"
+        },
+        "form": {
+            "domainLabel": "Domain",
+            "domainPlaceholder": "yourdomain.com",
+            "domainRequired": "Domain is required",
+            "cloudflareEmailLabel": "Cloudflare email",
+            "cloudflareEmailPlaceholder": "your@email.com",
+            "cloudflareEmailRequired": "Cloudflare email is required",
+            "cloudflareApiKeyLabel": "Cloudflare API key",
+            "cloudflareApiKeyPlaceholder": "Your Cloudflare API key",
+            "cloudflareApiKeyRequired": "API key is required"
+        },
+        "toast": {
+            "issued": "SSL certificate issued successfully.",
+            "issueFailed": "Failed to issue SSL certificate",
+            "renewed": "SSL certificate renewed successfully.",
+            "renewFailed": "Failed to renew SSL certificate"
+        }
+    },
+    "telegramSettings": {
+        "link": {
+            "title": "Telegram admin link",
+            "loading": "Loading Telegram link status...",
+            "statusLabel": "Status",
+            "statusLinked": "Linked",
+            "statusNotLinked": "Not linked",
+            "currentIdLabel": "Current ID",
+            "telegramIdLabel": "Telegram ID",
+            "telegramIdPlaceholder": "123456789",
+            "linkButton": "Link Telegram",
+            "unlinkButton": "Unlink Telegram"
+        },
+        "bot": {
+            "title": "Telegram bot configuration",
+            "botTokenLabel": "Bot token",
+            "adminIdsLabel": "Admin chat IDs (comma-separated)",
+            "helpTitle": "How to get your Chat ID",
+            "helpStep1": "1. Message @userinfobot on Telegram",
+            "helpStep2": "2. It will reply with your Chat ID",
+            "helpStep3": "3. Add it to the field above",
+            "saveButton": "Save settings"
+        },
+        "toast": {
+            "saved": "Restart backend to apply changes.",
+            "saveFailed": "Failed to save Telegram settings",
+            "linked": "Telegram account linked to current admin.",
+            "linkFailed": "Failed to link Telegram account",
+            "unlinked": "Telegram account unlinked from current admin.",
+            "unlinkFailed": "Failed to unlink Telegram account"
+        }
+    },
+    "backupSettings": {
+        "manual": {
+            "title": "Manual backup",
+            "body": "Create a full backup of your database, SSL certificates, and configuration files.",
+            "createNow": "Create backup now"
+        },
+        "scheduled": {
+            "title": "Scheduled backups",
+            "scheduleLabel": "Schedule",
+            "scheduleValue": "Daily at 2:00 AM",
+            "retentionLabel": "Retention",
+            "retentionValue": "7 days",
+            "locationLabel": "Location"
+        },
+        "toast": {
+            "created": "Backup created successfully.",
+            "failed": "Failed to create backup"
+        }
+    },
+    "toolsSettings": {
+        "title": "Tools & utilities",
+        "dns": {
+            "title": "Cloudflare DNS record manager",
+            "subtitle": "Quickly add or update DNS records in your Cloudflare account.",
+            "domainLabel": "Domain",
+            "domainPlaceholder": "sub.example.com",
+            "typeLabel": "Type",
+            "contentLabel": "Content",
+            "contentPlaceholder": "1.2.3.4",
+            "proxiedLabel": "Proxied",
+            "updateButton": "Update record"
+        },
+        "cdnScan": {
+            "title": "Cloudflare CDN IP scanner",
+            "subtitle": "Scan for the best performing Cloudflare IPs for your location. This helps optimize speed and latency.",
+            "startButton": "Start scan",
+            "table": {
+                "ip": "IP address",
+                "latency": "Latency"
+            }
+        },
+        "toast": {
+            "scanFailed": "Scan failed",
+            "dnsUpdated": "DNS record updated successfully.",
+            "dnsUpdateFailed": "DNS update failed",
+            "ipCopied": "IP copied to clipboard."
+        }
+    },
+    "notificationsSettings": {
+        "channels": {
+            "title": "Notification channels",
+            "loading": "Loading notification settings...",
+            "lastUpdated": "Last updated",
+            "created": "Created",
+            "enableWebhook": "Enable webhook delivery",
+            "webhookUrlLabel": "Webhook URL",
+            "webhookUrlPlaceholder": "https://your-notify-service.example/webhook",
+            "webhookSecretLabel": "Webhook secret",
+            "webhookSecretKeepLabel": "Webhook secret (leave blank to keep existing)",
+            "webhookSecretPlaceholder": "Enter webhook signing secret",
+            "timeoutLabel": "Timeout (ms)",
+            "retryAttemptsLabel": "Retry attempts",
+            "retryDelayLabel": "Retry delay (ms)",
+            "defaultRouteTitle": "Default route",
+            "route": {
+                "webhook": "Webhook",
+                "telegram": "Telegram",
+                "systemLog": "System log"
+            },
+            "routeMatrixLabel": "Route matrix (JSON)",
+            "routeMatrixHelp": "Use event names (e.g. auth.login.success) or wildcard prefixes (e.g. user.*).",
+            "saveButton": "Save notification settings"
+        },
+        "test": {
+            "title": "Send test notification",
+            "channelLabel": "Channel",
+            "channelAll": "All channels",
+            "channelWebhook": "Webhook only",
+            "channelTelegram": "Telegram only",
+            "channelSystemLog": "System log only",
+            "eventLabel": "Event name",
+            "payloadLabel": "Test payload (JSON)",
+            "dispatchButton": "Dispatch test"
+        },
+        "audit": {
+            "title": "Notification audit history",
+            "refreshButton": "Refresh audit",
+            "loading": "Loading audit history...",
+            "empty": "No audit records yet.",
+            "pageLine": "Page {{page}} of {{pages}} ({{total}} total)",
+            "table": {
+                "time": "Time",
+                "admin": "Admin",
+                "ip": "IP",
+                "changedKeys": "Changed keys"
+            }
+        },
+        "errors": {
+            "routesMustBeObject": "Routes JSON must be an object",
+            "invalidRoutesJson": "Invalid routes JSON",
+            "saveFailed": "Failed to save notification settings",
+            "testDataMustBeObject": "Test data must be a JSON object",
+            "invalidTestPayload": "Invalid test payload JSON"
+        },
+        "toast": {
+            "saved": "Notification settings saved.",
+            "testSent": "Notification test sent.",
+            "testFailed": "Failed to dispatch test notification"
+        }
+    },
+    "brandingSettings": {
+        "toast": {
+            "created": "Branding created",
+            "updated": "Branding updated",
+            "deleted": "Branding deleted",
+            "deleteFailed": "Failed to delete branding",
+            "saveFailed": "Failed to save branding",
+            "invalidJson": "Custom apps JSON is invalid.",
+            "statusUpdated": "Branding status updated",
+            "statusUpdateFailed": "Failed to update branding status"
+        }
+    },
+    "securitySettings": {
+        "toast": {
+            "profileUpdated": "Profile updated.",
+            "profileUpdatedCredentials": "Profile updated. You'll need to sign in again.",
+            "profileUpdateFailed": "Failed to update profile.",
+            "otpSetupInitialized": "2FA setup initialized.",
+            "otpSetupFailed": "Failed to initialize 2FA.",
+            "otpEnabled": "2FA enabled.",
+            "otpEnableFailed": "Failed to enable 2FA.",
+            "otpDisabled": "2FA disabled.",
+            "otpDisableFailed": "Failed to disable 2FA.",
+            "sessionRevoked": "Session revoked.",
+            "sessionRevokeFailed": "Failed to revoke session.",
+            "sessionsRevoked": "Sessions revoked.",
+            "sessionsRevokeFailed": "Failed to revoke sessions.",
+            "allowlistUpdated": "Allowlist updated.",
+            "allowlistUpdateFailed": "Failed to update allowlist.",
+            "policiesUpdated": "Security policies updated.",
+            "policiesUpdateFailed": "Failed to update security policies.",
+            "ruleCreated": "Rule created.",
+            "ruleCreateFailed": "Failed to create rule.",
+            "ruleUpdated": "Rule updated.",
+            "ruleUpdateFailed": "Failed to update rule.",
+            "ruleDeleted": "Rule deleted.",
+            "ruleDeleteFailed": "Failed to delete rule.",
+            "escalationUpdated": "Escalation route updated.",
+            "escalationUpdateFailed": "Failed to update escalation route.",
+            "testAlertSent": "Test alert sent.",
+            "testAlertFailed": "Failed to send test alert."
+        }
+    },
+    "systemSettings": {
+        "toast": {
+            "restartSuccess": "Xray restarted successfully.",
+            "restartFailed": "Failed to restart Xray.",
+            "geodataUpdated": "Geo data updated.",
+            "geodataUpdateFailed": "Failed to update geo data.",
+            "routingUpdated": "Routing rules updated.",
+            "routingUpdateFailed": "Failed to update routing rules.",
+            "snapshotCreated": "Snapshot created.",
+            "snapshotFailed": "Failed to create snapshot.",
+            "selectSnapshot": "Select a snapshot first.",
+            "configReloaded": "Config reloaded.",
+            "configReloadFailed": "Failed to reload config.",
+            "confdirSynced": "Confdir sync complete.",
+            "confdirSyncFailed": "Failed to sync confdir.",
+            "copyConfigFailed": "Failed to copy config to clipboard.",
+            "unlockFailed": "Failed to unlock updater.",
+            "updateLockReleased": "Update lock released.",
+            "updateLockNotReleased": "Update lock could not be released.",
+            "noRollbackTag": "No rollback tag selected.",
+            "rollbackComplete": "Rollback completed.",
+            "rollbackCompleteWithTag": "Rollback completed ({{tag}}).",
+            "rollbackFailed": "Rollback failed.",
+            "configRollbackComplete": "Rollback completed.",
+            "configRollbackFailed": "Rollback failed.",
+            "preflightBlocked": "Preflight blocked. Fix issues before continuing.",
+            "copyPreflightFixesSuccess": "Preflight fixes copied.",
+            "copyPreflightFixesFailed": "Failed to copy fixes.",
+            "manualModeGuidedUnavailable": "Guided update is unavailable in manual mode.",
+            "manualModeScriptedDisabled": "Scripted updates are disabled in manual mode.",
+            "manualModeRollbackDisabled": "Rollback is disabled in manual mode.",
+            "releaseIntelRefreshed": "Release intel refreshed.",
+            "releaseIntelRefreshFailed": "Failed to refresh release intel.",
+            "guidedPaused": "Guided update paused.",
+            "guidedComplete": "Guided update completed.",
+            "canaryComplete": "Canary rollout completed.",
+            "canaryFailed": "Canary rollout failed.",
+            "fullRolloutComplete": "Full rollout completed.",
+            "fullRolloutFailed": "Full rollout failed."
+        }
+    },
     "apiKeys": {
         "title": "API Keys",
         "create": "Create Key",
@@ -653,7 +1346,13 @@
         "confirmRevokeDevice": "Revoke this device? It will need to reconnect.",
         "revoke": "Revoke",
         "devicesRevoked": "Device revoked.",
-        "showingFirst": "Showing first"
+        "showingFirst": "Showing first",
+        "toast": {
+            "refreshed": "Portal data refreshed.",
+            "refreshFailed": "Failed to refresh portal data.",
+            "noNodes": "No subscription nodes available.",
+            "revokeFailed": "Failed to revoke device"
+        }
     },
     "logs": {
         "title": "Connection Logs",
@@ -663,6 +1362,9 @@
         "connect": "Connect",
         "disconnect": "Disconnect",
         "filter": "Filter",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "toast": {
+            "copyFailed": "Unable to copy to clipboard."
+        }
     }
 }

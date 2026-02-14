@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Shield, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { authApi } from '../../api/auth';
 import apiClient from '../../api/client';
@@ -141,6 +142,7 @@ function escapeCsv(value: unknown) {
 const SecuritySettings: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useTranslation();
   const authAdmin = useAuthStore((state) => state.admin);
   const setAuthAdmin = useAuthStore((state) => state.setAdmin);
   const isSuperAdmin = authAdmin?.role === 'SUPER_ADMIN';
@@ -324,10 +326,16 @@ const SecuritySettings: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['notification-settings-security'] }),
         queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
       ]);
-      toast.success('Escalation rules updated', 'Security escalation rules updated.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.escalationUpdated', { defaultValue: 'Security escalation rules updated.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Update failed', error?.message || 'Failed to update security escalation rules');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.escalationUpdateFailed', { defaultValue: 'Failed to update security escalation rules' })
+      );
     }
   });
 
@@ -345,10 +353,16 @@ const SecuritySettings: React.FC = () => {
       });
     },
     onSuccess: () => {
-      toast.success('Test alert sent', 'Test security alert dispatched to configured channels.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.testAlertSent', { defaultValue: 'Test security alert dispatched to configured channels.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Dispatch failed', error?.message || 'Failed to send test security alert');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.testAlertFailed', { defaultValue: 'Failed to send test security alert' })
+      );
     }
   });
 
@@ -394,14 +408,17 @@ const SecuritySettings: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['auth-sessions'] })
       ]);
       toast.success(
-        'Profile updated',
+        t('common.success', { defaultValue: 'Success' }),
         data.passwordChanged
-          ? 'Credentials updated. Existing refresh sessions were revoked.'
-          : 'Profile updated successfully.'
+          ? t('securitySettings.toast.profileUpdatedCredentials', { defaultValue: 'Credentials updated. Existing refresh sessions were revoked.' })
+          : t('securitySettings.toast.profileUpdated', { defaultValue: 'Profile updated successfully.' })
       );
     },
     onError: (error: any) => {
-      toast.error('Profile update failed', error?.message || 'Failed to update profile');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.profileUpdateFailed', { defaultValue: 'Failed to update profile' })
+      );
     }
   });
 
@@ -410,10 +427,16 @@ const SecuritySettings: React.FC = () => {
     onSuccess: (data) => {
       setSetupData(data);
       setEnableOtp('');
-      toast.success('2FA setup initialized', 'Scan the QR code and enter OTP to complete setup.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.otpSetupInitialized', { defaultValue: 'Scan the QR code and enter OTP to complete setup.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('2FA setup failed', error?.message || 'Failed to initialize 2FA setup');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.otpSetupFailed', { defaultValue: 'Failed to initialize 2FA setup' })
+      );
     }
   });
 
@@ -423,10 +446,16 @@ const SecuritySettings: React.FC = () => {
       setSetupData(null);
       setEnableOtp('');
       void queryClient.invalidateQueries({ queryKey: ['auth-me'] });
-      toast.success('2FA enabled', 'Two-factor authentication is now enabled.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.otpEnabled', { defaultValue: 'Two-factor authentication is now enabled.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Enable 2FA failed', error?.message || 'Failed to enable 2FA');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.otpEnableFailed', { defaultValue: 'Failed to enable 2FA' })
+      );
     }
   });
 
@@ -436,10 +465,16 @@ const SecuritySettings: React.FC = () => {
       setDisableOtp('');
       setSetupData(null);
       void queryClient.invalidateQueries({ queryKey: ['auth-me'] });
-      toast.success('2FA disabled', 'Two-factor authentication has been disabled.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.otpDisabled', { defaultValue: 'Two-factor authentication has been disabled.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Disable 2FA failed', error?.message || 'Failed to disable 2FA');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.otpDisableFailed', { defaultValue: 'Failed to disable 2FA' })
+      );
     }
   });
 
@@ -447,10 +482,18 @@ const SecuritySettings: React.FC = () => {
     mutationFn: async () => authApi.logoutAll(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['auth-sessions'] });
-      toast.success('Sessions revoked', 'All refresh sessions revoked. Current access token remains valid until it expires.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.sessionsRevoked', {
+          defaultValue: 'All refresh sessions revoked. Current access token remains valid until it expires.'
+        })
+      );
     },
     onError: (error: any) => {
-      toast.error('Revoke sessions failed', error?.message || 'Failed to revoke sessions');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.sessionsRevokeFailed', { defaultValue: 'Failed to revoke sessions' })
+      );
     }
   });
 
@@ -458,10 +501,16 @@ const SecuritySettings: React.FC = () => {
     mutationFn: async (sid: string) => authApi.revokeSessionById(sid, false),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['auth-sessions'] });
-      toast.success('Session revoked', 'The selected session has been revoked.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.sessionRevoked', { defaultValue: 'The selected session has been revoked.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Revoke session failed', error?.message || 'Failed to revoke session');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.sessionRevokeFailed', { defaultValue: 'Failed to revoke session' })
+      );
     }
   });
 
@@ -474,10 +523,16 @@ const SecuritySettings: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['security-ip-allowlist'] });
-      toast.success('Allowlist updated', 'Admin access policy updated.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.allowlistUpdated', { defaultValue: 'Admin access policy updated.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Allowlist update failed', error?.message || 'Failed to update IP allowlist');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.allowlistUpdateFailed', { defaultValue: 'Failed to update IP allowlist' })
+      );
     }
   });
 
@@ -495,10 +550,16 @@ const SecuritySettings: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['security-policies'] }),
         queryClient.invalidateQueries({ queryKey: ['security-ip-allowlist'] })
       ]);
-      toast.success('Policies updated', 'Security policies updated.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.policiesUpdated', { defaultValue: 'Security policies updated.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Policy update failed', error?.message || 'Failed to update security policies');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.policiesUpdateFailed', { defaultValue: 'Failed to update security policies' })
+      );
     }
   });
 
@@ -518,10 +579,16 @@ const SecuritySettings: React.FC = () => {
       setRuleTargetValue('');
       setRulePriority(100);
       await queryClient.invalidateQueries({ queryKey: ['security-rules'] });
-      toast.success('Rule created', 'Security rule created successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.ruleCreated', { defaultValue: 'Security rule created successfully.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Create rule failed', error?.message || 'Failed to create security rule');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.ruleCreateFailed', { defaultValue: 'Failed to create security rule' })
+      );
     }
   });
 
@@ -531,10 +598,16 @@ const SecuritySettings: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['security-rules'] });
-      toast.success('Rule updated', 'Security rule status updated.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.ruleUpdated', { defaultValue: 'Security rule status updated.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Update rule failed', error?.message || 'Failed to update security rule');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.ruleUpdateFailed', { defaultValue: 'Failed to update security rule' })
+      );
     }
   });
 
@@ -544,10 +617,16 @@ const SecuritySettings: React.FC = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['security-rules'] });
-      toast.success('Rule deleted', 'Security rule deleted.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('securitySettings.toast.ruleDeleted', { defaultValue: 'Security rule deleted.' })
+      );
     },
     onError: (error: any) => {
-      toast.error('Delete rule failed', error?.message || 'Failed to delete security rule');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('securitySettings.toast.ruleDeleteFailed', { defaultValue: 'Failed to delete security rule' })
+      );
     }
   });
 

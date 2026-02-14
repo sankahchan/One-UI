@@ -1084,13 +1084,13 @@ export const Inbounds: React.FC = () => {
 
     menuItems.push({
       key: 'templates',
-      label: 'Client templates',
+      label: t('inbounds.actionMenu.templates', { defaultValue: 'Client templates' }),
       icon: FileCode2,
       onClick: () => setProfileInbound(inbound)
     });
     menuItems.push({
       key: 'details',
-      label: 'Inbound details',
+      label: t('inbounds.actionMenu.details', { defaultValue: 'Inbound details' }),
       icon: Eye,
       onClick: () => setDrawerInbound(inbound)
     });
@@ -1099,7 +1099,9 @@ export const Inbounds: React.FC = () => {
       const isRandomizing = Boolean(randomizeInboundPort.isPending && randomizingPortId === inbound.id);
       menuItems.push({
         key: 'random-port',
-        label: isRandomizing ? 'Assigning random port…' : 'Assign random free port',
+        label: isRandomizing
+          ? t('inbounds.actionMenu.randomPortPending', { defaultValue: 'Assigning random port...' })
+          : t('inbounds.actionMenu.randomPort', { defaultValue: 'Assign random free port' }),
         icon: Shuffle,
         disabled: isRandomizing,
         onClick: () => randomizeInboundPort.mutate(inbound.id)
@@ -1108,20 +1110,22 @@ export const Inbounds: React.FC = () => {
 
     menuItems.push({
       key: 'clone',
-      label: (cloningId === inbound.id && cloneInbound.isPending) ? 'Cloning…' : 'Clone inbound',
+      label: (cloningId === inbound.id && cloneInbound.isPending)
+        ? t('inbounds.actionMenu.clonePending', { defaultValue: 'Cloning...' })
+        : t('inbounds.actionMenu.clone', { defaultValue: 'Clone inbound' }),
       icon: Copy,
       disabled: Boolean(cloningId === inbound.id && cloneInbound.isPending),
       onClick: () => cloneInbound.mutate(inbound)
     });
     menuItems.push({
       key: 'clone-edit',
-      label: 'Clone + edit',
+      label: t('inbounds.actionMenu.cloneEdit', { defaultValue: 'Clone + edit' }),
       icon: Plus,
       onClick: () => openCloneEditor(inbound)
     });
     menuItems.push({
       key: 'edit',
-      label: 'Edit inbound',
+      label: t('inbounds.actionMenu.edit', { defaultValue: 'Edit inbound' }),
       icon: Edit,
       onClick: () => {
         setDraftInbound(null);
@@ -1132,7 +1136,7 @@ export const Inbounds: React.FC = () => {
     if (canDeleteInbounds) {
       menuItems.push({
         key: 'delete',
-        label: 'Delete inbound',
+        label: t('inbounds.actionMenu.delete', { defaultValue: 'Delete inbound' }),
         icon: Trash2,
         tone: 'danger',
         onClick: () => void handleDelete(inbound.id)
@@ -1149,8 +1153,8 @@ export const Inbounds: React.FC = () => {
           className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
             mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
           }`}
-          aria-label="More actions"
-          title="More actions"
+          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
+          title={t('common.moreActions', { defaultValue: 'More actions' })}
           onClick={(event) => event.stopPropagation()}
         >
           <span className="inline-flex items-center">

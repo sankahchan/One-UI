@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, Radar, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import apiClient from '../../api/client';
 import { useToast } from '../../hooks/useToast';
@@ -36,6 +37,7 @@ export const RealitySettings: React.FC<RealitySettingsProps> = ({
   errors
 }) => {
   const toast = useToast();
+  const { t } = useTranslation();
   const selectedDest = (watch('realityDest') || '').trim();
   const serverName = (watch('serverName') || '').trim();
   const currentServerNames = String(watch('realityServerName') || '')
@@ -62,16 +64,29 @@ export const RealitySettings: React.FC<RealitySettingsProps> = ({
     },
     onSuccess: (result: any) => {
       if (result?.accessible) {
-        toast.success('Destination reachable', String(result.destination || 'Destination reachable'));
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('inbounds.toast.destinationReachable', {
+            defaultValue: 'Destination reachable: {{dest}}',
+            dest: String(result.destination || selectedDest || '')
+          })
+        );
         return;
       }
       toast.warning(
-        'Destination unavailable',
-        String(result?.message || result?.destination || 'Destination is not reachable')
+        t('common.warning', { defaultValue: 'Warning' }),
+        String(
+          result?.message
+            || result?.destination
+            || t('inbounds.toast.destinationUnavailable', { defaultValue: 'Destination is not reachable' })
+        )
       );
     },
     onError: (error: any) => {
-      toast.error('Test failed', error?.message || 'Failed to test destination');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('inbounds.toast.destinationTestFailed', { defaultValue: 'Failed to test destination' })
+      );
     }
   });
 
@@ -129,7 +144,10 @@ export const RealitySettings: React.FC<RealitySettingsProps> = ({
           variant="secondary"
           onClick={() => {
             if (!selectedDest) {
-              toast.warning('Destination required', 'Select or enter a destination first.');
+              toast.warning(
+                t('common.warning', { defaultValue: 'Warning' }),
+                t('inbounds.toast.destinationRequired', { defaultValue: 'Select or enter a destination first.' })
+              );
               return;
             }
             testDestinationMutation.mutate(selectedDest);

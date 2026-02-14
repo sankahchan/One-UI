@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { AlertTriangle, Info, Plus, Shuffle, Trash2, X } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';
 import apiClient from '../../api/client';
@@ -158,6 +159,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
   onSuccess
 }) => {
   const toast = useToast();
+  const { t } = useTranslation();
   const [realityTemplateCopied, setRealityTemplateCopied] = React.useState(false);
   const isEdit = !!inbound;
   const inboundDomains = (inbound as (Inbound & { domains?: string[] }) | undefined)?.domains;
@@ -401,7 +403,10 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       onSuccess();
     },
     onError: (error: any) => {
-      toast.error('Save failed', error?.message || 'Failed to save inbound');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('inbounds.toast.saveFailed', { defaultValue: 'Failed to save inbound' })
+      );
     }
   });
 
@@ -422,7 +427,10 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       }
     },
     onError: (error: any) => {
-      toast.error('Random port failed', error?.message || 'Failed to generate random port');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('inbounds.toast.randomPortFailed', { defaultValue: 'Failed to generate random port' })
+      );
     }
   });
 
@@ -444,7 +452,10 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       }
     },
     onError: (error: any) => {
-      toast.error('WireGuard keygen failed', error?.message || 'Failed to generate WireGuard keys');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('inbounds.toast.wireguardKeygenFailed', { defaultValue: 'Failed to generate WireGuard keys' })
+      );
     }
   });
 
@@ -489,7 +500,10 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       }
     },
     onError: (error: any) => {
-      toast.error('REALITY keygen failed', error?.message || 'Failed to generate REALITY keys');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('inbounds.toast.realityKeygenFailed', { defaultValue: 'Failed to generate REALITY keys' })
+      );
     }
   });
 
@@ -559,7 +573,10 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
     }
 
     if (!host) {
-      toast.warning('Missing server address', 'Set Server Address first.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('inbounds.toast.missingServerAddress', { defaultValue: 'Set Server Address first.' })
+      );
       return;
     }
 

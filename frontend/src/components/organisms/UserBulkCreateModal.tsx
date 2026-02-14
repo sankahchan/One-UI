@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Download, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useInbounds } from '../../hooks/useInbounds';
 import { useBulkCreateUsers } from '../../hooks/useUsers';
@@ -68,6 +69,7 @@ function buildPreviewEmails(prefix: string, domain: string, count: number, start
 
 export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClose, onSuccess }) => {
   const toast = useToast();
+  const { t } = useTranslation();
   const { data: inboundsData } = useInbounds();
   const bulkCreateMutation = useBulkCreateUsers();
 
@@ -125,26 +127,26 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
         .map((entry) => `${entry.email}: ${entry.reason}`)
         .join('\n');
 
-      toast.success(
-        'Bulk provisioning completed',
-        [
-          `Requested: ${result.requestedCount}`,
-          `Created: ${result.createdCount}`,
-          `Failed: ${result.failedCount}`,
-          result.createdCount > 0 ? 'Credentials CSV downloaded.' : undefined
-        ]
-          .filter(Boolean)
-          .join(' • ')
-      );
+      const summaryParts = [
+        t('users.bulkCreate.toast.requested', { defaultValue: 'Requested: {{count}}', count: result.requestedCount }),
+        t('users.bulkCreate.toast.created', { defaultValue: 'Created: {{count}}', count: result.createdCount }),
+        t('users.bulkCreate.toast.failed', { defaultValue: 'Failed: {{count}}', count: result.failedCount }),
+        result.createdCount > 0 ? t('users.bulkCreate.toast.csvDownloaded', { defaultValue: 'Credentials CSV downloaded.' }) : undefined
+      ].filter(Boolean);
+
+      toast.success(t('common.success', { defaultValue: 'Success' }), summaryParts.join(' • '));
       if (failurePreview) {
-        toast.warning('Bulk create warnings', failurePreview);
+        toast.warning(t('common.warning', { defaultValue: 'Warning' }), failurePreview);
       }
 
       if (result.createdCount > 0) {
         onSuccess();
       }
     } catch (error: any) {
-      toast.error('Bulk create failed', error?.message || 'Failed to create users in bulk');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.bulkCreate.toast.failedBody', { defaultValue: 'Failed to create users in bulk' })
+      );
     }
   };
 
@@ -153,13 +155,17 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
       <div className="my-6 w-full max-w-3xl overflow-hidden rounded-2xl border border-line/80 bg-card/95 shadow-soft">
         <div className="flex items-center justify-between border-b border-line/80 p-5">
           <div>
-            <h2 className="text-xl font-bold text-foreground sm:text-2xl">Bulk User Provisioning</h2>
-            <p className="mt-1 text-sm text-muted">Create multiple users with consistent limits and inbound assignments.</p>
+            <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+              {t('users.bulkCreate.title', { defaultValue: 'Bulk User Provisioning' })}
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {t('users.bulkCreate.subtitle', { defaultValue: 'Create multiple users with consistent limits and inbound assignments.' })}
+            </p>
           </div>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
-            aria-label="Close"
+            aria-label={t('common.close', { defaultValue: 'Close' })}
           >
             <X className="h-5 w-5" />
           </button>
@@ -168,14 +174,14 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-5 sm:p-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Email Prefix *"
-              {...register('prefix', { required: 'Prefix is required' })}
+              label={`${t('users.bulkCreate.prefixLabel', { defaultValue: 'Email Prefix' })} *`}
+              {...register('prefix', { required: t('users.bulkCreate.validation.prefixRequired', { defaultValue: 'Prefix is required' }) })}
               error={errors.prefix?.message}
               placeholder="user"
             />
             <Input
-              label="Domain *"
-              {...register('domain', { required: 'Domain is required' })}
+              label={`${t('users.bulkCreate.domainLabel', { defaultValue: 'Domain' })} *`}
+              {...register('domain', { required: t('users.bulkCreate.validation.domainRequired', { defaultValue: 'Domain is required' }) })}
               error={errors.domain?.message}
               placeholder="example.com"
             />
@@ -183,42 +189,44 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Input
-              label="Count *"
+              label={`${t('users.bulkCreate.countLabel', { defaultValue: 'Count' })} *`}
               type="number"
               {...register('count', {
                 valueAsNumber: true,
-                required: 'Count is required',
-                min: { value: 1, message: 'Minimum 1' },
-                max: { value: 200, message: 'Maximum 200' }
+                required: t('users.bulkCreate.validation.countRequired', { defaultValue: 'Count is required' }),
+                min: { value: 1, message: t('users.bulkCreate.validation.countMin', { defaultValue: 'Minimum 1' }) },
+                max: { value: 200, message: t('users.bulkCreate.validation.countMax', { defaultValue: 'Maximum 200' }) }
               })}
               error={errors.count?.message}
             />
             <Input
-              label="Start Index *"
+              label={`${t('users.bulkCreate.startIndexLabel', { defaultValue: 'Start Index' })} *`}
               type="number"
               {...register('startIndex', {
                 valueAsNumber: true,
-                required: 'Start index is required',
-                min: { value: 1, message: 'Minimum 1' }
+                required: t('users.bulkCreate.validation.startIndexRequired', { defaultValue: 'Start index is required' }),
+                min: { value: 1, message: t('users.bulkCreate.validation.countMin', { defaultValue: 'Minimum 1' }) }
               })}
               error={errors.startIndex?.message}
             />
             <Input
-              label="Padding"
+              label={t('users.bulkCreate.paddingLabel', { defaultValue: 'Padding' })}
               type="number"
               {...register('padding', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Minimum 0' },
-                max: { value: 8, message: 'Maximum 8' }
+                min: { value: 0, message: t('users.quickEdit.validation.minZero', { defaultValue: 'Minimum 0' }) },
+                max: { value: 8, message: t('users.bulkCreate.validation.paddingMax', { defaultValue: 'Maximum 8' }) }
               })}
               error={errors.padding?.message}
             />
           </div>
 
           <div className="rounded-xl border border-line/70 bg-panel/55 p-4">
-            <p className="text-sm font-semibold text-foreground">Email Preview</p>
+            <p className="text-sm font-semibold text-foreground">{t('users.bulkCreate.previewTitle', { defaultValue: 'Email Preview' })}</p>
             {previewEmails.length === 0 ? (
-              <p className="mt-1 text-xs text-muted">Enter prefix/domain to preview generated emails.</p>
+              <p className="mt-1 text-xs text-muted">
+                {t('users.bulkCreate.previewEmpty', { defaultValue: 'Enter prefix/domain to preview generated emails.' })}
+              </p>
             ) : (
               <ul className="mt-2 space-y-1 text-xs text-muted">
                 {previewEmails.map((email) => (
@@ -231,70 +239,76 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Input
-              label="Data Limit (GB) *"
+              label={`${t('users.form.dataLimitLabel', { defaultValue: 'Data Limit (GB)' })} *`}
               type="number"
               {...register('dataLimit', {
                 valueAsNumber: true,
-                required: 'Data limit is required',
-                min: { value: 0, message: 'Minimum 0' }
+                required: t('users.form.validation.dataLimitRequired', { defaultValue: 'Data limit is required' }),
+                min: { value: 0, message: t('users.quickEdit.validation.minZero', { defaultValue: 'Minimum 0' }) }
               })}
               error={errors.dataLimit?.message}
             />
             <Input
-              label="Expiry Days *"
+              label={`${t('users.expiryDays', { defaultValue: 'Expiry Days' })} *`}
               type="number"
               {...register('expiryDays', {
                 valueAsNumber: true,
-                required: 'Expiry days is required',
-                min: { value: 1, message: 'Minimum 1 day' }
+                required: t('users.form.validation.expiryDaysRequired', { defaultValue: 'Expiry days is required' }),
+                min: { value: 1, message: t('users.form.validation.minDay', { defaultValue: 'Minimum 1 day' }) }
               })}
               error={errors.expiryDays?.message}
             />
             <Input
-              label="IP Limit"
+              label={t('users.form.ipLimitLabel', { defaultValue: 'IP Limit' })}
               type="number"
               {...register('ipLimit', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Minimum 0' }
+                min: { value: 0, message: t('users.quickEdit.validation.minZero', { defaultValue: 'Minimum 0' }) }
               })}
               error={errors.ipLimit?.message}
-              placeholder="0 = unlimited"
+              placeholder={t('users.ipLimitHint', { defaultValue: '0 = unlimited' })}
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium text-muted">Status</label>
+              <label className="mb-2 block text-sm font-medium text-muted">{t('common.status', { defaultValue: 'Status' })}</label>
               <select
                 {...register('status')}
                 className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
               >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="LIMITED">LIMITED</option>
-                <option value="DISABLED">DISABLED</option>
-                <option value="EXPIRED">EXPIRED</option>
+                <option value="ACTIVE">{t('status.active', { defaultValue: 'Active' })}</option>
+                <option value="LIMITED">{t('status.limited', { defaultValue: 'Limited' })}</option>
+                <option value="DISABLED">{t('status.disabled', { defaultValue: 'Disabled' })}</option>
+                <option value="EXPIRED">{t('status.expired', { defaultValue: 'Expired' })}</option>
               </select>
             </div>
 
             <Input
-              label="Note"
+              label={t('users.note', { defaultValue: 'Note' })}
               {...register('note')}
-              placeholder="Optional note applied to all created users"
+              placeholder={t('users.bulkCreate.notePlaceholder', { defaultValue: 'Optional note applied to all created users' })}
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted">Assign Inbounds *</label>
+            <label className="mb-2 block text-sm font-medium text-muted">
+              {t('users.bulkCreate.assignInboundsLabel', { defaultValue: 'Assign Inbounds' })} *
+            </label>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-line/80 bg-card/65 p-3">
               {inbounds.length === 0 ? (
-                <p className="text-sm text-muted">No active inbounds available.</p>
+                <p className="text-sm text-muted">
+                  {t('users.bulkCreate.noActiveInbounds', { defaultValue: 'No active inbounds available.' })}
+                </p>
               ) : (
                 inbounds.map((inbound) => (
                   <label key={inbound.id} className="flex items-center gap-3 rounded-lg p-2 hover:bg-card/80">
                     <input
                       type="checkbox"
                       value={inbound.id}
-                      {...register('inboundIds', { required: 'Select at least one inbound' })}
+                      {...register('inboundIds', {
+                        required: t('users.form.validation.inboundRequired', { defaultValue: 'Select at least one inbound' })
+                      })}
                       className="h-4 w-4 rounded border-line bg-card"
                     />
                     <span className="text-sm text-foreground">
@@ -310,10 +324,10 @@ export const UserBulkCreateModal: React.FC<UserBulkCreateModalProps> = ({ onClos
           <div className="flex flex-col gap-2 border-t border-line/70 pt-4 sm:flex-row">
             <Button type="submit" className="flex-1" loading={bulkCreateMutation.isPending}>
               <Download className="mr-2 h-4 w-4" />
-              Create Users & Download Credentials
+              {t('users.bulkCreate.submit', { defaultValue: 'Create Users & Download Credentials' })}
             </Button>
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
-              Cancel
+              {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
           </div>
         </form>

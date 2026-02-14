@@ -1194,17 +1194,26 @@ export function Groups() {
           id: editingGroup.id,
           payload: values
         });
-        toast.success('Group updated', `"${editingGroup.name}" was updated successfully.`);
+        toast.success(
+          t('groups.toast.groupUpdatedTitle', { defaultValue: 'Group updated' }),
+          t('groups.toast.groupUpdatedBody', { defaultValue: '"{{name}}" was updated successfully.', name: editingGroup.name })
+        );
       } else {
         await createGroupMutation.mutateAsync(values);
-        toast.success('Group created', `"${values.name}" was created successfully.`);
+        toast.success(
+          t('groups.toast.groupCreatedTitle', { defaultValue: 'Group created' }),
+          t('groups.toast.groupCreatedBody', { defaultValue: '"{{name}}" was created successfully.', name: values.name })
+        );
       }
 
       await groupsQuery.refetch();
       setEditorOpen(false);
       setEditingGroup(null);
     } catch (error: any) {
-      toast.error('Failed to save group', error?.message || 'Could not save group changes.');
+      toast.error(
+        t('groups.toast.saveGroupFailedTitle', { defaultValue: 'Failed to save group' }),
+        error?.message || t('groups.toast.saveGroupFailedBody', { defaultValue: 'Could not save group changes.' })
+      );
     }
   };
 
@@ -1224,17 +1233,26 @@ export function Groups() {
           templateId: editingTemplate.id,
           payload
         });
-        toast.success('Template updated', `"${editingTemplate.name}" was updated.`);
+        toast.success(
+          t('groups.toast.templateUpdatedTitle', { defaultValue: 'Template updated' }),
+          t('groups.toast.templateUpdatedBody', { defaultValue: '"{{name}}" was updated.', name: editingTemplate.name })
+        );
       } else {
         await createTemplateMutation.mutateAsync(payload);
-        toast.success('Template created', `"${values.name}" is ready to use.`);
+        toast.success(
+          t('groups.toast.templateCreatedTitle', { defaultValue: 'Template created' }),
+          t('groups.toast.templateCreatedBody', { defaultValue: '"{{name}}" is ready to use.', name: values.name })
+        );
       }
 
       await templatesQuery.refetch();
       setTemplateEditorOpen(false);
       setEditingTemplate(null);
     } catch (error: any) {
-      toast.error('Failed to save template', error?.message || 'Could not save template.');
+      toast.error(
+        t('groups.toast.saveTemplateFailedTitle', { defaultValue: 'Failed to save template' }),
+        error?.message || t('groups.toast.saveTemplateFailedBody', { defaultValue: 'Could not save template.' })
+      );
     }
   };
 
@@ -1274,13 +1292,16 @@ export function Groups() {
       ]);
       setApplyTemplateTarget(null);
       toast.success(
-        'Template applied',
+        t('groups.toast.templateAppliedTitle', { defaultValue: 'Template applied' }),
         payload.applyNow
-          ? 'Group policy was updated and rollout was triggered.'
-          : 'Group policy values were updated successfully.'
+          ? t('groups.toast.templateAppliedBodyNow', { defaultValue: 'Group policy was updated and rollout was triggered.' })
+          : t('groups.toast.templateAppliedBodyValues', { defaultValue: 'Group policy values were updated successfully.' })
       );
     } catch (error: any) {
-      toast.error('Apply template failed', error?.message || 'Failed to apply template to group.');
+      toast.error(
+        t('groups.toast.applyTemplateFailedTitle', { defaultValue: 'Apply template failed' }),
+        error?.message || t('groups.toast.applyTemplateFailedBody', { defaultValue: 'Failed to apply template to group.' })
+      );
     }
   };
 
@@ -1296,17 +1317,26 @@ export function Groups() {
           scheduleId: editingSchedule.id,
           payload
         });
-        toast.success('Schedule updated', `"${editingSchedule.name}" was updated.`);
+        toast.success(
+          t('groups.toast.scheduleUpdatedTitle', { defaultValue: 'Schedule updated' }),
+          t('groups.toast.scheduleUpdatedBody', { defaultValue: '"{{name}}" was updated.', name: editingSchedule.name })
+        );
       } else {
         await createScheduleMutation.mutateAsync(payload);
-        toast.success('Schedule created', `"${values.name}" has been scheduled.`);
+        toast.success(
+          t('groups.toast.scheduleCreatedTitle', { defaultValue: 'Schedule created' }),
+          t('groups.toast.scheduleCreatedBody', { defaultValue: '"{{name}}" has been scheduled.', name: values.name })
+        );
       }
 
       await schedulesQuery.refetch();
       setScheduleEditorOpen(false);
       setEditingSchedule(null);
     } catch (error: any) {
-      toast.error('Failed to save schedule', error?.message || 'Could not save schedule.');
+      toast.error(
+        t('groups.toast.saveScheduleFailedTitle', { defaultValue: 'Failed to save schedule' }),
+        error?.message || t('groups.toast.saveScheduleFailedBody', { defaultValue: 'Could not save schedule.' })
+      );
     }
   };
 

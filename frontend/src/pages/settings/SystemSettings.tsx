@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Copy, FileCode2, RefreshCw, Server, XCircle } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import apiClient from '../../api/client';
 import type { XrayUpdatePreflightCheck } from '../../api/xray';
@@ -71,6 +72,7 @@ const SystemSettings: React.FC = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useTranslation();
   const xrayUpdatesRef = useRef<HTMLDivElement | null>(null);
   const confirmResolverRef = useRef<((accepted: boolean) => void) | null>(null);
   const [showConfigPreview, setShowConfigPreview] = useState(false);
@@ -249,39 +251,67 @@ const SystemSettings: React.FC = () => {
   const handleReloadConfig = async () => {
     try {
       const result = await reloadXrayConfigMutation.mutateAsync();
-      toast.success('Config reloaded', result.message || 'Xray config reloaded successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || t('systemSettings.toast.configReloaded', { defaultValue: 'Xray config reloaded successfully.' })
+      );
     } catch (error: any) {
-      toast.error('Reload failed', error?.message || 'Failed to reload Xray config');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.configReloadFailed', { defaultValue: 'Failed to reload Xray config' })
+      );
     }
   };
 
   const handleRestartXray = async () => {
     try {
       const result = await restartXrayMutation.mutateAsync();
-      toast.success('Xray restarted', result.message || 'Xray restarted successfully!');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || t('systemSettings.toast.restartSuccess', { defaultValue: 'Xray restarted successfully!' })
+      );
     } catch (error: any) {
-      toast.error('Restart failed', error?.message || 'Failed to restart Xray');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.restartFailed', { defaultValue: 'Failed to restart Xray' })
+      );
     }
   };
 
   const handleRunCanaryUpdate = async () => {
     if (!scriptedUpdatesEnabled) {
-      toast.warning('Manual mode', 'Scripted Xray updates are disabled in manual mode. Use your host update workflow.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.manualModeScriptedDisabled', {
+          defaultValue: 'Scripted Xray updates are disabled in manual mode. Use your host update workflow.'
+        })
+      );
       return;
     }
     try {
       const result = await runCanaryUpdateMutation.mutateAsync({
         channel: updateChannel
       });
-      toast.success('Canary complete', result.summary || 'Canary update completed successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.summary || t('systemSettings.toast.canaryComplete', { defaultValue: 'Canary update completed successfully.' })
+      );
     } catch (error: any) {
-      toast.error('Canary failed', error?.message || 'Failed to run canary update');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.canaryFailed', { defaultValue: 'Failed to run canary update' })
+      );
     }
   };
 
   const handleRunFullUpdate = async (force = false) => {
     if (!scriptedUpdatesEnabled) {
-      toast.warning('Manual mode', 'Scripted Xray updates are disabled in manual mode. Use your host update workflow.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.manualModeScriptedDisabled', {
+          defaultValue: 'Scripted Xray updates are disabled in manual mode. Use your host update workflow.'
+        })
+      );
       return;
     }
     const confirmText = force
@@ -302,15 +332,26 @@ const SystemSettings: React.FC = () => {
         channel: updateChannel,
         force
       });
-      toast.success('Full rollout complete', result.summary || 'Full rollout completed successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.summary || t('systemSettings.toast.fullRolloutComplete', { defaultValue: 'Full rollout completed successfully.' })
+      );
     } catch (error: any) {
-      toast.error('Full rollout failed', error?.message || 'Failed to run full rollout');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.fullRolloutFailed', { defaultValue: 'Failed to run full rollout' })
+      );
     }
   };
 
   const handleRunGuidedRollout = async () => {
     if (!scriptedUpdatesEnabled) {
-      toast.warning('Manual mode', 'Guided rollout is unavailable in manual mode. Use your host update workflow.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.manualModeGuidedUnavailable', {
+          defaultValue: 'Guided rollout is unavailable in manual mode. Use your host update workflow.'
+        })
+      );
       return;
     }
     const startGuided = await requestConfirm({
@@ -327,7 +368,10 @@ const SystemSettings: React.FC = () => {
     try {
       const preflightResult = await xrayUpdatePreflightQuery.refetch();
       if (!preflightResult.data?.ready) {
-        toast.warning('Preflight blocked', 'Resolve preflight checks before guided rollout.');
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('systemSettings.toast.preflightBlocked', { defaultValue: 'Resolve preflight checks before guided rollout.' })
+        );
         return;
       }
 
@@ -342,14 +386,20 @@ const SystemSettings: React.FC = () => {
         tone: 'primary'
       });
       if (!continueToFull) {
-        toast.info('Guided rollout paused', 'Canary complete. Full rollout skipped.');
+        toast.info(
+          t('common.info', { defaultValue: 'Info' }),
+          t('systemSettings.toast.guidedPaused', { defaultValue: 'Canary complete. Full rollout skipped.' })
+        );
         return;
       }
 
       const fullResult = await runFullUpdateMutation.mutateAsync({
         channel: updateChannel
       });
-      toast.success('Guided rollout complete', fullResult.summary || 'Guided rollout completed successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        fullResult.summary || t('systemSettings.toast.guidedComplete', { defaultValue: 'Guided rollout completed successfully.' })
+      );
     } catch (error: any) {
       const failureMessage = error?.message || 'Guided rollout failed';
       const runRollbackNow = await requestConfirm({
@@ -367,14 +417,21 @@ const SystemSettings: React.FC = () => {
       const backupTag = selectedRollbackTag || backupTags?.[0];
 
       if (!backupTag) {
-        toast.warning('No rollback tag', 'No rollback backup tag available. Refresh tags and try again.');
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('systemSettings.toast.noRollbackTag', { defaultValue: 'No rollback backup tag available. Refresh tags and try again.' })
+        );
         return;
       }
 
       const rollbackResult = await runRollbackMutation.mutateAsync({
         backupTag
       });
-      toast.success('Rollback complete', rollbackResult.summary || `Rollback completed using ${backupTag}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        rollbackResult.summary
+          || t('systemSettings.toast.rollbackCompleteWithTag', { defaultValue: 'Rollback completed using {{tag}}.', tag: backupTag })
+      );
     } finally {
       setGuidedRolloutRunning(false);
     }
@@ -382,7 +439,12 @@ const SystemSettings: React.FC = () => {
 
   const handleRunRollback = async () => {
     if (!scriptedUpdatesEnabled) {
-      toast.warning('Manual mode', 'Scripted rollback is disabled in manual mode. Use your host rollback workflow.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.manualModeRollbackDisabled', {
+          defaultValue: 'Scripted rollback is disabled in manual mode. Use your host rollback workflow.'
+        })
+      );
       return;
     }
     const confirmText = selectedRollbackTag
@@ -402,9 +464,15 @@ const SystemSettings: React.FC = () => {
       const result = await runRollbackMutation.mutateAsync({
         backupTag: selectedRollbackTag || undefined
       });
-      toast.success('Rollback complete', result.summary || 'Rollback completed successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.summary || t('systemSettings.toast.rollbackComplete', { defaultValue: 'Rollback completed successfully.' })
+      );
     } catch (error: any) {
-      toast.error('Rollback failed', error?.message || 'Failed to run rollback');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.rollbackFailed', { defaultValue: 'Failed to run rollback' })
+      );
     }
   };
 
@@ -418,7 +486,10 @@ const SystemSettings: React.FC = () => {
       setCopiedConfig(true);
       window.setTimeout(() => setCopiedConfig(false), 1500);
     } catch {
-      toast.error('Copy failed', 'Failed to copy config to clipboard');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('systemSettings.toast.copyConfigFailed', { defaultValue: 'Failed to copy config to clipboard' })
+      );
     }
   };
 
@@ -434,33 +505,54 @@ const SystemSettings: React.FC = () => {
 
     try {
       await navigator.clipboard.writeText(content);
-      toast.success('Copied to clipboard', 'Preflight fix commands copied.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.copyPreflightFixesSuccess', { defaultValue: 'Preflight fix commands copied.' })
+      );
     } catch {
-      toast.error('Copy failed', 'Failed to copy preflight fix commands.');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('systemSettings.toast.copyPreflightFixesFailed', { defaultValue: 'Failed to copy preflight fix commands.' })
+      );
     }
   };
 
   const handleRefreshReleaseIntel = async () => {
     try {
       await refreshXrayReleaseIntelMutation.mutateAsync();
-      toast.success('Release intel refreshed', 'Latest release metadata pulled from upstream.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.releaseIntelRefreshed', { defaultValue: 'Latest release metadata pulled from upstream.' })
+      );
     } catch (error: any) {
-      toast.error('Refresh failed', error?.message || 'Failed to refresh release intel');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.releaseIntelRefreshFailed', { defaultValue: 'Failed to refresh release intel' })
+      );
     }
   };
 
   const handleCreateConfigSnapshot = async () => {
     try {
       const snapshot = await createXrayConfigSnapshotMutation.mutateAsync();
-      toast.success('Snapshot created', `Snapshot ID: ${snapshot.id}`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.snapshotCreated', { defaultValue: 'Snapshot ID: {{id}}', id: snapshot.id })
+      );
     } catch (error: any) {
-      toast.error('Snapshot failed', error?.message || 'Failed to create config snapshot');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.snapshotFailed', { defaultValue: 'Failed to create config snapshot' })
+      );
     }
   };
 
   const handleRollbackConfigSnapshot = async () => {
     if (!selectedSnapshotId) {
-      toast.warning('Select snapshot', 'Choose a snapshot before rollback.');
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.selectSnapshot', { defaultValue: 'Choose a snapshot before rollback.' })
+      );
       return;
     }
     const confirmed = await requestConfirm({
@@ -478,9 +570,15 @@ const SystemSettings: React.FC = () => {
         snapshotId: selectedSnapshotId,
         applyMethod: 'restart'
       });
-      toast.success('Config rollback complete', result.message || 'Config rollback completed.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || t('systemSettings.toast.configRollbackComplete', { defaultValue: 'Config rollback completed.' })
+      );
     } catch (error: any) {
-      toast.error('Config rollback failed', error?.message || 'Failed to rollback snapshot');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.configRollbackFailed', { defaultValue: 'Failed to rollback snapshot' })
+      );
     }
   };
 
@@ -490,9 +588,15 @@ const SystemSettings: React.FC = () => {
         mode,
         apply: true
       });
-      toast.success('Routing profile updated', `Routing profile switched to ${mode}.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.routingUpdated', { defaultValue: 'Routing profile switched to {{mode}}.', mode })
+      );
     } catch (error: any) {
-      toast.error('Routing update failed', error?.message || 'Failed to update routing profile');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.routingUpdateFailed', { defaultValue: 'Failed to update routing profile' })
+      );
     }
   };
 
@@ -503,18 +607,30 @@ const SystemSettings: React.FC = () => {
         forceDownload: false,
         reload: true
       });
-      toast.success('Geodata updated', 'Geodata updated successfully.');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.geodataUpdated', { defaultValue: 'Geodata updated successfully.' })
+      );
     } catch (error: any) {
-      toast.error('Geodata update failed', error?.message || 'Failed to update geodata');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.geodataUpdateFailed', { defaultValue: 'Failed to update geodata' })
+      );
     }
   };
 
   const handleSyncConfDir = async () => {
     try {
       const result = await syncXrayConfDirMutation.mutateAsync();
-      toast.success('Confdir synced', `${result.files.length} file(s) synchronized.`);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.confdirSynced', { defaultValue: '{{count}} file(s) synchronized.', count: result.files.length })
+      );
     } catch (error: any) {
-      toast.error('Confdir sync failed', error?.message || 'Failed to sync confdir');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.confdirSyncFailed', { defaultValue: 'Failed to sync confdir' })
+      );
     }
   };
 
@@ -545,11 +661,16 @@ const SystemSettings: React.FC = () => {
         force: !activeLockIsStale
       });
       toast.success(
-        'Update lock',
-        result.message || (result.unlocked ? 'Update lock released.' : 'Update lock not released.')
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || (result.unlocked
+          ? t('systemSettings.toast.updateLockReleased', { defaultValue: 'Update lock released.' })
+          : t('systemSettings.toast.updateLockNotReleased', { defaultValue: 'Update lock not released.' }))
       );
     } catch (error: any) {
-      toast.error('Unlock failed', error?.message || 'Failed to unlock update lock.');
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.unlockFailed', { defaultValue: 'Failed to unlock update lock.' })
+      );
     }
   };
 
