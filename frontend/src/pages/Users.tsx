@@ -141,6 +141,15 @@ export function Users() {
     matchedUsers: number;
     previewLines: string[];
   } | null>(null);
+  const [bulkQualityPreviewState, setBulkQualityPreviewState] = useState<{
+    userIds: number[];
+    targetUsers: number;
+    wouldUpdateUsers: number;
+    unchangedUsers: number;
+    changedKeys: number;
+    scoredKeys: number;
+    previewLines: string[];
+  } | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [bulkStatus, setBulkStatus] = useState<UserStatus>('DISABLED');
@@ -166,6 +175,14 @@ export function Users() {
       usersApi.bulkReorderUserInboundsByPattern({
         userIds,
         pattern: 'myanmar',
+        dryRun
+      })
+  });
+  const bulkQualityOrderMutation = useMutation({
+    mutationFn: ({ userIds, dryRun, windowMinutes }: { userIds: number[]; dryRun?: boolean; windowMinutes?: number }) =>
+      usersApi.bulkReorderUserInboundsByQuality({
+        userIds,
+        windowMinutes,
         dryRun
       })
   });
@@ -269,6 +286,7 @@ export function Users() {
     || bulkRotateKeysMutation.isPending
     || bulkRevokeKeysMutation.isPending
     || bulkMyanmarPriorityMutation.isPending
+    || bulkQualityOrderMutation.isPending
     || assignGroupMutation.isPending
     || removeGroupUsersMutation.isPending
     || moveGroupUsersMutation.isPending
@@ -980,6 +998,74 @@ export function Users() {
     }
   };
 
+  const handleBulkApplyQualityOrder = async () => {
+    if (selectedUserIds.length === 0) {
+      return;
+    }
+
+    try {
+      const dryRunResponse = await bulkQualityOrderMutation.mutateAsync({
+        userIds: selectedUserIds,
+        windowMinutes: 60,
+        dryRun: true
+      });
+
+      const dryRunData = dryRunResponse.data || {};
+      const summary = dryRunData.summary || {};
+      const preview = Array.isArray(dryRunData.preview) ? dryRunData.preview : [];
+
+      const previewLine = preview
+        .slice(0, 2)
+        .map((item: any) => {
+          const before = (item.currentTop3 || []).map((entry: any) => entry.key).join(' > ') || 'none';
+          const after = (item.newTop3 || []).map((entry: any) => entry.key).join(' > ') || 'none';
+          return `${item.email}: ${before} -> ${after}`;
+        })
+        .split('\n')
+        .filter(Boolean);
+
+      setBulkQualityPreviewState({
+        userIds: [...selectedUserIds],
+        targetUsers: summary.targetUsers ?? selectedUserIds.length,
+        wouldUpdateUsers: summary.wouldUpdateUsers ?? 0,
+        unchangedUsers: summary.unchangedUsers ?? 0,
+        changedKeys: summary.changedKeys ?? 0,
+        scoredKeys: summary.scoredKeys ?? 0,
+        previewLines: previewLine
+      });
+    } catch (error: any) {
+      toast.error(
+        t('users.autoTuneFailedTitle', { defaultValue: 'Auto-tune failed' }),
+        error?.message || t('users.autoTuneFailedBody', { defaultValue: 'Failed to auto-tune selected users' })
+      );
+    }
+  };
+
+  const handleConfirmBulkQualityOrder = async () => {
+    if (!bulkQualityPreviewState) {
+      return;
+    }
+
+    try {
+      await bulkQualityOrderMutation.mutateAsync({
+        userIds: bulkQualityPreviewState.userIds,
+        windowMinutes: 60,
+        dryRun: false
+      });
+
+      const updatedCount = bulkQualityPreviewState.wouldUpdateUsers ?? 0;
+      setBulkQualityPreviewState(null);
+      clearSelection();
+      await refreshUsersAndSessions();
+      toast.success(t('users.autoTuneAppliedTitle', { defaultValue: 'Auto-tune applied' }), `${updatedCount} user(s) reordered.`);
+    } catch (error: any) {
+      toast.error(
+        t('users.autoTuneFailedTitle', { defaultValue: 'Auto-tune failed' }),
+        error?.message || t('users.autoTuneFailedBody', { defaultValue: 'Failed to auto-tune selected users' })
+      );
+    }
+  };
+
   const handleRotateUserKeys = async (user: User) => {
     if (!(await requestConfirm({
       title: 'Rotate Credentials',
@@ -1455,6 +1541,15 @@ export function Users() {
                       >
                         Myanmar priority reorder
                       </button>
+
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => runBulkMenuAction(event, () => void handleBulkApplyQualityOrder())}
+                        disabled={isBulkMutating}
+                      >
+                        {t('users.bulkQualityAutoTune', { defaultValue: 'Quality auto-tune reorder' })}
+                      </button>
                     </div>
 
                     <div className="my-2 border-t border-line/60" />
@@ -1732,6 +1827,29 @@ export function Users() {
         }}
         onConfirm={() => {
           void handleConfirmBulkMyanmarPriority();
+        }}
+      />
+
+      <MyanmarPriorityPreviewModal
+        open={Boolean(bulkQualityPreviewState)}
+        title={t('users.bulkQualityPreviewTitle', { defaultValue: 'Bulk Quality Auto-tune Preview' })}
+        description={t('users.bulkQualityPreviewBody', { defaultValue: 'Reorder selected users by recent connect success, rejects, and reconnects.' })}
+        summaryRows={[
+          { label: 'Target Users', value: bulkQualityPreviewState?.targetUsers ?? 0 },
+          { label: 'Would Reorder', value: bulkQualityPreviewState?.wouldUpdateUsers ?? 0 },
+          { label: 'Telemetry Keys', value: bulkQualityPreviewState?.scoredKeys ?? 0 }
+        ]}
+        previewLines={bulkQualityPreviewState?.previewLines || []}
+        confirmLabel={t('users.applyAutoTune', { defaultValue: 'Apply Auto-tune' })}
+        loading={bulkQualityOrderMutation.isPending}
+        disableConfirm={!bulkQualityPreviewState || bulkQualityPreviewState.wouldUpdateUsers === 0}
+        onClose={() => {
+          if (!bulkQualityOrderMutation.isPending) {
+            setBulkQualityPreviewState(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleConfirmBulkQualityOrder();
         }}
       />
 

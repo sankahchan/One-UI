@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowDown,
   ArrowLeft,
@@ -16,6 +17,7 @@ import {
   PowerOff,
   RefreshCw,
   RotateCcw,
+  Sparkles,
   Trash2
 } from 'lucide-react';
 
@@ -41,7 +43,7 @@ import {
   useUserDevices,
   useUserSessions
 } from '../hooks/useUsers';
-import { usersApi, type UserInboundPatternPreviewEntry } from '../api/users';
+import { usersApi, type UserInboundPatternPreviewEntry, type UserInboundQualityPreviewEntry } from '../api/users';
 import type { Inbound, UserInbound } from '../types';
 import { formatBytes, formatDate } from '../utils/formatters';
 
@@ -142,6 +144,7 @@ export const UserDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useTranslation();
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [copiedField, setCopiedField] = useState('');
@@ -152,6 +155,7 @@ export const UserDetail: React.FC = () => {
   const [updatingPriorityInboundId, setUpdatingPriorityInboundId] = useState<number | null>(null);
   const [isReorderingByDrag, setIsReorderingByDrag] = useState(false);
   const [isApplyingMyanmarPriority, setIsApplyingMyanmarPriority] = useState(false);
+  const [isApplyingQualityOrder, setIsApplyingQualityOrder] = useState(false);
   const [draggingInboundId, setDraggingInboundId] = useState<number | null>(null);
   const [dragOverInboundId, setDragOverInboundId] = useState<number | null>(null);
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
@@ -166,6 +170,15 @@ export const UserDetail: React.FC = () => {
     changedKeys: number;
     currentTop3: UserInboundPatternPreviewEntry[];
     newTop3: UserInboundPatternPreviewEntry[];
+  } | null>(null);
+  const [qualityPreviewState, setQualityPreviewState] = useState<{
+    windowMinutes: number;
+    totalKeys: number;
+    scoredKeys: number;
+    changedKeys: number;
+    currentTop3: UserInboundQualityPreviewEntry[];
+    newTop3: UserInboundQualityPreviewEntry[];
+    previewLines: string[];
   } | null>(null);
 
   const userId = Number.parseInt(id || '', 10);
@@ -862,6 +875,84 @@ export const UserDetail: React.FC = () => {
     }
   };
 
+  const handlePreviewQualityOrder = async () => {
+    if (!user) {
+      return;
+    }
+
+    const userInbounds = (user.inbounds || []).filter(
+      (row) => Number.isInteger(Number(row.inboundId)) && Number(row.inboundId) > 0
+    );
+    if (userInbounds.length === 0) {
+      toast.error('No keys found', 'No keys available for this user.');
+      return;
+    }
+
+    setIsApplyingQualityOrder(true);
+    try {
+      const previewResponse = await usersApi.previewUserInboundQualityReorder(user.id, { windowMinutes: 60 });
+      const previewData = previewResponse.data;
+      if (!previewData) {
+        throw new Error('Failed to generate preview');
+      }
+
+      if ((previewData.scoredKeys || 0) === 0) {
+        toast.error(
+          'No telemetry yet',
+          'No recent connections were detected. Generate traffic on at least one key and try again.'
+        );
+        return;
+      }
+
+      const previewLines = (previewData.preview || []).slice(0, 10).map((entry) => {
+        const score = entry.score === null ? '-' : entry.score.toFixed(0);
+        return `P${entry.toPriority} • ${entry.key} • score ${score} • connect ${entry.connectSuccesses} • reject ${entry.limitRejects} • reconnect ${entry.reconnects}`;
+      });
+
+      setQualityPreviewState({
+        windowMinutes: previewData.windowMinutes ?? 60,
+        totalKeys: previewData.totalKeys ?? 0,
+        scoredKeys: previewData.scoredKeys ?? 0,
+        changedKeys: previewData.changedKeys ?? 0,
+        currentTop3: previewData.currentTop3 || [],
+        newTop3: previewData.newTop3 || [],
+        previewLines
+      });
+    } catch (error: any) {
+      toast.error('Preview failed', error?.message || 'Failed to generate quality preview');
+    } finally {
+      setIsApplyingQualityOrder(false);
+    }
+  };
+
+  const handleConfirmQualityOrderApply = async () => {
+    if (!qualityPreviewState || !user) {
+      return;
+    }
+
+    setIsApplyingQualityOrder(true);
+    try {
+      const applyResponse = await usersApi.reorderUserInboundsByQuality(user.id, {
+        windowMinutes: qualityPreviewState.windowMinutes
+      });
+      const appliedData = applyResponse.data;
+
+      setSortField('priority');
+      setSortDirection('asc');
+      setAccessKeyFilter('all');
+      setQualityPreviewState(null);
+      void refetch();
+      toast.success(
+        'Auto-tune applied',
+        `Reordered ${appliedData?.scoredKeys ?? qualityPreviewState.scoredKeys} key(s) with telemetry.`
+      );
+    } catch (error: any) {
+      toast.error('Apply failed', error?.message || 'Failed to apply quality ordering');
+    } finally {
+      setIsApplyingQualityOrder(false);
+    }
+  };
+
   const clearDragState = () => {
     setDraggingInboundId(null);
     setDragOverInboundId(null);
@@ -1412,7 +1503,7 @@ export const UserDetail: React.FC = () => {
                 }}
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
+                {t('common.refresh', { defaultValue: 'Refresh' })}
               </Button>
 
               <Button
@@ -1425,7 +1516,20 @@ export const UserDetail: React.FC = () => {
                 }}
               >
                 <ArrowUpDown className="mr-2 h-4 w-4" />
-                Myanmar Priority
+                {t('users.myanmarPriority', { defaultValue: 'Myanmar Priority' })}
+              </Button>
+
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={isApplyingQualityOrder}
+                disabled={isReorderingByDrag || (user.inbounds || []).length === 0}
+                onClick={() => {
+                  void handlePreviewQualityOrder();
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {t('users.autoTune', { defaultValue: 'Auto-tune' })}
               </Button>
             </div>
           </div>
@@ -1797,8 +1901,8 @@ export const UserDetail: React.FC = () => {
 
       <MyanmarPriorityPreviewModal
         open={Boolean(myanmarPreviewState)}
-        title="Myanmar Priority Preview"
-        description="Review current and new fallback order before applying."
+        title={t('users.myanmarPriorityPreviewTitle', { defaultValue: 'Myanmar Priority Preview' })}
+        description={t('users.myanmarPriorityPreviewBody', { defaultValue: 'Review current and new fallback order before applying.' })}
         summaryRows={[
           { label: 'Total Keys', value: myanmarPreviewState?.totalKeys ?? 0 },
           { label: 'Matched Keys', value: myanmarPreviewState?.matchedKeys ?? 0 },
@@ -1806,7 +1910,7 @@ export const UserDetail: React.FC = () => {
         ]}
         currentTop3={myanmarPreviewState?.currentTop3 || []}
         newTop3={myanmarPreviewState?.newTop3 || []}
-        confirmLabel="Apply Priority"
+        confirmLabel={t('users.applyPriority', { defaultValue: 'Apply Priority' })}
         loading={isApplyingMyanmarPriority}
         disableConfirm={!myanmarPreviewState || myanmarPreviewState.changedKeys === 0}
         onClose={() => {
@@ -1816,6 +1920,31 @@ export const UserDetail: React.FC = () => {
         }}
         onConfirm={() => {
           void handleConfirmMyanmarPriorityApply();
+        }}
+      />
+
+      <MyanmarPriorityPreviewModal
+        open={Boolean(qualityPreviewState)}
+        title={t('users.qualityAutoTunePreviewTitle', { defaultValue: 'Quality Auto-tune Preview' })}
+        description={t('users.qualityAutoTunePreviewBody', { defaultValue: 'Reorder keys based on recent connect success, rejects, and reconnects.' })}
+        summaryRows={[
+          { label: 'Total Keys', value: qualityPreviewState?.totalKeys ?? 0 },
+          { label: 'Telemetry Keys', value: qualityPreviewState?.scoredKeys ?? 0 },
+          { label: 'Keys To Reorder', value: qualityPreviewState?.changedKeys ?? 0 }
+        ]}
+        currentTop3={(qualityPreviewState?.currentTop3 || []).map((entry) => ({ key: entry.key, toPriority: entry.fromPriority }))}
+        newTop3={(qualityPreviewState?.newTop3 || []).map((entry) => ({ key: entry.key, toPriority: entry.toPriority }))}
+        previewLines={qualityPreviewState?.previewLines || []}
+        confirmLabel={t('users.applyAutoTune', { defaultValue: 'Apply Auto-tune' })}
+        loading={isApplyingQualityOrder}
+        disableConfirm={!qualityPreviewState || qualityPreviewState.changedKeys === 0}
+        onClose={() => {
+          if (!isApplyingQualityOrder) {
+            setQualityPreviewState(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleConfirmQualityOrderApply();
         }}
       />
     </div>

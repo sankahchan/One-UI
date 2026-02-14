@@ -96,6 +96,30 @@ router.post(
   validator,
   userController.bulkReorderUserInboundsByPattern
 );
+router.post(
+  '/bulk/inbounds/reorder-quality',
+  [
+    body('userIds')
+      .isArray({ min: 1 })
+      .withMessage('userIds must be a non-empty array'),
+    body('userIds.*')
+      .isInt({ min: 1 })
+      .withMessage('userIds must contain valid IDs')
+      .toInt(),
+    body('windowMinutes')
+      .optional()
+      .isInt({ min: 5, max: 1440 })
+      .withMessage('windowMinutes must be between 5 and 1440')
+      .toInt(),
+    body('dryRun')
+      .optional()
+      .isBoolean()
+      .withMessage('dryRun must be boolean')
+      .toBoolean()
+  ],
+  validator,
+  userController.bulkReorderUserInboundsByQuality
+);
 router.post('/bulk/keys/rotate', keyLifecycleValidators.bulkRotate, validator, userController.bulkRotateUserKeys);
 router.post('/bulk/keys/revoke', authorize('SUPER_ADMIN'), keyLifecycleValidators.bulkRevoke, validator, userController.bulkRevokeUserKeys);
 
@@ -220,6 +244,19 @@ router.post(
   userController.previewUserInboundPatternReorder
 );
 router.post(
+  '/:id/inbounds/reorder-quality/preview',
+  [
+    ...idParamValidator,
+    body('windowMinutes')
+      .optional()
+      .isInt({ min: 5, max: 1440 })
+      .withMessage('windowMinutes must be between 5 and 1440')
+      .toInt()
+  ],
+  validator,
+  userController.previewUserInboundQualityReorder
+);
+router.post(
   '/:id/inbounds/reorder-pattern',
   [
     ...idParamValidator,
@@ -235,6 +272,24 @@ router.post(
   ],
   validator,
   userController.reorderUserInboundsByPattern
+);
+router.post(
+  '/:id/inbounds/reorder-quality',
+  [
+    ...idParamValidator,
+    body('windowMinutes')
+      .optional()
+      .isInt({ min: 5, max: 1440 })
+      .withMessage('windowMinutes must be between 5 and 1440')
+      .toInt(),
+    body('dryRun')
+      .optional()
+      .isBoolean()
+      .withMessage('dryRun must be boolean')
+      .toBoolean()
+  ],
+  validator,
+  userController.reorderUserInboundsByQuality
 );
 router.post(
   '/:id/inbounds/reorder',

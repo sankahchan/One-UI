@@ -1,10 +1,15 @@
 const authService = require('../services/auth.service');
-const { UnauthorizedError } = require('../utils/errors');
+const { ForbiddenError, UnauthorizedError } = require('../utils/errors');
 
 const authenticate = async (req, _res, next) => {
   try {
     if (!authService.isAdminIpAllowed(req.ip)) {
       throw new UnauthorizedError('Access from this IP is not allowed');
+    }
+
+    // API key auth can pre-populate req.admin.
+    if (req.isApiKeyAuth && req.admin) {
+      return next();
     }
 
     const authHeader = req.headers.authorization;
@@ -18,8 +23,11 @@ const authenticate = async (req, _res, next) => {
 
     req.admin = decoded;
     next();
-  } catch (_error) {
-    next(new UnauthorizedError('Invalid or expired token'));
+  } catch (error) {
+    if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
+      return next(error);
+    }
+    return next(new UnauthorizedError('Invalid or expired token'));
   }
 };
 
@@ -58,4 +66,12 @@ const authorize = (...allowedRoles) => {
   };
 };
 
-module.exports = { authenticate, authorize, requireActiveSession };
+const requireBearerAuth = (req, _res, next) => {
+  if (req.isApiKeyAuth) {
+    return next(new ForbiddenError('This endpoint requires a Bearer token'));
+  }
+
+  return next();
+};
+
+module.exports = { authenticate, authorize, requireActiveSession, requireBearerAuth };

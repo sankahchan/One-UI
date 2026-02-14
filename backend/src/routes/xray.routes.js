@@ -1,14 +1,14 @@
 const express = require('express');
 const { body, query } = require('express-validator');
 const xrayController = require('../controllers/xray.controller');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, requireBearerAuth } = require('../middleware/auth');
 const validate = require('../middleware/validator');
 const { xrayUpdateLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
+router.use(requireBearerAuth, authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 
 router.post('/restart', xrayController.restart);
 router.get('/status', xrayController.getStatus);

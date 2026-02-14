@@ -4,12 +4,17 @@
  */
 
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
-const QRCode = require('qrcode');
+const { query, param } = require('express-validator');
 const subscriptionBrandingService = require('../services/subscriptionBranding.service');
+const userService = require('../services/user.service');
+const prisma = require('../config/database');
+const validate = require('../middleware/validator');
 
-const prisma = new PrismaClient();
 const router = express.Router();
+
+function isValidToken(token) {
+  return /^[a-f0-9]{64}$/i.test(String(token || ''));
+}
 
 function sanitizeBrandingMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') {
@@ -93,7 +98,7 @@ router.get('/:token/info', async (req, res, next) => {
     try {
         const { token } = req.params;
 
-        if (!/^[a-f0-9]{64}$/.test(token)) {
+        if (!isValidToken(token)) {
             return res.status(400).json({ error: 'Invalid token format' });
         }
 
@@ -212,7 +217,7 @@ router.get('/:token/usage', async (req, res, next) => {
     try {
         const { token } = req.params;
 
-        if (!/^[a-f0-9]{64}$/.test(token)) {
+        if (!isValidToken(token)) {
             return res.status(400).json({ error: 'Invalid token format' });
         }
 
@@ -247,5 +252,92 @@ router.get('/:token/usage', async (req, res, next) => {
         return next(error);
     }
 });
+
+/**
+ * Get active devices for a user (public endpoint)
+ * GET /user/:token/devices
+ */
+router.get(
+  '/:token/devices',
+  [
+    query('windowMinutes')
+      .optional()
+      .isInt({ min: 5, max: 1440 })
+      .withMessage('windowMinutes must be between 5 and 1440')
+      .toInt()
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const { token } = req.params;
+
+      if (!isValidToken(token)) {
+        return res.status(400).json({ error: 'Invalid token format' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { subscriptionToken: token },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const devices = await userService.getUserDevices(user.id, {
+        windowMinutes: req.query.windowMinutes
+      });
+
+      return res.json({
+        success: true,
+        data: devices
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+/**
+ * Revoke a device fingerprint (public endpoint)
+ * DELETE /user/:token/devices/:fingerprint
+ */
+router.delete(
+  '/:token/devices/:fingerprint',
+  [
+    param('fingerprint')
+      .isString()
+      .matches(/^[a-z0-9:._-]{8,128}$/i)
+      .withMessage('fingerprint format is invalid')
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const { token, fingerprint } = req.params;
+
+      if (!isValidToken(token)) {
+        return res.status(400).json({ error: 'Invalid token format' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { subscriptionToken: token },
+        select: { id: true }
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const result = await userService.revokeUserDevice(user.id, fingerprint);
+
+      return res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 module.exports = router;

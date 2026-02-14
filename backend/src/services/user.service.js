@@ -363,6 +363,137 @@ function buildPatternReorderPlan(relations, pattern) {
   };
 }
 
+function toQualityPreviewEntry(entry, nextPriority) {
+  return {
+    inboundId: entry.inboundId,
+    key: entry.label,
+    protocol: entry.protocol,
+    network: entry.network,
+    security: entry.security,
+    fromPriority: entry.currentPriority,
+    toPriority: nextPriority,
+    telemetry: entry.hasTelemetry,
+    score: entry.score,
+    connectSuccesses: entry.connectSuccesses,
+    limitRejects: entry.limitRejects,
+    reconnects: entry.reconnects
+  };
+}
+
+function buildQualityReorderPlan(relations, byProfile = []) {
+  const source = Array.isArray(relations)
+    ? relations.filter(
+      (relation) => Number.isInteger(Number(relation?.inboundId)) && Number(relation.inboundId) > 0
+    )
+    : [];
+
+  const telemetryByInboundId = new Map();
+  if (Array.isArray(byProfile)) {
+    for (const entry of byProfile) {
+      const inboundId = Number.parseInt(String(entry?.inboundId ?? ''), 10);
+      if (!Number.isInteger(inboundId) || inboundId < 1) {
+        continue;
+      }
+      telemetryByInboundId.set(inboundId, {
+        score: Number(entry?.score ?? 0),
+        connectSuccesses: Number(entry?.connectSuccesses ?? 0),
+        limitRejects: Number(entry?.limitRejects ?? 0),
+        reconnects: Number(entry?.reconnects ?? 0)
+      });
+    }
+  }
+
+  const ranked = source.map((relation, index) => {
+    const inboundId = Number.parseInt(String(relation.inboundId), 10);
+    const currentPriority = normalizePriority(relation.priority, 100 + index);
+    const telemetry = telemetryByInboundId.get(inboundId) || null;
+
+    return {
+      relation,
+      index,
+      inboundId,
+      enabled: Boolean(relation.enabled),
+      currentPriority,
+      label: buildInboundPreviewLabel(relation, index),
+      protocol: String(relation?.inbound?.protocol || '').toUpperCase(),
+      network: String(relation?.inbound?.network || '').toUpperCase(),
+      security: String(relation?.inbound?.security || '').toUpperCase(),
+      hasTelemetry: Boolean(telemetry),
+      score: telemetry ? Number(telemetry.score) : null,
+      connectSuccesses: telemetry ? Number(telemetry.connectSuccesses) : 0,
+      limitRejects: telemetry ? Number(telemetry.limitRejects) : 0,
+      reconnects: telemetry ? Number(telemetry.reconnects) : 0
+    };
+  });
+
+  const currentOrdered = [...ranked].sort((a, b) => {
+    if (a.currentPriority !== b.currentPriority) {
+      return a.currentPriority - b.currentPriority;
+    }
+    return a.index - b.index;
+  });
+
+  const reordered = [...ranked].sort((a, b) => {
+    if (a.hasTelemetry !== b.hasTelemetry) {
+      return a.hasTelemetry ? -1 : 1;
+    }
+    if (a.hasTelemetry && b.hasTelemetry) {
+      const scoreA = a.score ?? 0;
+      const scoreB = b.score ?? 0;
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA;
+      }
+      if (a.connectSuccesses !== b.connectSuccesses) {
+        return b.connectSuccesses - a.connectSuccesses;
+      }
+      if (a.limitRejects !== b.limitRejects) {
+        return a.limitRejects - b.limitRejects;
+      }
+      if (a.reconnects !== b.reconnects) {
+        return a.reconnects - b.reconnects;
+      }
+    }
+
+    if (a.currentPriority !== b.currentPriority) {
+      return a.currentPriority - b.currentPriority;
+    }
+    return a.index - b.index;
+  });
+
+  const assignments = reordered.map((entry, index) => ({
+    inboundId: entry.inboundId,
+    priority: normalizePriority(100 + index),
+    enabled: entry.enabled
+  }));
+
+  const currentByInboundId = new Map(ranked.map((entry) => [entry.inboundId, entry]));
+  const nextPriorityByInboundId = new Map(assignments.map((entry) => [entry.inboundId, entry.priority]));
+
+  const changedKeys = assignments.reduce((count, assignment) => {
+    const current = currentByInboundId.get(assignment.inboundId);
+    if (!current) {
+      return count;
+    }
+    return current.currentPriority === assignment.priority ? count : count + 1;
+  }, 0);
+
+  return {
+    totalKeys: ranked.length,
+    scoredKeys: ranked.filter((entry) => entry.hasTelemetry).length,
+    changedKeys,
+    assignments,
+    currentTop3: currentOrdered
+      .slice(0, 3)
+      .map((entry) => toQualityPreviewEntry(entry, entry.currentPriority)),
+    newTop3: reordered
+      .slice(0, 3)
+      .map((entry) => toQualityPreviewEntry(entry, nextPriorityByInboundId.get(entry.inboundId) || entry.currentPriority)),
+    preview: reordered.map((entry) =>
+      toQualityPreviewEntry(entry, nextPriorityByInboundId.get(entry.inboundId) || entry.currentPriority)
+    )
+  };
+}
+
 function normalizeBulkDomain(domain) {
   return String(domain || '')
     .trim()
@@ -890,6 +1021,222 @@ class UserService {
       applied: true,
       updatedCount: preview.changedKeys,
       relations
+    };
+  }
+
+  async getUserInboundQualityPreview(userId, options = {}) {
+    const parsedUserId = parseId(userId);
+    const windowMinutes = parseBoundedInt(options?.windowMinutes, { min: 5, max: 1440, fallback: 60 });
+
+    const user = await prisma.user.findUnique({
+      where: { id: parsedUserId },
+      select: {
+        id: true,
+        email: true,
+        inbounds: {
+          include: {
+            inbound: {
+              select: {
+                id: true,
+                tag: true,
+                remark: true,
+                protocol: true,
+                network: true,
+                security: true,
+                port: true
+              }
+            }
+          },
+          orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
+        }
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const qualityMap = await connectionLogsService.getQualityByUsers([parsedUserId], windowMinutes);
+    const quality = qualityMap.get(parsedUserId) || { byProfile: [] };
+
+    const plan = buildQualityReorderPlan(user.inbounds || [], quality.byProfile || []);
+
+    return {
+      userId: user.id,
+      email: user.email,
+      windowMinutes,
+      totalKeys: plan.totalKeys,
+      scoredKeys: plan.scoredKeys,
+      changedKeys: plan.changedKeys,
+      currentTop3: plan.currentTop3,
+      newTop3: plan.newTop3,
+      assignments: plan.assignments,
+      preview: plan.preview
+    };
+  }
+
+  async reorderUserInboundsByQuality(userId, options = {}) {
+    const dryRun = parseBooleanFlag(options?.dryRun, false);
+    const preview = await this.getUserInboundQualityPreview(userId, options);
+
+    if (dryRun || preview.changedKeys === 0) {
+      return {
+        ...preview,
+        dryRun,
+        applied: false,
+        updatedCount: 0
+      };
+    }
+
+    const parsedUserId = parseId(userId);
+
+    await prisma.$transaction(
+      preview.assignments.map((assignment) =>
+        prisma.userInbound.update({
+          where: {
+            userId_inboundId: {
+              userId: parsedUserId,
+              inboundId: assignment.inboundId
+            }
+          },
+          data: {
+            priority: assignment.priority,
+            enabled: assignment.enabled
+          }
+        })
+      )
+    );
+
+    await reloadXrayIfEnabled('reorderUserInboundsByQuality');
+
+    const relations = await prisma.userInbound.findMany({
+      where: { userId: parsedUserId },
+      include: {
+        inbound: true
+      },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
+    });
+
+    return {
+      ...preview,
+      dryRun: false,
+      applied: true,
+      updatedCount: preview.changedKeys,
+      relations
+    };
+  }
+
+  async bulkReorderUserInboundsByQuality(userIds, options = {}) {
+    const parsedUserIds = normalizePositiveIdArray(userIds, 'userIds');
+    const windowMinutes = parseBoundedInt(options?.windowMinutes, { min: 5, max: 1440, fallback: 60 });
+    const dryRun = parseBooleanFlag(options?.dryRun, false);
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: {
+          in: parsedUserIds
+        }
+      },
+      select: {
+        id: true,
+        email: true,
+        inbounds: {
+          include: {
+            inbound: {
+              select: {
+                id: true,
+                tag: true,
+                remark: true,
+                protocol: true,
+                network: true,
+                security: true,
+                port: true
+              }
+            }
+          },
+          orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
+        }
+      }
+    });
+
+    if (users.length !== parsedUserIds.length) {
+      const existingIds = new Set(users.map((user) => user.id));
+      const missingIds = parsedUserIds.filter((id) => !existingIds.has(id));
+      throw new NotFoundError(`Users not found: ${missingIds.join(', ')}`);
+    }
+
+    const qualityMap = await connectionLogsService.getQualityByUsers(parsedUserIds, windowMinutes);
+
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const orderedUsers = parsedUserIds.map((id) => usersById.get(id)).filter(Boolean);
+
+    const previewRows = [];
+    const txUpdates = [];
+    let wouldUpdateUsers = 0;
+    let changedKeys = 0;
+    let scoredKeys = 0;
+    let totalKeys = 0;
+
+    for (const user of orderedUsers) {
+      const quality = qualityMap.get(user.id) || { byProfile: [] };
+      const plan = buildQualityReorderPlan(user.inbounds || [], quality.byProfile || []);
+      totalKeys += plan.totalKeys;
+      changedKeys += plan.changedKeys;
+      scoredKeys += plan.scoredKeys;
+
+      if (plan.changedKeys > 0) {
+        wouldUpdateUsers += 1;
+      }
+
+      previewRows.push({
+        userId: user.id,
+        email: user.email,
+        totalKeys: plan.totalKeys,
+        scoredKeys: plan.scoredKeys,
+        changedKeys: plan.changedKeys,
+        currentTop3: plan.currentTop3,
+        newTop3: plan.newTop3
+      });
+
+      if (!dryRun && plan.changedKeys > 0) {
+        for (const assignment of plan.assignments) {
+          txUpdates.push(
+            prisma.userInbound.update({
+              where: {
+                userId_inboundId: {
+                  userId: user.id,
+                  inboundId: assignment.inboundId
+                }
+              },
+              data: {
+                priority: assignment.priority,
+                enabled: assignment.enabled
+              }
+            })
+          );
+        }
+      }
+    }
+
+    if (!dryRun && txUpdates.length > 0) {
+      await prisma.$transaction(txUpdates);
+      await reloadXrayIfEnabled('bulkReorderUserInboundsByQuality');
+    }
+
+    return {
+      windowMinutes,
+      dryRun,
+      summary: {
+        targetUsers: parsedUserIds.length,
+        wouldUpdateUsers,
+        updatedUsers: dryRun ? 0 : wouldUpdateUsers,
+        unchangedUsers: parsedUserIds.length - wouldUpdateUsers,
+        totalKeys,
+        scoredKeys,
+        changedKeys
+      },
+      preview: previewRows.slice(0, 25),
+      previewTruncated: previewRows.length > 25
     };
   }
 

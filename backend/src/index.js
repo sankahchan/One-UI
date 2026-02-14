@@ -7,6 +7,7 @@ const logger = require('./config/logger');
 const prisma = require('./config/database');
 
 const { apiLimiter } = require('./middleware/rateLimit');
+const { apiKeyAuth, enforceApiKeyPermissions } = require('./middleware/apiKeyAuth');
 const { applySecurityRules } = require('./middleware/securityRules');
 const errorHandler = require('./middleware/errorHandler');
 const { NotFoundError } = require('./utils/errors');
@@ -48,6 +49,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(metrics.metricsMiddleware);
 app.use(apiLimiter);
 app.use(applySecurityRules);
+app.use(apiKeyAuth);
+app.use(enforceApiKeyPermissions);
 
 app.use((req, res, next) => {
   const start = Date.now();

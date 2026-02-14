@@ -56,16 +56,16 @@ export const Settings: React.FC = () => {
 
   const tabs = useMemo(
     () => ([
-      { key: 'ssl', label: 'SSL Certificate', icon: Shield, superOnly: false },
-      { key: 'security', label: 'Security', icon: Lock, superOnly: false },
-      { key: 'branding', label: 'Branding', icon: Palette, superOnly: true },
+      { key: 'ssl', label: t('settings.ssl', { defaultValue: 'SSL Certificate' }), icon: Shield, superOnly: false },
+      { key: 'security', label: t('settings.security', { defaultValue: 'Security' }), icon: Lock, superOnly: false },
+      { key: 'branding', label: t('settings.branding', { defaultValue: 'Branding' }), icon: Palette, superOnly: true },
       { key: 'telegram', label: t('settings.telegram'), icon: Bell, superOnly: false },
-      { key: 'notifications', label: 'Notifications', icon: Webhook, superOnly: true },
+      { key: 'notifications', label: t('settings.notifications', { defaultValue: 'Notifications' }), icon: Webhook, superOnly: true },
       { key: 'backup', label: t('settings.backup'), icon: Database, superOnly: false },
       { key: 'system', label: t('settings.system'), icon: Server, superOnly: false },
       { key: 'apikeys', label: t('settings.apiKeys'), icon: Key, superOnly: false },
       { key: 'logs', label: t('logs.title'), icon: Activity, superOnly: false },
-      { key: 'tools', label: 'Tools', icon: RefreshCw, superOnly: true }
+      { key: 'tools', label: t('settings.tools', { defaultValue: 'Tools' }), icon: RefreshCw, superOnly: true }
     ] as const),
     [t]
   );
@@ -115,7 +115,7 @@ export const Settings: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
-        <p className="mt-1 text-gray-600 dark:text-gray-400">Configure your panel settings</p>
+        <p className="mt-1 text-gray-600 dark:text-gray-400">{t('settings.subtitle', { defaultValue: 'Configure your panel settings' })}</p>
       </div>
 
       <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-800 overflow-x-auto">

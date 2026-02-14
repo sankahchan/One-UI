@@ -113,6 +113,21 @@ export interface UserInboundPatternPreviewEntry {
   matched: boolean;
 }
 
+export interface UserInboundQualityPreviewEntry {
+  inboundId: number;
+  key: string;
+  protocol: string;
+  network: string;
+  security: string;
+  fromPriority: number;
+  toPriority: number;
+  telemetry: boolean;
+  score: number | null;
+  connectSuccesses: number;
+  limitRejects: number;
+  reconnects: number;
+}
+
 export interface UserInboundPatternPreviewData {
   userId: number;
   email: string;
@@ -124,6 +139,22 @@ export interface UserInboundPatternPreviewData {
   newTop3: UserInboundPatternPreviewEntry[];
   assignments: UserInboundPriorityAssignment[];
   preview: UserInboundPatternPreviewEntry[];
+  dryRun?: boolean;
+  applied?: boolean;
+  updatedCount?: number;
+}
+
+export interface UserInboundQualityPreviewData {
+  userId: number;
+  email: string;
+  windowMinutes: number;
+  totalKeys: number;
+  scoredKeys: number;
+  changedKeys: number;
+  currentTop3: UserInboundQualityPreviewEntry[];
+  newTop3: UserInboundQualityPreviewEntry[];
+  assignments: UserInboundPriorityAssignment[];
+  preview: UserInboundQualityPreviewEntry[];
   dryRun?: boolean;
   applied?: boolean;
   updatedCount?: number;
@@ -155,6 +186,36 @@ export interface BulkUserInboundPatternResult {
     changedKeys: number;
     currentTop3: UserInboundPatternPreviewEntry[];
     newTop3: UserInboundPatternPreviewEntry[];
+  }>;
+  previewTruncated: boolean;
+}
+
+export interface BulkUserInboundQualityPayload {
+  userIds: number[];
+  windowMinutes?: number;
+  dryRun?: boolean;
+}
+
+export interface BulkUserInboundQualityResult {
+  windowMinutes: number;
+  dryRun: boolean;
+  summary: {
+    targetUsers: number;
+    wouldUpdateUsers: number;
+    updatedUsers: number;
+    unchangedUsers: number;
+    totalKeys: number;
+    scoredKeys: number;
+    changedKeys: number;
+  };
+  preview: Array<{
+    userId: number;
+    email: string;
+    totalKeys: number;
+    scoredKeys: number;
+    changedKeys: number;
+    currentTop3: UserInboundQualityPreviewEntry[];
+    newTop3: UserInboundQualityPreviewEntry[];
   }>;
   previewTruncated: boolean;
 }
@@ -276,6 +337,26 @@ export const usersApi = {
     payload: BulkUserInboundPatternPayload
   ): Promise<ApiResponse<BulkUserInboundPatternResult>> => {
     return apiClient.post('/users/bulk/inbounds/reorder-pattern', payload);
+  },
+
+  previewUserInboundQualityReorder: async (
+    id: number,
+    payload: { windowMinutes?: number } = {}
+  ): Promise<ApiResponse<UserInboundQualityPreviewData>> => {
+    return apiClient.post(`/users/${id}/inbounds/reorder-quality/preview`, payload);
+  },
+
+  reorderUserInboundsByQuality: async (
+    id: number,
+    payload: { windowMinutes?: number; dryRun?: boolean } = {}
+  ): Promise<ApiResponse<UserInboundQualityPreviewData>> => {
+    return apiClient.post(`/users/${id}/inbounds/reorder-quality`, payload);
+  },
+
+  bulkReorderUserInboundsByQuality: async (
+    payload: BulkUserInboundQualityPayload
+  ): Promise<ApiResponse<BulkUserInboundQualityResult>> => {
+    return apiClient.post('/users/bulk/inbounds/reorder-quality', payload);
   },
 
   getSubscriptionInfo: async (id: number): Promise<ApiResponse<SubscriptionInfo>> => {

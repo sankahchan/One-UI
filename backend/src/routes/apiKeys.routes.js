@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, requireBearerAuth } = require('../middleware/auth');
 const apiKeyService = require('../services/apiKey.service');
 const { body } = require('express-validator');
 const validate = require('../middleware/validator');
@@ -8,7 +8,7 @@ const ApiResponse = require('../utils/response');
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(requireBearerAuth, authenticate);
 
 /**
  * @route GET /api/api-keys

@@ -1,12 +1,12 @@
 const express = require('express');
 
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, requireBearerAuth } = require('../middleware/auth');
 const ApiResponse = require('../utils/response');
 const backupManager = require('../backup/manager');
 
 const router = express.Router();
 
-router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
+router.use(requireBearerAuth, authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 
 router.post('/create', async (_req, res, next) => {
   try {

@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, requireBearerAuth } = require('../middleware/auth');
 const ApiResponse = require('../utils/response');
 const validate = require('../middleware/validator');
 const authService = require('../services/auth.service');
@@ -162,7 +162,7 @@ router.post(
   }
 );
 
-router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
+router.use(requireBearerAuth, authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/security/ip-allowlist', authorize('SUPER_ADMIN'), async (_req, res, next) => {
   try {

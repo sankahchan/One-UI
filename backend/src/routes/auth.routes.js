@@ -2,7 +2,7 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 
 const authController = require('../controllers/auth.controller');
-const { authenticate, requireActiveSession } = require('../middleware/auth');
+const { authenticate, requireActiveSession, requireBearerAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const rateLimit = require('../middleware/rateLimit');
 
@@ -33,20 +33,22 @@ router.post(
   validate,
   authController.loginTelegram
 );
-router.get('/telegram/link', authenticate, authController.getTelegramLink);
+router.get('/telegram/link', requireBearerAuth, authenticate, authController.getTelegramLink);
 router.put(
   '/telegram/link',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   [body('telegramId').isString().notEmpty().withMessage('telegramId is required')],
   validate,
   authController.linkTelegram
 );
-router.delete('/telegram/link', authenticate, requireActiveSession, authController.unlinkTelegram);
+router.delete('/telegram/link', requireBearerAuth, authenticate, requireActiveSession, authController.unlinkTelegram);
 
 router.post('/logout', authController.logout);
 router.put(
   '/profile',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   rateLimit.profileLimiter,
@@ -83,9 +85,10 @@ router.post(
   validate,
   authController.refresh
 );
-router.get('/me', authenticate, authController.me);
+router.get('/me', requireBearerAuth, authenticate, authController.me);
 router.get(
   '/sessions',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   [
@@ -105,6 +108,7 @@ router.get(
 );
 router.delete(
   '/sessions/:sid',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   [
@@ -117,10 +121,11 @@ router.delete(
   validate,
   authController.revokeSessionById
 );
-router.post('/logout-all', authenticate, requireActiveSession, authController.logoutAll);
-router.post('/2fa/setup', authenticate, requireActiveSession, authController.setupTwoFactor);
+router.post('/logout-all', requireBearerAuth, authenticate, requireActiveSession, authController.logoutAll);
+router.post('/2fa/setup', requireBearerAuth, authenticate, requireActiveSession, authController.setupTwoFactor);
 router.post(
   '/2fa/enable',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   [body('otp').isLength({ min: 6, max: 8 }).withMessage('OTP is required')],
@@ -129,6 +134,7 @@ router.post(
 );
 router.post(
   '/2fa/disable',
+  requireBearerAuth,
   authenticate,
   requireActiveSession,
   [body('otp').optional().isLength({ min: 6, max: 8 }).withMessage('OTP format is invalid')],

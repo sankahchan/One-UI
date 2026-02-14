@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   ArrowDown,
   ArrowUp,
@@ -10,11 +10,13 @@ import {
   ExternalLink,
   Info,
   QrCode,
+  RefreshCw,
   ShieldCheck,
   Smartphone
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
@@ -88,6 +90,37 @@ interface PublicSubscriptionLinksResponse {
   };
 }
 
+interface PublicDeviceEntry {
+  fingerprint: string;
+  shortFingerprint: string;
+  online: boolean;
+  lastSeenAt: string;
+  clientIp?: string | null;
+  userAgent?: string | null;
+  inbound?: {
+    id: number;
+    tag: string;
+    protocol: string;
+    port: number;
+  } | null;
+}
+
+interface PublicDevicesResponse {
+  success: boolean;
+  data?: {
+    user: {
+      id: number;
+      email: string;
+      ipLimit?: number | null;
+      deviceLimit?: number | null;
+    };
+    windowMinutes: number;
+    total: number;
+    online: number;
+    devices: PublicDeviceEntry[];
+  };
+}
+
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -112,12 +145,14 @@ function sanitizeHexColor(value: string | null | undefined): string | null {
 export const UserInfoPage = () => {
   const { token } = useParams<{ token: string }>();
   const toast = useToast();
+  const { t } = useTranslation();
 
   const [platform, setPlatform] = useState<Platform>('android');
   const [activeFormat, setActiveFormat] = useState<FormatTab>('v2ray');
   const [expandedQr, setExpandedQr] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string>('');
+  const [devicesWindowMinutes] = useState(60);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -146,6 +181,41 @@ export const UserInfoPage = () => {
       return (await res.json()) as PublicSubscriptionLinksResponse;
     },
     enabled: !!token
+  });
+
+  const { data: devicesResponse, refetch: refetchDevices, isFetching: isFetchingDevices } = useQuery({
+    queryKey: ['publicDevices', token, devicesWindowMinutes],
+    queryFn: async () => {
+      const res = await fetch(`${backendUrl}/user/${token}/devices?windowMinutes=${devicesWindowMinutes}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!res.ok) throw new Error('Failed to load devices');
+      return (await res.json()) as PublicDevicesResponse;
+    },
+    enabled: Boolean(token) && Boolean(backendUrl),
+    refetchInterval: 12_000,
+    staleTime: 5_000
+  });
+
+  const revokeDeviceMutation = useMutation({
+    mutationFn: async (fingerprint: string) => {
+      const res = await fetch(`${backendUrl}/user/${token}/devices/${encodeURIComponent(fingerprint)}`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' }
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || 'Failed to revoke device');
+      }
+      return (await res.json()) as { success: boolean };
+    },
+    onSuccess: async () => {
+      toast.success(t('common.success', { defaultValue: 'Success' }), t('portal.devicesRevoked', { defaultValue: 'Device revoked.' }));
+      await refetchDevices();
+    },
+    onError: (error: any) => {
+      toast.error(t('common.error', { defaultValue: 'Error' }), error?.message || 'Failed to revoke device');
+    }
   });
 
   const branding = userInfo?.branding || null;
@@ -186,6 +256,8 @@ export const UserInfoPage = () => {
   }, [activeFormat, availableFormats]);
 
   const selectedUrl = urls[activeFormat] || '';
+  const devices = devicesResponse?.data?.devices || [];
+  const devicesSummary = devicesResponse?.data || null;
 
   const copyToClipboard = async (text: string, key: string) => {
     if (!text) return;
@@ -195,7 +267,7 @@ export const UserInfoPage = () => {
         await navigator.clipboard.writeText(text);
         setCopiedKey(key);
         window.setTimeout(() => setCopiedKey(''), 1600);
-        toast.success('Copied', 'Link copied to clipboard.');
+        toast.success(t('common.copied', { defaultValue: 'Copied' }), t('portal.linkCopied', { defaultValue: 'Link copied to clipboard.' }));
         return;
       }
     } catch {
@@ -216,14 +288,14 @@ export const UserInfoPage = () => {
       if (ok) {
         setCopiedKey(key);
         window.setTimeout(() => setCopiedKey(''), 1600);
-        toast.success('Copied', 'Link copied to clipboard.');
+        toast.success(t('common.copied', { defaultValue: 'Copied' }), t('portal.linkCopied', { defaultValue: 'Link copied to clipboard.' }));
         return;
       }
     } catch {
       // fallthrough
     }
 
-    toast.error('Copy failed', 'Please copy manually.');
+    toast.error(t('common.error', { defaultValue: 'Error' }), t('portal.copyFailed', { defaultValue: 'Please copy manually.' }));
   };
 
   const toggleNodeQr = (inboundId: number) => {
@@ -781,6 +853,103 @@ export const UserInfoPage = () => {
               </ul>
             </div>
           </details>
+        </Card>
+
+        {/* Devices */}
+        <Card className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">{t('portal.devices', { defaultValue: 'Devices' })}</h3>
+              <p className="mt-1 text-sm text-muted">
+                {(devicesSummary?.online ?? 0)} {t('portal.online', { defaultValue: 'online' })} / {(devicesSummary?.total ?? 0)} {t('portal.seenInWindow', { defaultValue: 'seen in last' })} {devicesSummary?.windowMinutes ?? devicesWindowMinutes}m
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {t('portal.limits', { defaultValue: 'Limits' })}: IP {devicesSummary?.user?.ipLimit ?? '-'} • {t('portal.devicesLower', { defaultValue: 'devices' })} {devicesSummary?.user?.deviceLimit ?? '-'}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => void refetchDevices()}
+              loading={isFetchingDevices}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('common.refresh', { defaultValue: 'Refresh' })}
+            </Button>
+          </div>
+
+          {devices.length === 0 ? (
+            <div className="rounded-2xl border border-line/70 bg-panel/55 p-5 text-sm text-muted">
+              {t('portal.noDevices', { defaultValue: 'No devices tracked yet.' })}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-muted">
+                  <tr className="border-b border-line/70">
+                    <th className="py-2 pr-3">{t('portal.status', { defaultValue: 'Status' })}</th>
+                    <th className="py-2 pr-3">{t('portal.fingerprint', { defaultValue: 'Fingerprint' })}</th>
+                    <th className="py-2 pr-3">{t('portal.ip', { defaultValue: 'IP' })}</th>
+                    <th className="py-2 pr-3">{t('portal.inbound', { defaultValue: 'Inbound' })}</th>
+                    <th className="py-2 pr-3">{t('portal.lastSeen', { defaultValue: 'Last seen' })}</th>
+                    <th className="py-2 text-right">{t('portal.action', { defaultValue: 'Action' })}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {devices.slice(0, 12).map((device) => (
+                    <tr key={device.fingerprint} className="border-b border-line/50">
+                      <td className="py-2 pr-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
+                            device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
+                          }`}
+                        >
+                          <span className="relative inline-flex h-2.5 w-2.5">
+                            {device.online ? (
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                            ) : null}
+                            <span
+                              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                                device.online ? 'bg-emerald-400' : 'bg-zinc-400'
+                              }`}
+                            />
+                          </span>
+                          {device.online ? t('portal.online', { defaultValue: 'Online' }) : t('portal.offline', { defaultValue: 'Offline' })}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-xs text-muted">{device.shortFingerprint}</td>
+                      <td className="py-2 pr-3 text-muted">{device.clientIp || '-'}</td>
+                      <td className="py-2 pr-3 text-xs text-muted">
+                        {device.inbound ? `${device.inbound.protocol} • ${device.inbound.port}` : '-'}
+                      </td>
+                      <td className="py-2 pr-3 text-muted">{new Date(device.lastSeenAt).toLocaleString()}</td>
+                      <td className="py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          loading={revokeDeviceMutation.isPending}
+                          onClick={() => {
+                            const ok = window.confirm(
+                              t('portal.confirmRevokeDevice', { defaultValue: 'Revoke this device? It will need to reconnect.' })
+                            );
+                            if (ok) {
+                              revokeDeviceMutation.mutate(device.fingerprint);
+                            }
+                          }}
+                        >
+                          {t('portal.revoke', { defaultValue: 'Revoke' })}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {devices.length > 12 ? (
+                <p className="mt-3 text-xs text-muted">
+                  {t('portal.showingFirst', { defaultValue: 'Showing first' })} 12 {t('portal.devicesLower', { defaultValue: 'devices' })}.
+                </p>
+              ) : null}
+            </div>
+          )}
         </Card>
 
         <div className="py-4 text-center text-xs text-muted">

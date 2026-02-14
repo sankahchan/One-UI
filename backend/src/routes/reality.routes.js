@@ -3,7 +3,7 @@ const net = require('node:net');
 const tls = require('node:tls');
 const { body, param } = require('express-validator');
 
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, requireBearerAuth } = require('../middleware/auth');
 const validate = require('../middleware/validator');
 const { realityLimiter } = require('../middleware/rateLimit');
 const inboundService = require('../services/inbound.service');
@@ -132,7 +132,7 @@ function testTlsDestination({ host, port, timeoutMs = 5000 }) {
   });
 }
 
-router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'), realityLimiter);
+router.use(requireBearerAuth, authenticate, authorize('SUPER_ADMIN', 'ADMIN'), realityLimiter);
 
 router.post(
   '/generate-keys',

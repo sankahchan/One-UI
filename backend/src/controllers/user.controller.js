@@ -568,6 +568,39 @@ async function previewUserInboundPatternReorder(req, res, next) {
   }
 }
 
+async function previewUserInboundQualityReorder(req, res, next) {
+  try {
+    const result = await userService.getUserInboundQualityPreview(req.params.id, {
+      windowMinutes: req.body?.windowMinutes
+    });
+
+    const response = sendSuccess(res, {
+      statusCode: 200,
+      message: 'User access key quality reorder preview generated successfully',
+      data: result
+    });
+
+    webhookService.emitEvent(
+      'user.key.order.quality.previewed',
+      {
+        userId: Number.parseInt(req.params.id, 10),
+        windowMinutes: result.windowMinutes,
+        totalKeys: result.totalKeys,
+        scoredKeys: result.scoredKeys,
+        changedKeys: result.changedKeys
+      },
+      {
+        actor: buildActorContext(req),
+        request: buildRequestContext(req)
+      }
+    );
+
+    return response;
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function reorderUserInboundsByPattern(req, res, next) {
   try {
     const dryRun = Boolean(req.body?.dryRun);
@@ -593,6 +626,44 @@ async function reorderUserInboundsByPattern(req, res, next) {
         userId: Number.parseInt(req.params.id, 10),
         pattern: result.pattern,
         matchedKeys: result.matchedKeys,
+        changedKeys: result.changedKeys,
+        dryRun
+      },
+      {
+        actor: buildActorContext(req),
+        request: buildRequestContext(req)
+      }
+    );
+
+    return response;
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function reorderUserInboundsByQuality(req, res, next) {
+  try {
+    const dryRun = Boolean(req.body?.dryRun);
+    const result = await userService.reorderUserInboundsByQuality(req.params.id, {
+      windowMinutes: req.body?.windowMinutes,
+      dryRun
+    });
+
+    const response = sendSuccess(res, {
+      statusCode: 200,
+      message: dryRun
+        ? 'User access key quality dry-run generated successfully'
+        : 'User access key order updated successfully',
+      data: result
+    });
+
+    webhookService.emitEvent(
+      dryRun ? 'user.key.order.quality.previewed' : 'user.key.order.quality.updated',
+      {
+        userId: Number.parseInt(req.params.id, 10),
+        windowMinutes: result.windowMinutes,
+        totalKeys: result.totalKeys,
+        scoredKeys: result.scoredKeys,
         changedKeys: result.changedKeys,
         dryRun
       },
@@ -1102,6 +1173,42 @@ async function bulkReorderUserInboundsByPattern(req, res, next) {
   }
 }
 
+async function bulkReorderUserInboundsByQuality(req, res, next) {
+  try {
+    const dryRun = Boolean(req.body?.dryRun);
+    const result = await userService.bulkReorderUserInboundsByQuality(req.body?.userIds || [], {
+      windowMinutes: req.body?.windowMinutes,
+      dryRun
+    });
+
+    const response = sendSuccess(res, {
+      statusCode: 200,
+      message: dryRun
+        ? 'Bulk user key quality reorder dry-run generated successfully'
+        : 'Bulk user key order updated successfully',
+      data: result
+    });
+
+    webhookService.emitEvent(
+      dryRun ? 'user.bulk.key.order.quality.previewed' : 'user.bulk.key.order.quality.updated',
+      {
+        userIds: req.body?.userIds || [],
+        windowMinutes: result.windowMinutes,
+        dryRun,
+        summary: result.summary || null
+      },
+      {
+        actor: buildActorContext(req),
+        request: buildRequestContext(req)
+      }
+    );
+
+    return response;
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listUsers,
   getSessionSnapshots,
@@ -1138,5 +1245,8 @@ module.exports = {
   bulkAssignInbounds,
   bulkRotateUserKeys,
   bulkRevokeUserKeys,
-  bulkReorderUserInboundsByPattern
+  bulkReorderUserInboundsByPattern,
+  previewUserInboundQualityReorder,
+  reorderUserInboundsByQuality,
+  bulkReorderUserInboundsByQuality
 };
