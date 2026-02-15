@@ -56,6 +56,44 @@ fail() {
   exit 1
 }
 
+prompt_read() {
+  # Read user input from /dev/tty when available. This keeps prompts working even when
+  # the installer is piped into bash (e.g. wget -qO- ... | sudo bash).
+  #
+  # Usage:
+  #   prompt_read var_name "Prompt: " "default" [silent=0|1]
+  local __var="$1"
+  local __prompt="$2"
+  local __default="${3:-}"
+  local __silent="${4:-0}"
+  local __value=""
+
+  # Prefer /dev/tty for interactive prompts when stdin is not a TTY.
+  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    if [ "${__silent}" = "1" ]; then
+      IFS= read -r -s -p "${__prompt}" __value < /dev/tty || fail "Failed to read input from TTY."
+      echo
+    else
+      IFS= read -r -p "${__prompt}" __value < /dev/tty || fail "Failed to read input from TTY."
+    fi
+  elif [ -t 0 ]; then
+    if [ "${__silent}" = "1" ]; then
+      IFS= read -r -s -p "${__prompt}" __value || fail "Failed to read input."
+      echo
+    else
+      IFS= read -r -p "${__prompt}" __value || fail "Failed to read input."
+    fi
+  else
+    fail "No TTY available for interactive prompts. Re-run with --non-interactive or set ONEUI_NON_INTERACTIVE=true."
+  fi
+
+  if [ -z "${__value}" ] && [ -n "${__default}" ]; then
+    __value="${__default}"
+  fi
+
+  printf -v "${__var}" '%s' "${__value}"
+}
+
 is_truthy() {
   case "${1:-}" in
     1|true|TRUE|yes|YES|y|Y|on|ON)
@@ -364,19 +402,18 @@ prompt_config() {
   local admin_user_input=""
 
   if [ -n "${DOMAIN}" ]; then
-    read -r -p "Enter domain name (or press Enter to skip SSL) [${DOMAIN}]: " domain_input
+    prompt_read domain_input "Enter domain name (or press Enter to skip SSL) [${DOMAIN}]: " "${DOMAIN}"
   else
-    read -r -p "Enter domain name (or press Enter to skip SSL): " domain_input
+    prompt_read domain_input "Enter domain name (or press Enter to skip SSL): " ""
   fi
   DOMAIN="${domain_input:-${DOMAIN}}"
 
-  read -r -p "Enter admin username [${ADMIN_USER}]: " admin_user_input
+  prompt_read admin_user_input "Enter admin username [${ADMIN_USER}]: " "${ADMIN_USER}"
   ADMIN_USER="${admin_user_input:-${ADMIN_USER}}"
 
   if [ -z "${ADMIN_PASS}" ]; then
     while true; do
-      read -r -s -p "Enter admin password: " ADMIN_PASS
-      echo
+      prompt_read ADMIN_PASS "Enter admin password: " "" 1
 
       if [ -n "${ADMIN_PASS}" ]; then
         break
@@ -398,7 +435,7 @@ prompt_config() {
 
     local ssl_email_input=""
 
-    read -r -p "Enter SSL certificate email [${SSL_EMAIL}]: " ssl_email_input
+    prompt_read ssl_email_input "Enter SSL certificate email [${SSL_EMAIL}]: " "${SSL_EMAIL}"
     SSL_EMAIL="${ssl_email_input:-${SSL_EMAIL}}"
 
     if [ -n "${CF_TOKEN}" ]; then
@@ -406,22 +443,22 @@ prompt_config() {
       local cf_account_id_input=""
       local cf_zone_id_input=""
 
-      read -r -p "Enter Cloudflare API Token [provided]: " cf_token_input
+      prompt_read cf_token_input "Enter Cloudflare API Token [provided]: " "${CF_TOKEN}"
       CF_TOKEN="${cf_token_input:-${CF_TOKEN}}"
 
       if [ -n "${CF_ACCOUNT_ID}" ]; then
-        read -r -p "Enter Cloudflare Account ID (optional) [${CF_ACCOUNT_ID}]: " cf_account_id_input
+        prompt_read cf_account_id_input "Enter Cloudflare Account ID (optional) [${CF_ACCOUNT_ID}]: " "${CF_ACCOUNT_ID}"
         CF_ACCOUNT_ID="${cf_account_id_input:-${CF_ACCOUNT_ID}}"
       else
-        read -r -p "Enter Cloudflare Account ID (optional): " cf_account_id_input
+        prompt_read cf_account_id_input "Enter Cloudflare Account ID (optional): " ""
         CF_ACCOUNT_ID="${cf_account_id_input:-${CF_ACCOUNT_ID}}"
       fi
 
       if [ -n "${CF_ZONE_ID}" ]; then
-        read -r -p "Enter Cloudflare Zone ID (optional) [${CF_ZONE_ID}]: " cf_zone_id_input
+        prompt_read cf_zone_id_input "Enter Cloudflare Zone ID (optional) [${CF_ZONE_ID}]: " "${CF_ZONE_ID}"
         CF_ZONE_ID="${cf_zone_id_input:-${CF_ZONE_ID}}"
       else
-        read -r -p "Enter Cloudflare Zone ID (optional): " cf_zone_id_input
+        prompt_read cf_zone_id_input "Enter Cloudflare Zone ID (optional): " ""
         CF_ZONE_ID="${cf_zone_id_input:-${CF_ZONE_ID}}"
       fi
     else
@@ -430,29 +467,29 @@ prompt_config() {
       local cf_token_input=""
       local use_token=""
 
-      read -r -p "Use Cloudflare API Token instead of Global API Key? (recommended) [y/N]: " use_token
+      prompt_read use_token "Use Cloudflare API Token instead of Global API Key? (recommended) [y/N]: " ""
       if is_truthy "${use_token}"; then
-        read -r -p "Enter Cloudflare API Token: " CF_TOKEN
+        prompt_read CF_TOKEN "Enter Cloudflare API Token: " ""
 
         local cf_account_id_input=""
         local cf_zone_id_input=""
-        read -r -p "Enter Cloudflare Account ID (optional): " cf_account_id_input
+        prompt_read cf_account_id_input "Enter Cloudflare Account ID (optional): " ""
         CF_ACCOUNT_ID="${cf_account_id_input:-${CF_ACCOUNT_ID}}"
-        read -r -p "Enter Cloudflare Zone ID (optional): " cf_zone_id_input
+        prompt_read cf_zone_id_input "Enter Cloudflare Zone ID (optional): " ""
         CF_ZONE_ID="${cf_zone_id_input:-${CF_ZONE_ID}}"
       else
         if [ -n "${CF_EMAIL}" ]; then
-          read -r -p "Enter Cloudflare email [${CF_EMAIL}]: " cf_email_input
+          prompt_read cf_email_input "Enter Cloudflare email [${CF_EMAIL}]: " "${CF_EMAIL}"
           CF_EMAIL="${cf_email_input:-${CF_EMAIL}}"
         else
-          read -r -p "Enter Cloudflare email: " CF_EMAIL
+          prompt_read CF_EMAIL "Enter Cloudflare email: " ""
         fi
 
         if [ -n "${CF_KEY}" ]; then
-          read -r -p "Enter Cloudflare Global API Key [provided]: " cf_key_input
+          prompt_read cf_key_input "Enter Cloudflare Global API Key [provided]: " "${CF_KEY}"
           CF_KEY="${cf_key_input:-${CF_KEY}}"
         else
-          read -r -p "Enter Cloudflare Global API Key: " CF_KEY
+          prompt_read CF_KEY "Enter Cloudflare Global API Key: " ""
         fi
       fi
     fi
