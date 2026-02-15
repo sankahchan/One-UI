@@ -954,7 +954,7 @@ export const Inbounds: React.FC = () => {
         toast.success(
           t('inbounds.deleteSuccessTitle', { defaultValue: 'Inbound deleted' }),
           t('inbounds.deleteSuccessBody', {
-            defaultValue: 'Deleted inbound \"{{name}}\".',
+            defaultValue: 'Deleted inbound "{{name}}".',
             name: confirmState.label
           })
         );
@@ -1373,7 +1373,7 @@ export const Inbounds: React.FC = () => {
       toast.success(
         t('inbounds.savedViews.savedTitle', { defaultValue: 'View saved' }),
         t('inbounds.savedViews.savedBody', {
-          defaultValue: 'Saved view \"{{name}}\".',
+          defaultValue: 'Saved view "{{name}}".',
           name: view.name
         })
       );

@@ -1363,28 +1363,29 @@ export function Groups() {
         await groupsQuery.refetch();
         toast.success(
           t('groups.toast.groupDeletedTitle', { defaultValue: 'Group deleted' }),
-          t('groups.toast.deletedBody', { defaultValue: '\"{{name}}\" was deleted.', name: pendingDelete.name })
+          t('groups.toast.deletedBody', { defaultValue: '"{{name}}" was deleted.', name: pendingDelete.name })
         );
       } else if (pendingDelete.type === 'template') {
         await deleteTemplateMutation.mutateAsync(pendingDelete.id);
         await templatesQuery.refetch();
         toast.success(
           t('groups.toast.templateDeletedTitle', { defaultValue: 'Template deleted' }),
-          t('groups.toast.deletedBody', { defaultValue: '\"{{name}}\" was deleted.', name: pendingDelete.name })
+          t('groups.toast.deletedBody', { defaultValue: '"{{name}}" was deleted.', name: pendingDelete.name })
         );
       } else {
         await deleteScheduleMutation.mutateAsync(pendingDelete.id);
         await Promise.all([schedulesQuery.refetch(), rolloutsQuery.refetch()]);
         toast.success(
           t('groups.toast.scheduleDeletedTitle', { defaultValue: 'Schedule deleted' }),
-          t('groups.toast.deletedBody', { defaultValue: '\"{{name}}\" was deleted.', name: pendingDelete.name })
+          t('groups.toast.deletedBody', { defaultValue: '"{{name}}" was deleted.', name: pendingDelete.name })
         );
       }
       setPendingDelete(null);
     } catch (error: any) {
       toast.error(
         t('groups.toast.deleteFailedTitle', { defaultValue: 'Delete failed' }),
-        error?.message || t('groups.toast.deleteFailedBody', { defaultValue: 'Failed to delete \"{{name}}\".', name: pendingDelete.name })
+        error?.message ||
+          t('groups.toast.deleteFailedBody', { defaultValue: 'Failed to delete "{{name}}".', name: pendingDelete.name })
       );
     }
   };
@@ -1395,12 +1396,19 @@ export function Groups() {
       await Promise.all([schedulesQuery.refetch(), rolloutsQuery.refetch(), groupsQuery.refetch()]);
       toast.success(
         t('groups.toast.scheduleExecutedTitle', { defaultValue: 'Schedule executed' }),
-        t('groups.toast.scheduleExecutedBody', { defaultValue: '\"{{name}}\" executed successfully.', name: schedule.name })
+        t('groups.toast.scheduleExecutedBody', {
+          defaultValue: '"{{name}}" executed successfully.',
+          name: schedule.name
+        })
       );
     } catch (error: any) {
       toast.error(
         t('groups.toast.runFailedTitle', { defaultValue: 'Run failed' }),
-        error?.message || t('groups.toast.runFailedBody', { defaultValue: 'Failed to run schedule \"{{name}}\".', name: schedule.name })
+        error?.message ||
+          t('groups.toast.runFailedBody', {
+            defaultValue: 'Failed to run schedule "{{name}}".',
+            name: schedule.name
+          })
       );
     }
   };
@@ -2119,7 +2127,7 @@ export function Groups() {
         description={
           pendingDelete
             ? t('groups.confirmDelete.body', {
-              defaultValue: 'Delete \"{{name}}\"? This action cannot be undone.',
+              defaultValue: 'Delete "{{name}}"? This action cannot be undone.',
               name: pendingDelete.name
             })
             : ''
