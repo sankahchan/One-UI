@@ -772,19 +772,43 @@ wait_for_container_running() {
 run_migrations() {
   info "Running database migrations..."
 
-  # Wait for the backend container to be in 'running' state before exec
-  if ! wait_for_container_running "one-ui-backend" 60; then
-    warn "Backend container not ready. Restarting and retrying..."
-    compose restart backend
-    sleep 5
-    wait_for_container_running "one-ui-backend" 30 || true
-  fi
+  local max_attempts=5
+  local attempt=0
+  local delay=5
 
-  if ! compose exec -T backend npx prisma migrate deploy 2>/dev/null; then
-    warn "prisma migrate deploy failed, falling back to prisma db push..."
-    compose exec -T backend npx prisma db push 2>/dev/null
-  fi
-  ok "Database schema is up to date."
+  while [ "${attempt}" -lt "${max_attempts}" ]; do
+    attempt=$((attempt + 1))
+
+    # Ensure the backend container is in 'running' state
+    if ! wait_for_container_running "one-ui-backend" 30; then
+      warn "Backend container not running (attempt ${attempt}/${max_attempts}). Restarting..."
+      compose restart backend 2>/dev/null || true
+      sleep "${delay}"
+      delay=$((delay + 5))
+      continue
+    fi
+
+    # Brief pause for the Node process inside the container to finish starting
+    sleep 3
+
+    # Try prisma migrate deploy first (uses migration history)
+    if compose exec -T backend npx prisma migrate deploy 2>&1; then
+      ok "Database schema is up to date (migrate deploy)."
+      return
+    fi
+
+    # Fall back to prisma db push (schema-only sync)
+    if compose exec -T backend npx prisma db push --accept-data-loss 2>&1; then
+      ok "Database schema is up to date (db push)."
+      return
+    fi
+
+    warn "Migration attempt ${attempt}/${max_attempts} failed. Retrying in ${delay}s..."
+    sleep "${delay}"
+    delay=$((delay + 5))
+  done
+
+  warn "All migration attempts failed. The backend may apply schema on first boot."
 }
 
 create_admin() {
