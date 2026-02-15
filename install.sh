@@ -543,6 +543,21 @@ write_backend_env() {
     ssl_enabled="true"
   fi
 
+  # Build CORS_ORIGIN — must not be '*' in production
+  local cors_origin
+  if [ -n "${DOMAIN}" ]; then
+    cors_origin="http://${DOMAIN}:${PANEL_PORT}"
+  else
+    local server_ip
+    server_ip="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+    server_ip="${server_ip:-$(curl -s ifconfig.me 2>/dev/null || echo '127.0.0.1')}"
+    cors_origin="http://${server_ip}:${PANEL_PORT}"
+  fi
+
+  # Generate a strong webhook secret
+  local webhook_secret
+  webhook_secret="$(openssl rand -hex 32)"
+
   cat > "${INSTALL_DIR}/backend/.env" <<EOF
 # Application
 NODE_ENV=production
@@ -571,7 +586,7 @@ AUTH_RATE_LIMIT_MAX=10
 
 # Logging
 LOG_LEVEL=info
-CORS_ORIGIN=*
+CORS_ORIGIN=${cors_origin}
 
 # Subscription
 SUBSCRIPTION_URL=${subscription_url}
@@ -630,6 +645,9 @@ SYSTEM_MONITOR_ALERT_COOLDOWN=1800
 CPU_THRESHOLD=80
 MEMORY_THRESHOLD=80
 DISK_THRESHOLD=80
+
+# Alert Webhook
+ALERT_WEBHOOK_SECRET=${webhook_secret}
 
 # Backup
 BACKUP_ENABLED=true
