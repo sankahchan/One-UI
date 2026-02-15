@@ -690,7 +690,7 @@ build_frontend_assets() {
     -v "${INSTALL_DIR}:/work" \
     -w /work/frontend \
     node:20-alpine \
-    sh -lc "set -e; npm ci; VITE_API_URL=/api npm run build"
+    sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=/api npm run build"
 
   rm -rf "${INSTALL_DIR}/backend/public"
   mkdir -p "${INSTALL_DIR}/backend/public"
@@ -713,11 +713,39 @@ wait_for_backend() {
   warn "Backend health endpoint not ready yet. Continuing."
 }
 
+wait_for_container_running() {
+  local container="$1"
+  local max_wait="${2:-60}"
+  local elapsed=0
+
+  while [ "${elapsed}" -lt "${max_wait}" ]; do
+    local state
+    state="$(docker inspect -f '{{.State.Status}}' "${container}" 2>/dev/null || echo "missing")"
+    if [ "${state}" = "running" ]; then
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  warn "Container ${container} is not running after ${max_wait}s (state: ${state})."
+  return 1
+}
+
 run_migrations() {
   info "Running database migrations..."
-  if ! compose exec -T backend npx prisma migrate deploy; then
+
+  # Wait for the backend container to be in 'running' state before exec
+  if ! wait_for_container_running "one-ui-backend" 60; then
+    warn "Backend container not ready. Restarting and retrying..."
+    compose restart backend
+    sleep 5
+    wait_for_container_running "one-ui-backend" 30 || true
+  fi
+
+  if ! compose exec -T backend npx prisma migrate deploy 2>/dev/null; then
     warn "prisma migrate deploy failed, falling back to prisma db push..."
-    compose exec -T backend npx prisma db push
+    compose exec -T backend npx prisma db push 2>/dev/null
   fi
   ok "Database schema is up to date."
 }
