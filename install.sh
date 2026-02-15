@@ -288,12 +288,20 @@ validate_non_interactive_config() {
 }
 
 compose() {
+  # Prefer the modern Docker Compose v2 CLI plugin over the legacy Python v1.
+  # The legacy docker-compose (Python) has known bugs such as KeyError: 'ContainerConfig'
+  # when recreating containers.
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return
+  fi
+
   if command -v docker-compose >/dev/null 2>&1; then
     docker-compose "$@"
     return
   fi
 
-  docker compose "$@"
+  fail "Neither 'docker compose' (v2) nor 'docker-compose' (v1) found. Install docker-compose-plugin."
 }
 
 ensure_root() {
@@ -369,6 +377,8 @@ stop_existing_containers() {
       docker stop "${name}" 2>/dev/null || true
       docker rm -f "${name}" 2>/dev/null || true
     done
+    # Remove orphan volumes/networks to avoid stale container metadata
+    docker volume prune -f 2>/dev/null || true
     sleep 2
     ok "Existing containers stopped."
   fi
@@ -919,8 +929,10 @@ fi
 cd "\${ONEUI_HOME}"
 
 COMPOSE=(docker compose)
-if command -v docker-compose >/dev/null 2>&1; then
-  COMPOSE=(docker-compose)
+if ! docker compose version >/dev/null 2>&1; then
+  if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE=(docker-compose)
+  fi
 fi
 
 cmd="\${1:-}"
