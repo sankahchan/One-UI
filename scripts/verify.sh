@@ -40,6 +40,9 @@ done
 echo "[verify] backend check"
 (
   cd "$ROOT_DIR/backend"
+  # prisma validate requires DATABASE_URL to be present, even though it doesn't connect.
+  # Prefer DATABASE_URL_LOCAL (used in CI) if DATABASE_URL isn't already set.
+  export DATABASE_URL="${DATABASE_URL:-${DATABASE_URL_LOCAL:-postgresql://postgres:postgres@127.0.0.1:5432/xray_panel}}"
   npm run check
 )
 
