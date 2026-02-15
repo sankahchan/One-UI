@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const fs = require('fs');
+const path = require('path');
 
 const env = require('./config/env');
 const logger = require('./config/logger');
@@ -37,6 +39,10 @@ const webhookService = require('./services/webhook.service');
 
 const app = express();
 const inlineRuntime = new WorkerRuntime('api-inline');
+const serveFrontend = process.env.SERVE_FRONTEND === 'true';
+const publicDir = path.join(__dirname, '..', 'public');
+const indexFile = path.join(publicDir, 'index.html');
+const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
 
 app.use(helmet());
 app.use(
@@ -67,12 +73,14 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/', (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'xray-panel backend is running'
+if (!frontendAvailable) {
+  app.get('/', (_req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'one-ui backend is running'
+    });
   });
-});
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -92,6 +100,35 @@ app.use('/api/logs', logsRoutes);
 app.use('/sub', subscriptionRoutes);
 app.use('/user', userInfoRoutes); // Public user info pages
 app.use('/dns-query', dohRoutes); // DNS over HTTPS endpoint
+
+// Optional: serve the React admin UI from the backend (installer places build into backend/public).
+if (serveFrontend) {
+  if (frontendAvailable) {
+    logger.info('Serving frontend from backend', { publicDir });
+    app.use(express.static(publicDir));
+    app.get('*', (req, res, next) => {
+      // Keep API, subscriptions, and public endpoints working.
+      if (
+        req.path === '/api' ||
+        req.path.startsWith('/api/') ||
+        req.path === '/sub' ||
+        req.path.startsWith('/sub/') ||
+        req.path === '/user' ||
+        req.path.startsWith('/user/') ||
+        req.path === '/dns-query' ||
+        req.path.startsWith('/dns-query/')
+      ) {
+        return next();
+      }
+
+      res.sendFile(indexFile);
+    });
+  } else {
+    logger.warn('SERVE_FRONTEND is enabled but no frontend build was found', {
+      expectedIndexFile: indexFile
+    });
+  }
+}
 
 app.use((_req, _res, next) => {
   next(new NotFoundError('Route not found'));

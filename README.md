@@ -407,53 +407,75 @@ docker compose up --build
 
 API: `http://localhost:3000`
 
-## Install script SSL setup
+## One-command install (VPS)
 
-When using `/Users/sankahchan/xray-panel/scripts/install.sh`, SSL can be configured during installation:
+One-UI ships with a one-command installer (Ubuntu/Debian):
 
-- Enter your domain.
-- Enter SSL email (defaults to `admin@<domain>`).
-- Enter Cloudflare email and Global API key.
+```bash
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
+```
 
-The installer now:
+Defaults:
 
-- persists SSL and Cloudflare values into `/Users/sankahchan/xray-panel/backend/.env`
-- issues wildcard certs using `acme.sh`
-- installs cert files under `/var/lib/xray-panel/certs`
-- restarts backend/xray after certificate install
+- Install dir: `/opt/one-ui`
+- Data dir: `/var/lib/one-ui` (certs under `/var/lib/one-ui/certs`)
+- Backup dir: `/var/backups/one-ui`
+- Panel port: `3000`
 
 ### Non-interactive installer (flags/env only)
 
-You can run the installer without prompts:
+Run without prompts (recommended for automation):
 
 ```bash
-sudo ./scripts/install.sh \
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
   --non-interactive \
   --domain yourdomain.com \
   --admin-user admin \
   --admin-pass 'StrongPasswordHere' \
   --ssl-email admin@yourdomain.com \
-  --cf-email your-cloudflare-email@example.com \
-  --cf-key 'your-cloudflare-global-api-key'
+  --cf-token 'your-cloudflare-api-token'
 ```
 
 Environment-based example:
 
 ```bash
-export XRAY_PANEL_NON_INTERACTIVE=true
-export XRAY_PANEL_DOMAIN=yourdomain.com
-export XRAY_PANEL_ADMIN_USER=admin
-export XRAY_PANEL_ADMIN_PASS='StrongPasswordHere'
-export XRAY_PANEL_SSL_EMAIL=admin@yourdomain.com
-export XRAY_PANEL_CF_EMAIL=your-cloudflare-email@example.com
-export XRAY_PANEL_CF_KEY='your-cloudflare-global-api-key'
-sudo ./scripts/install.sh
+export ONEUI_NON_INTERACTIVE=true
+export ONEUI_DOMAIN=yourdomain.com
+export ONEUI_ADMIN_USER=admin
+export ONEUI_ADMIN_PASS='StrongPasswordHere'
+export ONEUI_SSL_EMAIL=admin@yourdomain.com
+export ONEUI_CF_TOKEN='your-cloudflare-api-token'
+
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
+```
+
+Global API key fallback (if you don’t want to use a token):
+
+```bash
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
+  --non-interactive \
+  --domain yourdomain.com \
+  --admin-pass 'StrongPasswordHere' \
+  --cf-email your-cloudflare-email@example.com \
+  --cf-key 'your-cloudflare-global-api-key'
 ```
 
 To skip SSL issuance during unattended installs:
 
 ```bash
-sudo ./scripts/install.sh --non-interactive --domain yourdomain.com --skip-ssl --admin-pass 'StrongPasswordHere'
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
+  --non-interactive \
+  --domain yourdomain.com \
+  --admin-pass 'StrongPasswordHere' \
+  --skip-ssl
+```
+
+Optional port overrides (use if `3000` or `5432` are already used):
+
+```bash
+export ONEUI_PORT=3200
+export ONEUI_DB_PORT=15432
+wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
 ```
 
 ## Observability (Prometheus + Alertmanager + Grafana)

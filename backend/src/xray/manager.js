@@ -38,6 +38,15 @@ class XrayManager {
     this.snapshotRetention = parsePositiveInt(process.env.XRAY_CONFIG_SNAPSHOT_RETENTION, 20, 1, 500);
   }
 
+  async isDockerContainerRunning(containerName = 'xray-core') {
+    try {
+      const { stdout } = await execPromise(`docker inspect -f '{{.State.Running}}' ${containerName}`);
+      return stdout.trim() === 'true';
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async readCurrentConfigRaw() {
     try {
       return await fs.readFile(this.configPath, 'utf8');
@@ -396,6 +405,18 @@ class XrayManager {
 
   async testConfig() {
     try {
+      if (process.env.XRAY_DEPLOYMENT === 'docker') {
+        const { stdout, stderr } = await execPromise(
+          `docker exec xray-core ${this.xrayBinary} -test -config ${this.configPath}`
+        );
+
+        if (stderr && stderr.includes('failed')) {
+          return { valid: false, error: stderr };
+        }
+
+        return { valid: true, message: stdout };
+      }
+
       const { stdout, stderr } = await execPromise(`${this.xrayBinary} -test -config ${this.configPath}`);
 
       if (stderr && stderr.includes('failed')) {
@@ -410,6 +431,10 @@ class XrayManager {
 
   async getStatus() {
     try {
+      if (process.env.XRAY_DEPLOYMENT === 'docker') {
+        return { running: await this.isDockerContainerRunning('xray-core') };
+      }
+
       if (process.env.XRAY_DEPLOYMENT === 'systemd') {
         const { stdout } = await execPromise('systemctl is-active xray');
         return { running: stdout.trim() === 'active' };
@@ -431,6 +456,17 @@ class XrayManager {
 
   async getVersion() {
     try {
+      if (process.env.XRAY_DEPLOYMENT === 'docker') {
+        const running = await this.isDockerContainerRunning('xray-core');
+        if (!running) {
+          return 'unknown';
+        }
+
+        const { stdout } = await execPromise(`docker exec xray-core ${this.xrayBinary} version`);
+        const match = stdout.match(/Xray\\s+([\\d.]+)/);
+        return match ? match[1] : 'unknown';
+      }
+
       const { stdout } = await execPromise(`${this.xrayBinary} version`);
       const match = stdout.match(/Xray\s+([\d.]+)/);
       return match ? match[1] : 'unknown';
