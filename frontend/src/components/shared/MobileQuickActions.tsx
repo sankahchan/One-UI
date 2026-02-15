@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Radio, RefreshCw, UserPlus } from 'lucide-react';
+import { Plus, Radio, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -24,15 +24,6 @@ export const MobileQuickActions: React.FC = () => {
   return (
     <div className="fixed bottom-[4.75rem] right-3 z-40 lg:hidden">
       <div className="flex items-center gap-2 rounded-2xl border border-line/80 bg-card/90 p-2 shadow-soft backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={() => navigate('/users?quick=create')}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line/70 bg-card/80 text-foreground transition hover:bg-card"
-          aria-label="Quick add user"
-          title="Quick add user"
-        >
-          <UserPlus className="h-4 w-4" />
-        </button>
         <button
           type="button"
           onClick={() => navigate('/inbounds?quick=create')}

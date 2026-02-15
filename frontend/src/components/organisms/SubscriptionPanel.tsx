@@ -57,7 +57,10 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
   );
 
   const subscriptionData = data;
-  const availableFormats = formats.filter(({ key }) => Boolean(subscriptionData?.urls?.[key]));
+  const availableFormats = useMemo(
+    () => formats.filter(({ key }) => Boolean(subscriptionData?.urls?.[key])),
+    [formats, subscriptionData]
+  );
 
   useEffect(() => {
     if (!subscriptionData) {
@@ -142,9 +145,8 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
           <button
             key={key}
             onClick={() => setSelectedFormat(key)}
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition sm:px-4 ${
-              selectedFormat === key ? colorClass : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
-            }`}
+            className={`rounded-xl px-3 py-2 text-sm font-medium transition sm:px-4 ${selectedFormat === key ? colorClass : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
+              }`}
           >
             {label}
           </button>

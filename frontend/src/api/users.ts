@@ -4,7 +4,6 @@ import type {
   ApiResponse,
   UserStatus,
   SubscriptionInfo,
-  SubscriptionLinksData,
   UserSessionSnapshotResponse,
   UserDeviceSessionResponse,
   UserActivityPayload,
@@ -363,10 +362,6 @@ export const usersApi = {
     return apiClient.get(`/users/${id}/subscription`);
   },
 
-  getSubscriptionLinks: async (id: number): Promise<ApiResponse<SubscriptionLinksData>> => {
-    return apiClient.get(`/users/${id}/subscription`);
-  },
-
   getUserActivity: async (id: number, params: UserActivityQueryParams = {}): Promise<ApiResponse<UserActivityPayload>> => {
     return apiClient.get(`/users/${id}/activity`, { params });
   },
@@ -466,13 +461,7 @@ export const getSubscriptionInfo = async (id: number): Promise<SubscriptionInfo>
   return response.data;
 };
 
-export const getSubscriptionLinks = async (id: number): Promise<SubscriptionLinksData> => {
-  const response = await usersApi.getSubscriptionLinks(id);
-  if (!response.data) {
-    throw new Error(response.message || 'Failed to load subscription links');
-  }
-  return response.data;
-};
+
 
 export const getUserActivity = async (
   id: number,
@@ -520,22 +509,22 @@ interface BulkOperationResult {
 }
 
 export const bulkDelete = async (userIds: number[]): Promise<BulkOperationResult> => {
-  const response = await apiClient.post<ApiResponse<BulkOperationResult>>('/users/bulk/delete', { userIds });
+  const response = await apiClient.post('/users/bulk/delete', { userIds }) as ApiResponse<BulkOperationResult>;
   return response.data ?? {};
 };
 
 export const bulkResetTraffic = async (userIds: number[]): Promise<BulkOperationResult> => {
-  const response = await apiClient.post<ApiResponse<BulkOperationResult>>('/users/bulk/reset-traffic', { userIds });
+  const response = await apiClient.post('/users/bulk/reset-traffic', { userIds }) as ApiResponse<BulkOperationResult>;
   return response.data ?? {};
 };
 
 export const bulkExtendExpiry = async (userIds: number[], days: number): Promise<BulkOperationResult> => {
-  const response = await apiClient.post<ApiResponse<BulkOperationResult>>('/users/bulk/extend-expiry', { userIds, days });
+  const response = await apiClient.post('/users/bulk/extend-expiry', { userIds, days }) as ApiResponse<BulkOperationResult>;
   return response.data ?? {};
 };
 
 export const bulkUpdateStatus = async (userIds: number[], status: string): Promise<BulkOperationResult> => {
-  const response = await apiClient.post<ApiResponse<BulkOperationResult>>('/users/bulk/update-status', { userIds, status });
+  const response = await apiClient.post('/users/bulk/update-status', { userIds, status }) as ApiResponse<BulkOperationResult>;
   return response.data ?? {};
 };
 
