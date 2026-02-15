@@ -347,15 +347,42 @@ is_port_in_use() {
   return 1
 }
 
+stop_existing_containers() {
+  # Auto-stop any existing One-UI containers so ports are freed for re-install.
+  local has_existing=false
+
+  for name in one-ui-backend one-ui-db xray-core one-ui-prometheus one-ui-alertmanager one-ui-grafana; do
+    if docker ps -q --filter "name=${name}" 2>/dev/null | grep -q .; then
+      has_existing=true
+      break
+    fi
+  done
+
+  if [ "${has_existing}" = "true" ]; then
+    info "Stopping existing One-UI containers..."
+    # Try compose down from install dir first (cleanest)
+    if [ -f "${INSTALL_DIR}/docker-compose.yml" ]; then
+      (cd "${INSTALL_DIR}" && compose down 2>/dev/null) || true
+    fi
+    # Force-stop any stragglers
+    for name in one-ui-backend one-ui-db xray-core one-ui-prometheus one-ui-alertmanager one-ui-grafana; do
+      docker stop "${name}" 2>/dev/null || true
+      docker rm -f "${name}" 2>/dev/null || true
+    done
+    sleep 2
+    ok "Existing containers stopped."
+  fi
+}
+
 ensure_ports_available() {
   info "Checking ports..."
 
   if is_port_in_use "${PANEL_PORT}"; then
-    fail "Port ${PANEL_PORT} is already in use. Set ONEUI_PORT or use --port."
+    fail "Port ${PANEL_PORT} is already in use by another application. Set ONEUI_PORT or use --port."
   fi
 
   if is_port_in_use "${DB_PORT}"; then
-    fail "Port ${DB_PORT} is already in use. Set ONEUI_DB_PORT or use --db-port."
+    fail "Port ${DB_PORT} is already in use by another application. Set ONEUI_DB_PORT or use --db-port."
   fi
 
   ok "Ports available: panel=${PANEL_PORT}, db=127.0.0.1:${DB_PORT}"
@@ -998,10 +1025,16 @@ main() {
   prepare_directories
   download_project
   prompt_config
+  stop_existing_containers
   ensure_ports_available
 
-  DB_PASSWORD="$(openssl rand -base64 32)"
-  JWT_SECRET="$(openssl rand -hex 64)"
+  # Preserve existing credentials on re-install to keep database data intact
+  if [ -f "${INSTALL_DIR}/backend/.env" ]; then
+    EXISTING_DB_PASS="$(grep -oP '^DATABASE_URL=.*://postgres:\K[^@]+' "${INSTALL_DIR}/backend/.env" 2>/dev/null || true)"
+    EXISTING_JWT="$(grep -oP '^JWT_SECRET=\K.+' "${INSTALL_DIR}/backend/.env" 2>/dev/null || true)"
+  fi
+  DB_PASSWORD="${EXISTING_DB_PASS:-$(openssl rand -base64 32)}"
+  JWT_SECRET="${EXISTING_JWT:-$(openssl rand -hex 64)}"
 
   write_backend_env "${DB_PASSWORD}" "${JWT_SECRET}"
   write_compose "${DB_PASSWORD}"

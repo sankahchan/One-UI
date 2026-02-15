@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache docker-cli openssl
 
 COPY package*.json ./
-RUN npm install --include=dev
+RUN npm install --include=dev --loglevel=error
 
 COPY prisma ./prisma
 RUN npx prisma generate
