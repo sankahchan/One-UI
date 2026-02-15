@@ -46,20 +46,7 @@ const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
 
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        connectSrc: ["'self'", 'https:', 'http:', 'data:', 'ws:', 'wss:'],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:', 'http:'],
-        fontSrc: ["'self'", 'data:', 'https:', 'http:'],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        frameAncestors: ["'self'"],
-        upgradeInsecureRequests: null
-      }
-    },
+    contentSecurityPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false
   })
