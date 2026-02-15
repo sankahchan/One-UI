@@ -772,40 +772,29 @@ wait_for_container_running() {
 run_migrations() {
   info "Running database migrations..."
 
-  local max_attempts=5
+  local max_attempts=3
   local attempt=0
-  local delay=5
 
   while [ "${attempt}" -lt "${max_attempts}" ]; do
     attempt=$((attempt + 1))
 
-    # Ensure the backend container is in 'running' state
-    if ! wait_for_container_running "one-ui-backend" 30; then
-      warn "Backend container not running (attempt ${attempt}/${max_attempts}). Restarting..."
-      compose restart backend 2>/dev/null || true
-      sleep "${delay}"
-      delay=$((delay + 5))
-      continue
-    fi
-
-    # Brief pause for the Node process inside the container to finish starting
-    sleep 3
-
-    # Try prisma migrate deploy first (uses migration history)
-    if compose exec -T backend npx prisma migrate deploy 2>&1; then
+    # Use 'compose run --rm' to create a disposable container.
+    # This does NOT require the backend container to be running.
+    if compose run --rm -T backend npx prisma migrate deploy 2>&1; then
       ok "Database schema is up to date (migrate deploy)."
       return
     fi
 
-    # Fall back to prisma db push (schema-only sync)
-    if compose exec -T backend npx prisma db push --accept-data-loss 2>&1; then
+    # Fall back to prisma db push (schema-only sync, works for fresh installs)
+    if compose run --rm -T backend npx prisma db push --accept-data-loss 2>&1; then
       ok "Database schema is up to date (db push)."
       return
     fi
 
-    warn "Migration attempt ${attempt}/${max_attempts} failed. Retrying in ${delay}s..."
-    sleep "${delay}"
-    delay=$((delay + 5))
+    if [ "${attempt}" -lt "${max_attempts}" ]; then
+      warn "Migration attempt ${attempt}/${max_attempts} failed. Retrying in 5s..."
+      sleep 5
+    fi
   done
 
   warn "All migration attempts failed. The backend may apply schema on first boot."
@@ -819,7 +808,10 @@ create_admin() {
   admin_user_b64="$(printf '%s' "${ADMIN_USER}" | base64 | tr -d '\n')"
   admin_pass_b64="$(printf '%s' "${ADMIN_PASS}" | base64 | tr -d '\n')"
 
-  compose exec -T backend sh -lc "ADMIN_USER_B64='${admin_user_b64}' ADMIN_PASS_B64='${admin_pass_b64}' node - <<'NODE'
+  compose run --rm -T \
+    -e "ADMIN_USER_B64=${admin_user_b64}" \
+    -e "ADMIN_PASS_B64=${admin_pass_b64}" \
+    backend node -e "
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -845,7 +837,7 @@ const bcrypt = require('bcrypt');
 
   await prisma.\$disconnect();
 })();
-NODE"
+" || warn "Admin creation failed. You can create an admin later via the API."
 
   ok "Admin account ready."
 }
@@ -1079,12 +1071,35 @@ main() {
   info "Building Docker images..."
   compose build
 
-  info "Starting services..."
+  # Start only the database first so we can run migrations before the backend starts.
+  # This avoids the chicken-and-egg problem where the backend crash-loops because
+  # the schema doesn't exist, but migrations can't run inside a crashing container.
+  info "Starting database..."
+  compose up -d db
+
+  # Wait for the DB to be healthy (pg_isready)
+  info "Waiting for database to be healthy..."
+  for _ in $(seq 1 30); do
+    if compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+      ok "Database is healthy."
+      break
+    fi
+    sleep 2
+  done
+
+  # Run migrations in a disposable container (compose run) — does NOT depend on the
+  # backend container being up. This creates a temporary container from the backend
+  # service definition, runs the command, then removes it.
+  run_migrations
+
+  # Create admin user in a disposable container too
+  create_admin
+
+  # Now start all services (backend will start cleanly with schema already in place)
+  info "Starting all services..."
   compose up -d
 
   wait_for_backend
-  run_migrations
-  create_admin
   setup_ssl_if_requested
   configure_firewall
   install_cli_wrapper
