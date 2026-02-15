@@ -191,7 +191,7 @@
         "uuid": "UUID",
         "rendering": "Rendering {{count}} of {{total}} users...",
         "selectedCount": "{{count}} selected",
-        "keysActive": "Keys online {{online}}/{{enabled}}",
+        "keysActive": "Keys active {{online}}/{{total}}",
         "usagePercent": "{{percent}}% used",
         "limitIpShort": "IP {{count}}",
         "limitDeviceShort": "DEV {{count}}",

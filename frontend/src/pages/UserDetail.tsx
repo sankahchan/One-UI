@@ -474,9 +474,9 @@ export const UserDetail: React.FC = () => {
     const hasOnlineKeys = onlineCount > 0;
     const label = enabledCount > 0
       ? t('users.keysActive', {
-          defaultValue: 'Keys online {{online}}/{{enabled}}',
+          defaultValue: 'Keys active {{online}}/{{total}}',
           online: onlineCount,
-          enabled: enabledCount
+          total: enabledCount
         })
       : t('users.detail.noKeysEnabled', { defaultValue: 'No keys enabled' });
     return (

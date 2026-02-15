@@ -359,8 +359,8 @@ export const UserTable: FC<UserTableProps> = ({
           className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
             mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
           }`}
-          aria-label={t('common.actions', { defaultValue: 'Actions' })}
-          title={t('common.actions', { defaultValue: 'Actions' })}
+          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
+          title={t('common.moreActions', { defaultValue: 'More actions' })}
         >
           <span className="inline-flex items-center">
             <MoreVertical className="h-4 w-4" />

@@ -191,7 +191,7 @@
         "uuid": "UUID",
         "rendering": "အသုံးပြုသူ {{total}} ထဲမှ {{count}} ယောက်ကို ပြသနေသည်...",
         "selectedCount": "{{count}} ယောက် ရွေးထားသည်",
-        "keysActive": "အွန်လိုင်း ကီး {{online}}/{{enabled}}",
+        "keysActive": "အသက်ဝင် ကီး {{online}}/{{total}}",
         "usagePercent": "{{percent}}% အသုံးပြုထား",
         "limitIpShort": "IP {{count}}",
         "limitDeviceShort": "DEV {{count}}",
