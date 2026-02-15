@@ -368,17 +368,16 @@ stop_existing_containers() {
 
   if [ "${has_existing}" = "true" ]; then
     info "Stopping existing One-UI containers..."
-    # Try compose down from install dir first (cleanest)
+    # Try compose down -v from install dir first (removes containers AND volumes)
+    # This prevents stale postgres_data volumes with old passwords from causing auth failures.
     if [ -f "${INSTALL_DIR}/docker-compose.yml" ]; then
-      (cd "${INSTALL_DIR}" && compose down 2>/dev/null) || true
+      (cd "${INSTALL_DIR}" && compose down -v 2>/dev/null) || true
     fi
     # Force-stop any stragglers
     for name in one-ui-backend one-ui-db xray-core one-ui-prometheus one-ui-alertmanager one-ui-grafana; do
       docker stop "${name}" 2>/dev/null || true
       docker rm -f "${name}" 2>/dev/null || true
     done
-    # Remove orphan volumes/networks to avoid stale container metadata
-    docker volume prune -f 2>/dev/null || true
     sleep 2
     ok "Existing containers stopped."
   fi
@@ -1061,7 +1060,7 @@ main() {
     EXISTING_DB_PASS="$(grep -oP '^DATABASE_URL=.*://postgres:\K[^@]+' "${INSTALL_DIR}/backend/.env" 2>/dev/null || true)"
     EXISTING_JWT="$(grep -oP '^JWT_SECRET=\K.+' "${INSTALL_DIR}/backend/.env" 2>/dev/null || true)"
   fi
-  DB_PASSWORD="${EXISTING_DB_PASS:-$(openssl rand -base64 32)}"
+  DB_PASSWORD="${EXISTING_DB_PASS:-$(openssl rand -hex 24)}"
   JWT_SECRET="${EXISTING_JWT:-$(openssl rand -hex 64)}"
 
   write_backend_env "${DB_PASSWORD}" "${JWT_SECRET}"
