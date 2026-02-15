@@ -68,7 +68,7 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
           <div>
             <h2 className="text-xl font-bold text-foreground">
-              {t('users.qrModal.title', { defaultValue: 'Subscription QR' })}
+              {t('users.qrModal.title', { defaultValue: 'Quick QR' })}
             </h2>
             <p className="text-sm text-muted">{user.email}</p>
           </div>
@@ -102,11 +102,10 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
                     key={format.key}
                     type="button"
                     onClick={() => setSelectedFormat(format.key)}
-                    className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                      activeFormat === format.key
+                    className={`rounded-lg px-3 py-2 text-xs font-medium transition ${activeFormat === format.key
                         ? 'bg-brand-500 text-white'
                         : 'border border-line/70 bg-card/80 text-muted hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     {format.label}
                   </button>

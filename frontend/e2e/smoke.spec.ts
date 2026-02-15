@@ -291,10 +291,10 @@ test.describe('One-UI smoke flows', () => {
 
       await row.getByLabel('More actions').click();
       await row.getByRole('button', { name: 'Show QR' }).click();
-      await expect(page.getByRole('heading', { name: 'Subscription QR' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
       await expect(page.getByText('/sub/')).toBeVisible();
       await page.locator('button[aria-label="Close"]').first().click();
-      await expect(page.getByRole('heading', { name: 'Subscription QR' })).toBeHidden();
+      await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeHidden();
 
       await row.getByLabel('More actions').click();
       await row.getByRole('button', { name: 'Quick Edit' }).click();
@@ -448,7 +448,7 @@ test.describe('One-UI smoke flows', () => {
       const rowAfterBack = page.locator('tbody tr', { hasText: user.email }).first();
       await rowAfterBack.getByLabel('More actions').click();
       await page.getByRole('button', { name: 'Show QR' }).first().click();
-      await expect(page.getByRole('heading', { name: 'Subscription QR' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
     } finally {
       await deleteUser(request, adminSession.token, user.id);
       await deleteInbound(request, adminSession.token, inbound.id);
