@@ -422,6 +422,23 @@ Defaults:
 - Backup dir: `/var/backups/one-ui`
 - Panel port: `3000`
 
+### Post-install: `one-ui` command
+
+The installer also installs a small CLI wrapper at `/usr/local/bin/one-ui`:
+
+```bash
+sudo one-ui status
+sudo one-ui logs backend
+sudo one-ui menu
+sudo one-ui update
+```
+
+If you installed One-UI to a non-default directory:
+
+```bash
+ONEUI_INSTALL_DIR=/opt/one-ui sudo one-ui status
+```
+
 ### Non-interactive installer (flags/env only)
 
 Run without prompts (recommended for automation):

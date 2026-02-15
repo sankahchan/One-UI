@@ -780,6 +780,102 @@ configure_firewall() {
   ok "Firewall configured."
 }
 
+install_cli_wrapper() {
+  local bin_path="/usr/local/bin/one-ui"
+
+  info "Installing one-ui CLI wrapper..."
+
+  cat > "${bin_path}" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+ONEUI_HOME="\${ONEUI_INSTALL_DIR:-${INSTALL_DIR}}"
+
+if [[ "\${1:-}" == "-h" || "\${1:-}" == "--help" || "\${1:-}" == "help" ]]; then
+  cat <<'USAGE'
+One-UI CLI (Docker Compose wrapper)
+
+Usage:
+  one-ui [command]
+
+Commands:
+  menu               Open interactive menu (./scripts/menu.sh)
+  status|ps          Show container status
+  up                 Build + start containers
+  down               Stop containers
+  restart            Restart containers
+  logs [service]     Tail logs (optionally for a service)
+  update             git pull + rebuild + restart
+
+Examples:
+  sudo one-ui status
+  sudo one-ui logs backend
+  sudo one-ui menu
+
+Override install directory:
+  ONEUI_INSTALL_DIR=/opt/one-ui sudo one-ui status
+USAGE
+  exit 0
+fi
+
+if [[ ! -d "\${ONEUI_HOME}" ]]; then
+  echo "One-UI install directory not found: \${ONEUI_HOME}" >&2
+  echo "Set ONEUI_INSTALL_DIR or reinstall One-UI." >&2
+  exit 1
+fi
+
+cd "\${ONEUI_HOME}"
+
+COMPOSE=(docker compose)
+if command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE=(docker-compose)
+fi
+
+cmd="\${1:-}"
+shift || true
+
+if [[ -z "\${cmd}" ]]; then
+  if [[ -t 1 ]]; then
+    cmd="menu"
+  else
+    cmd="help"
+  fi
+fi
+
+case "\${cmd}" in
+  menu)
+    exec ./scripts/menu.sh "\$@"
+    ;;
+  status|ps)
+    exec "\${COMPOSE[@]}" ps "\$@"
+    ;;
+  up)
+    exec "\${COMPOSE[@]}" up -d --build "\$@"
+    ;;
+  down)
+    exec "\${COMPOSE[@]}" down "\$@"
+    ;;
+  restart)
+    exec "\${COMPOSE[@]}" restart "\$@"
+    ;;
+  logs)
+    exec "\${COMPOSE[@]}" logs -f "\$@"
+    ;;
+  update)
+    git pull || true
+    exec "\${COMPOSE[@]}" up -d --build
+    ;;
+  *)
+    # Forward unknown commands to docker compose (e.g. "exec", "pull")
+    exec "\${COMPOSE[@]}" "\${cmd}" "\$@"
+    ;;
+esac
+EOF
+
+  chmod +x "${bin_path}"
+  ok "CLI wrapper installed: ${bin_path}"
+}
+
 print_summary() {
   local panel_url
   if [ -n "${DOMAIN}" ]; then
@@ -813,6 +909,9 @@ print_summary() {
   echo "- View logs: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') logs -f"
   echo "- Restart: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') restart"
   echo "- Stop: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') down"
+  echo "- CLI menu: sudo one-ui menu"
+  echo "- CLI status: sudo one-ui status"
+  echo "- CLI logs: sudo one-ui logs backend"
   echo "- Run core smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-core-api.sh"
   echo "- Run Myanmar smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-myanmar-hardening.sh"
   echo "- Run smoke suite from menu: cd \"${INSTALL_DIR}\" && ./scripts/menu.sh (option 7)"
@@ -854,6 +953,7 @@ main() {
   create_admin
   setup_ssl_if_requested
   configure_firewall
+  install_cli_wrapper
   print_summary
 }
 
