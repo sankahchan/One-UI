@@ -1,8 +1,6 @@
 ARG XRAY_BASE_IMAGE=ghcr.io/xtls/xray-core:latest
 FROM ${XRAY_BASE_IMAGE}
 
-RUN mkdir -p /var/log/xray
-
 # Copy default config
 COPY xray/config.json /etc/xray/config.json
 
