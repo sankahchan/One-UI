@@ -56,6 +56,24 @@ fail() {
   exit 1
 }
 
+# Ensure at least 1 GB swap exists so Vite builds don't get OOM-killed on small VPS instances.
+ensure_swap() {
+  local swap_total
+  swap_total=$(free -m 2>/dev/null | awk '/^Swap:/ { print $2 }')
+  if [ "${swap_total:-0}" -ge 1024 ]; then
+    return
+  fi
+  if [ -f /swapfile ]; then
+    return
+  fi
+  info "Low memory detected — creating 1 GB swap file for build..."
+  dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none 2>/dev/null || return 0
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null 2>&1 || { rm -f /swapfile; return 0; }
+  swapon /swapfile 2>/dev/null || { rm -f /swapfile; return 0; }
+  ok "Swap enabled (1 GB)."
+}
+
 prompt_read() {
   # Read user input from /dev/tty when available. This keeps prompts working even when
   # the installer is piped into bash (e.g. wget -qO- ... | sudo bash).
@@ -685,10 +703,15 @@ build_frontend_assets() {
     return
   fi
 
+  # Small VPS instances (1-2 GB RAM) can OOM during Vite builds — ensure swap exists.
+  ensure_swap
+
   # Build inside a clean Node container so we don't need Node.js installed on the VPS.
+  # NODE_OPTIONS limits the V8 heap so the build doesn't get OOM-killed on low-memory VPS.
   docker run --rm \
     -v "${INSTALL_DIR}:/work" \
     -w /work/frontend \
+    -e NODE_OPTIONS="--max-old-space-size=512" \
     node:20-alpine \
     sh -lc "set -e; npm ci; VITE_API_URL=/api npm run build"
 

@@ -58,6 +58,24 @@ compose() {
   fi
 }
 
+# Ensure at least 1 GB swap exists so Vite builds don't get OOM-killed on small VPS instances.
+ensure_swap() {
+  local swap_total
+  swap_total=$(free -m 2>/dev/null | awk '/^Swap:/ { print $2 }')
+  if [ "${swap_total:-0}" -ge 1024 ]; then
+    return
+  fi
+  if [ -f /swapfile ]; then
+    return
+  fi
+  echo -e "${BLUE}[*]${NC} Low memory detected — creating 1 GB swap file for build..."
+  dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none 2>/dev/null || return 0
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null 2>&1 || { rm -f /swapfile; return 0; }
+  swapon /swapfile 2>/dev/null || { rm -f /swapfile; return 0; }
+  echo -e "${GREEN}[✓]${NC} Swap enabled (1 GB)."
+}
+
 get_panel_port() {
   if [ -f "$ROOT_DIR/.panel_port" ]; then
     cat "$ROOT_DIR/.panel_port"
@@ -324,11 +342,13 @@ update_oneui() {
   cp .panel_path.backup .panel_path 2>/dev/null || true
 
   echo -e "${BLUE}[*]${NC} Rebuilding frontend..."
+  ensure_swap
   local panel_path
   panel_path="$(get_panel_path)"
   docker run --rm \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
+    -e NODE_OPTIONS="--max-old-space-size=512" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${panel_path}/api VITE_PANEL_PATH=${panel_path} npm run build"
 
@@ -397,11 +417,13 @@ install_legacy_version() {
   cp .panel_path.backup .panel_path 2>/dev/null || true
 
   echo -e "${BLUE}[*]${NC} Rebuilding frontend..."
+  ensure_swap
   local panel_path
   panel_path="$(get_panel_path)"
   docker run --rm \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
+    -e NODE_OPTIONS="--max-old-space-size=512" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${panel_path}/api VITE_PANEL_PATH=${panel_path} npm run build" || true
 
@@ -619,9 +641,11 @@ reset_web_base_path() {
 
   # Rebuild frontend with new path
   echo -e "${BLUE}[*]${NC} Rebuilding frontend with new path..."
+  ensure_swap
   docker run --rm \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
+    -e NODE_OPTIONS="--max-old-space-size=512" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${new_path}/api VITE_PANEL_PATH=${new_path} npm run build"
 
