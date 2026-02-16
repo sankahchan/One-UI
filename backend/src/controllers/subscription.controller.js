@@ -1,11 +1,10 @@
-const { PrismaClient } = require('@prisma/client');
 const subscriptionGenerator = require('../subscription/generator');
 const clientDetector = require('../subscription/utils/client-detector');
 const { buildProtocolUrl } = require('../subscription/formats/url-builder');
 const QRCode = require('qrcode');
 const metrics = require('../observability/metrics');
 
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 
 class SubscriptionController {
   buildRequestContext(req) {

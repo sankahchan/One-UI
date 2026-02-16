@@ -463,7 +463,7 @@ class XrayManager {
         }
 
         const { stdout } = await execPromise(`docker exec xray-core ${this.xrayBinary} version`);
-        const match = stdout.match(/Xray\\s+([\\d.]+)/);
+        const match = stdout.match(/Xray\s+([\d.]+)/);
         return match ? match[1] : 'unknown';
       }
 

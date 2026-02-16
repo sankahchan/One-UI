@@ -3,10 +3,7 @@
  * Scans Cloudflare IPs to find the best latency/speed
  */
 
-const https = require('https');
 const http = require('http');
-const { promisify } = require('util');
-const dns = require('dns');
 
 // Common Cloudflare IP ranges (IPv4)
 const CLOUDFLARE_CIDRS = [
@@ -28,8 +25,7 @@ const CLOUDFLARE_CIDRS = [
     '173.245.48.0/20',
     '188.114.96.0/20',
     '190.93.240.0/20',
-    '197.234.240.0/22',
-    '198.41.128.0/17'
+    '197.234.240.0/22'
 ];
 
 class CdnFinderService {
@@ -44,8 +40,7 @@ class CdnFinderService {
      * @param {number} limit 
      */
     expandCIDR(cidr, limit = 5) {
-        const [base, bits] = cidr.split('/');
-        const mask = ~(2 ** (32 - parseInt(bits)) - 1);
+        const [base] = cidr.split('/');
 
         // Simple logic to just pick random IPs from the range
         // Converting IP to long and back is tedious, let's just use the base and increment

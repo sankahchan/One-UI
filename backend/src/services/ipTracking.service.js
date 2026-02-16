@@ -136,7 +136,9 @@ class IpTrackingService {
 
         for (const [key, timestamp] of this.connectionTimestamps.entries()) {
             if (now - timestamp > staleThreshold) {
-                const [userId, ip] = key.split(':');
+                const separatorIndex = key.indexOf(':');
+                const userId = key.substring(0, separatorIndex);
+                const ip = key.substring(separatorIndex + 1);
                 this.releaseConnection(Number(userId), ip);
             }
         }

@@ -1,4 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
 const userService = require('../services/user.service');
 const groupService = require('../services/group.service');
 const webhookService = require('../services/webhook.service');
@@ -8,7 +7,7 @@ const QRCode = require('qrcode');
 const ApiResponse = require('../utils/response');
 const { sendSuccess } = require('../utils/response');
 
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 
 function buildActorContext(req) {
   if (!req?.admin) {

@@ -1,4 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
 const fs = require('node:fs').promises;
 const path = require('node:path');
 
@@ -15,7 +14,7 @@ const mtprotoProtocol = require('./protocols/mtproto');
 const warpProtocol = require('./protocols/warp');
 const xrayRoutingService = require('../services/xrayRouting.service');
 
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 
 function parseBooleanFlag(value, fallback = false) {
   if (value === undefined || value === null || value === '') {

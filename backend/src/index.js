@@ -47,6 +47,7 @@ const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
 app.use(
   helmet({
     contentSecurityPolicy: false,
+    hsts: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false
   })
