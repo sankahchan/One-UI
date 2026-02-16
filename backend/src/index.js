@@ -90,10 +90,15 @@ if (!frontendAvailable) {
   });
 }
 
-// Redirect root panel path without trailing slash to path with slash
+// Redirect root panel path without trailing slash to path with slash.
+// IMPORTANT: only redirect when the URL is exactly the panel path (no trailing slash).
+// Express route matching treats /path and /path/ as equivalent, so we must check manually.
 if (panelPath) {
-  app.get(panelPath, (_req, res) => {
-    res.redirect(301, `${panelPath}/`);
+  app.get(panelPath, (req, res, next) => {
+    if (req.originalUrl.replace(/\?.*$/, '') === panelPath) {
+      return res.redirect(301, `${panelPath}/`);
+    }
+    next();
   });
 }
 
