@@ -3,8 +3,7 @@
  * Automatically resets user traffic based on their trafficResetPeriod setting
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 
 class TrafficResetJob {
     constructor() {

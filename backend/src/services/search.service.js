@@ -3,8 +3,7 @@
  * Provides full-text search across users, inbounds, and groups
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 
 class SearchService {
     /**

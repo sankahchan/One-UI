@@ -13,7 +13,13 @@ const detectApiUrl = () => {
     return configured.trim();
   }
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
+  // Auto-detect panel path from current URL
+  // e.g., if the app is served at http://host:port/a1b2c3d4/, the API is at /a1b2c3d4/api
+  if (typeof window !== 'undefined' && window.location) {
+    const panelPath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+    if (panelPath) {
+      return `${window.location.origin}${panelPath}/api`;
+    }
     return `${window.location.origin}/api`;
   }
 
@@ -137,7 +143,8 @@ apiClient.interceptors.response.use(
 
       useAuthStore.getState().logout();
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const basePath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+        window.location.href = `${basePath}/login`;
       }
       return Promise.reject(new Error('Session expired. Please sign in again.'));
     }

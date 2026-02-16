@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '../components/atoms/Button';
 import { Input } from '../components/atoms/Input';
 import { ThemeToggle } from '../components/molecules/ThemeToggle';
-import { authApi, type TelegramLoginPayload } from '../api/auth';
+import { authApi, type TelegramLoginPayload, type LoginInfo } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
 interface LoginForm {
@@ -36,11 +36,24 @@ export const Login: React.FC = () => {
     formState: { errors }
   } = useForm<LoginForm>();
 
+  const { data: loginInfo } = useQuery<LoginInfo>({
+    queryKey: ['login-info'],
+    queryFn: () => authApi.getLoginInfo(),
+    staleTime: 5 * 60 * 1000
+  });
+
   const { data: telegramConfig } = useQuery({
     queryKey: ['telegram-oauth-config'],
     queryFn: () => authApi.getTelegramConfig(),
     staleTime: 5 * 60 * 1000
   });
+
+  // Auto-show OTP field when backend requires 2FA for SUPER_ADMIN
+  useEffect(() => {
+    if (loginInfo?.requireTwoFactorForSuperAdmin) {
+      setShowOtp(true);
+    }
+  }, [loginInfo?.requireTwoFactorForSuperAdmin]);
 
   const handleTelegramAuth = useCallback(async (payload: TelegramLoginPayload) => {
     setTelegramLoading(true);
@@ -92,7 +105,11 @@ export const Login: React.FC = () => {
     try {
       const response = await authApi.login(data);
       login(response.token, response.admin, response.refreshToken);
-      navigate('/dashboard');
+      if (response.requiresTwoFactorSetup) {
+        navigate('/settings?tab=security');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       const message = err?.message || 'Login failed';
       setError(message);
@@ -142,6 +159,12 @@ export const Login: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {loginInfo?.requireTwoFactorForSuperAdmin ? (
+              <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-600 dark:text-brand-300">
+                Two-factor authentication is required for SUPER_ADMIN accounts.
+              </div>
+            ) : null}
+
             {error ? (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
                 {error}
@@ -218,15 +241,16 @@ export const Login: React.FC = () => {
             ) : null}
           </form>
 
-          <div className="mt-8 grid grid-cols-2 gap-3 text-xs text-muted">
-            <div className="glass rounded-xl px-3 py-2.5">
-              <UserRound className="mb-1 h-4 w-4 text-brand-500" />
+          <div className="mt-8 flex items-center justify-center gap-4 text-xs text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <UserRound className="h-3.5 w-3.5 text-brand-500/60" />
               Role-based access
-            </div>
-            <div className="glass rounded-xl px-3 py-2.5">
-              <ArrowRight className="mb-1 h-4 w-4 text-brand-500" />
+            </span>
+            <span className="h-3 w-px bg-line/60" />
+            <span className="inline-flex items-center gap-1.5">
+              <ArrowRight className="h-3.5 w-3.5 text-brand-500/60" />
               Mobile-friendly panel
-            </div>
+            </span>
           </div>
         </div>
       </div>

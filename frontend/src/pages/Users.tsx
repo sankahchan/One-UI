@@ -1147,7 +1147,6 @@ export function Users() {
           const after = (item.newTop3 || []).map((entry: any) => entry.key).join(' > ') || 'none';
           return `${item.email}: ${before} -> ${after}`;
         })
-        .split('\n')
         .filter(Boolean);
 
       setBulkMyanmarPreviewState({
@@ -1217,7 +1216,6 @@ export function Users() {
           const after = (item.newTop3 || []).map((entry: any) => entry.key).join(' > ') || 'none';
           return `${item.email}: ${before} -> ${after}`;
         })
-        .split('\n')
         .filter(Boolean);
 
       setBulkQualityPreviewState({

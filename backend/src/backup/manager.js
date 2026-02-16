@@ -3,8 +3,6 @@ const { exec } = require('child_process');
 const util = require('util');
 const fs = require('fs').promises;
 const path = require('path');
-const { PrismaClient } = require('@prisma/client');
-
 const env = require('../config/env');
 const { getBotManager } = require('../telegram/bot');
 const logger = require('../config/logger');
@@ -72,7 +70,7 @@ class BackupManager {
     this.dbContainer = env.BACKUP_DB_DOCKER_CONTAINER;
     this.schedule = env.BACKUP_SCHEDULE;
     this.scheduledTask = null;
-    this.prisma = new PrismaClient();
+    this.prisma = require('../config/database');
   }
 
   async resolveBackupDir() {

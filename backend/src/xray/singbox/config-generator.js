@@ -3,11 +3,9 @@
  * Generates SingBox JSON configuration from database inbounds
  */
 
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../config/database');
 const fs = require('node:fs').promises;
 const path = require('node:path');
-
-const prisma = new PrismaClient();
 
 class SingBoxConfigGenerator {
     constructor() {

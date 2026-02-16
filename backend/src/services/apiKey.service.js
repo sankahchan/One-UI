@@ -3,10 +3,8 @@
  * Handles creation, validation, and revocation of API keys
  */
 
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../config/database');
 const crypto = require('crypto');
-
-const prisma = new PrismaClient();
 
 class ApiKeyService {
     /**

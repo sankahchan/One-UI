@@ -18,7 +18,7 @@ const env = cleanEnv(process.env, {
   JWT_ACCESS_EXPIRY: str({ default: process.env.JWT_ACCESS_EXPIRY || '15m' }),
   JWT_REFRESH_EXPIRY: str({ default: '30d' }),
   AUTH_REQUIRE_2FA_SUPER_ADMIN: bool({
-    default: String(process.env.NODE_ENV || 'development').toLowerCase() === 'production'
+    default: false
   }),
   AUTH_STRICT_SESSION_BINDING: bool({ default: false }),
   AUTH_REQUIRE_SESSION_CLAIM: bool({

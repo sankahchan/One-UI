@@ -680,10 +680,25 @@ async function disableTwoFactor(req, res, next) {
   }
 }
 
+async function loginInfo(_req, res, next) {
+  try {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Login info',
+      data: {
+        requireTwoFactorForSuperAdmin: authService.isSuperAdmin2FARequired()
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   login,
   loginTelegram,
   telegramConfig,
+  loginInfo,
   getTelegramLink,
   linkTelegram,
   unlinkTelegram,

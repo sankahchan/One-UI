@@ -20,6 +20,7 @@ router.post(
   authController.login
 );
 
+router.get('/login-info', authController.loginInfo);
 router.get('/telegram/config', authController.telegramConfig);
 router.post(
   '/login/telegram',

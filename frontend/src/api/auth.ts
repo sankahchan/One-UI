@@ -91,7 +91,16 @@ function extractPayload<T>(response: ApiResponse<T> | T): T {
   return response as T;
 }
 
+export interface LoginInfo {
+  requireTwoFactorForSuperAdmin: boolean;
+}
+
 export const authApi = {
+  getLoginInfo: async (): Promise<LoginInfo> => {
+    const response = await apiClient.get<any, ApiResponse<LoginInfo> | LoginInfo>('/auth/login-info');
+    return extractPayload<LoginInfo>(response);
+  },
+
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await apiClient.post<any, ApiResponse<AuthResponse> | AuthResponse>('/auth/login', credentials);
     return extractPayload<AuthResponse>(response);

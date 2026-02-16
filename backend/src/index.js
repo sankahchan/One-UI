@@ -43,6 +43,7 @@ const serveFrontend = process.env.SERVE_FRONTEND === 'true';
 const publicDir = path.join(__dirname, '..', 'public');
 const indexFile = path.join(publicDir, 'index.html');
 const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
+const panelPath = (process.env.PANEL_PATH || '').replace(/\/+$/, '') || '';
 
 app.use(
   helmet({
@@ -88,21 +89,50 @@ if (!frontendAvailable) {
   });
 }
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api/inbounds', inboundRoutes);
-app.use('/api/system', systemRoutes);
-app.use('/api/xray', xrayRoutes);
-app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/ssl', sslRoutes);
-app.use('/api/portal', portalRoutes);
-app.use('/api/backup', backupRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/reality', realityRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/api-keys', apiKeysRoutes);
-app.use('/api/logs', logsRoutes);
+// Redirect root panel path without trailing slash to path with slash
+if (panelPath) {
+  app.get(panelPath, (_req, res) => {
+    res.redirect(301, `${panelPath}/`);
+  });
+}
+
+// Mount API routes under both /api and /${PANEL_PATH}/api
+const apiPrefix = panelPath ? `${panelPath}/api` : '/api';
+app.use(`${apiPrefix}/auth`, authRoutes);
+app.use(`${apiPrefix}/users`, userRoutes);
+app.use(`${apiPrefix}/groups`, groupRoutes);
+app.use(`${apiPrefix}/inbounds`, inboundRoutes);
+app.use(`${apiPrefix}/system`, systemRoutes);
+app.use(`${apiPrefix}/xray`, xrayRoutes);
+app.use(`${apiPrefix}/subscription`, subscriptionRoutes);
+app.use(`${apiPrefix}/ssl`, sslRoutes);
+app.use(`${apiPrefix}/portal`, portalRoutes);
+app.use(`${apiPrefix}/backup`, backupRoutes);
+app.use(`${apiPrefix}/settings`, settingsRoutes);
+app.use(`${apiPrefix}/reality`, realityRoutes);
+app.use(`${apiPrefix}/search`, searchRoutes);
+app.use(`${apiPrefix}/api-keys`, apiKeysRoutes);
+app.use(`${apiPrefix}/logs`, logsRoutes);
+
+// Also keep /api routes working when panel path is set (for backwards compat and health checks)
+if (panelPath) {
+  app.use('/api/auth', authRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/groups', groupRoutes);
+  app.use('/api/inbounds', inboundRoutes);
+  app.use('/api/system', systemRoutes);
+  app.use('/api/xray', xrayRoutes);
+  app.use('/api/subscription', subscriptionRoutes);
+  app.use('/api/ssl', sslRoutes);
+  app.use('/api/portal', portalRoutes);
+  app.use('/api/backup', backupRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/reality', realityRoutes);
+  app.use('/api/search', searchRoutes);
+  app.use('/api/api-keys', apiKeysRoutes);
+  app.use('/api/logs', logsRoutes);
+}
+
 app.use('/sub', subscriptionRoutes);
 app.use('/user', userInfoRoutes); // Public user info pages
 app.use('/dns-query', dohRoutes); // DNS over HTTPS endpoint
@@ -110,9 +140,10 @@ app.use('/dns-query', dohRoutes); // DNS over HTTPS endpoint
 // Optional: serve the React admin UI from the backend (installer places build into backend/public).
 if (serveFrontend) {
   if (frontendAvailable) {
-    logger.info('Serving frontend from backend', { publicDir });
-    app.use(express.static(publicDir));
-    app.get('*', (req, res, next) => {
+    const frontendBase = panelPath ? `${panelPath}/` : '/';
+    logger.info('Serving frontend from backend', { publicDir, panelPath: panelPath || '(none)' });
+    app.use(frontendBase, express.static(publicDir));
+    app.get(`${frontendBase}*`, (req, res, next) => {
       // Keep API, subscriptions, and public endpoints working.
       if (
         req.path === '/api' ||

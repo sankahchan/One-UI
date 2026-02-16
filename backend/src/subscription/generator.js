@@ -1,6 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../config/database');
 const v2rayFormat = require('./formats/v2ray');
 const clashFormat = require('./formats/clash');
 const singboxFormat = require('./formats/singbox');

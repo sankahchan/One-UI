@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../config/database');
 const crypto = require('node:crypto');
 const JSZip = require('jszip');
 const yaml = require('js-yaml');
 const { NotFoundError, ConflictError, ValidationError } = require('../utils/errors');
-
-const prisma = new PrismaClient();
 
 const PROTOCOL_DEFAULTS = {
   SOCKS: { network: 'TCP', security: 'NONE' },

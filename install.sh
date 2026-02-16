@@ -13,8 +13,9 @@ PROJECT_NAME="One-UI"
 NON_INTERACTIVE="${ONEUI_NON_INTERACTIVE:-${XRAY_PANEL_NON_INTERACTIVE:-false}}"
 SKIP_SSL="${ONEUI_SKIP_SSL:-${XRAY_PANEL_SKIP_SSL:-false}}"
 
-PANEL_PORT="${ONEUI_PORT:-${XRAY_PANEL_PORT:-3000}}"
-DB_PORT="${ONEUI_DB_PORT:-${XRAY_PANEL_DB_PORT:-5432}}"
+PANEL_PORT="${ONEUI_PORT:-${XRAY_PANEL_PORT:-}}"
+DB_PORT="${ONEUI_DB_PORT:-${XRAY_PANEL_DB_PORT:-}}"
+PANEL_PATH="${ONEUI_PANEL_PATH:-${XRAY_PANEL_PATH:-}}"
 
 DOMAIN="${ONEUI_DOMAIN:-${XRAY_PANEL_DOMAIN:-${SSL_DOMAIN:-}}}"
 ADMIN_USER="${ONEUI_ADMIN_USER:-${XRAY_PANEL_ADMIN_USER:-admin}}"
@@ -105,6 +106,44 @@ is_truthy() {
   esac
 }
 
+generate_random_path() {
+  openssl rand -hex 4
+}
+
+find_available_port() {
+  # Find an available port in the range 2000-9999, avoiding well-known ports.
+  local port
+  for _ in $(seq 1 50); do
+    port=$(( (RANDOM % 8000) + 2000 ))
+    if ! is_port_in_use "${port}"; then
+      echo "${port}"
+      return
+    fi
+  done
+  # Fallback
+  echo "3000"
+}
+
+find_available_db_port() {
+  # Find an available port for postgres, starting from 5432.
+  local port
+  for port in 5432 5433 5434 5435 5436 5437 5438 5439 5440; do
+    if ! is_port_in_use "${port}"; then
+      echo "${port}"
+      return
+    fi
+  done
+  # Try random range
+  for _ in $(seq 1 20); do
+    port=$(( (RANDOM % 1000) + 5500 ))
+    if ! is_port_in_use "${port}"; then
+      echo "${port}"
+      return
+    fi
+  done
+  echo "5432"
+}
+
 print_usage() {
   cat <<'EOF'
 Usage: install.sh [options]
@@ -112,8 +151,9 @@ Usage: install.sh [options]
 Options:
   --non-interactive           Run without prompts (env/flags only)
   --interactive               Force interactive prompts
-  --port <port>               Panel port (default: 3000)
-  --db-port <port>            Local DB port bound to 127.0.0.1 (default: 5432)
+  --port <port>               Panel port (auto-assigned if omitted or in use)
+  --db-port <port>            Local DB port (auto-assigned if omitted or in use)
+  --panel-path <path>         Panel sub-path for security (auto-generated if omitted)
   --domain <domain>           Domain used for subscription URL and SSL
   --admin-user <username>     Admin username (default: admin)
   --admin-pass <password>     Admin password
@@ -128,10 +168,14 @@ Options:
   --repo <git-url>            Override repository URL (XRAY_PANEL_REPO)
   -h, --help                  Show help
 
+Ports and panel path are auto-assigned for security and to avoid conflicts.
+Ports use random available ports; path uses a random 8-character hex string.
+
 Environment equivalents (recommended ONEUI_*; XRAY_PANEL_* still supported):
   ONEUI_NON_INTERACTIVE=true
-  ONEUI_PORT=3000
-  ONEUI_DB_PORT=5432
+  ONEUI_PORT=3000                    (optional, auto-assigned if omitted)
+  ONEUI_DB_PORT=5432                 (optional, auto-assigned if omitted)
+  ONEUI_PANEL_PATH=a1b2c3d4          (optional, auto-generated if omitted)
   ONEUI_DOMAIN=example.com
   ONEUI_ADMIN_USER=admin
   ONEUI_ADMIN_PASS='strong-password'
@@ -170,6 +214,11 @@ parse_cli() {
       --db-port)
         [ "$#" -ge 2 ] || fail "Missing value for --db-port"
         DB_PORT="$2"
+        shift
+        ;;
+      --panel-path)
+        [ "$#" -ge 2 ] || fail "Missing value for --panel-path"
+        PANEL_PATH="$2"
         shift
         ;;
       --domain)
@@ -252,15 +301,20 @@ load_admin_password_from_file() {
 }
 
 validate_non_interactive_config() {
-  if ! [[ "${PANEL_PORT}" =~ ^[0-9]+$ ]] || [ "${PANEL_PORT}" -lt 1 ] || [ "${PANEL_PORT}" -gt 65535 ]; then
-    fail "Invalid panel port: ${PANEL_PORT} (expected 1-65535)."
+  # Ports are optional — they will be auto-assigned if empty.
+  if [ -n "${PANEL_PORT}" ]; then
+    if ! [[ "${PANEL_PORT}" =~ ^[0-9]+$ ]] || [ "${PANEL_PORT}" -lt 1 ] || [ "${PANEL_PORT}" -gt 65535 ]; then
+      fail "Invalid panel port: ${PANEL_PORT} (expected 1-65535)."
+    fi
   fi
 
-  if ! [[ "${DB_PORT}" =~ ^[0-9]+$ ]] || [ "${DB_PORT}" -lt 1 ] || [ "${DB_PORT}" -gt 65535 ]; then
-    fail "Invalid DB port: ${DB_PORT} (expected 1-65535)."
+  if [ -n "${DB_PORT}" ]; then
+    if ! [[ "${DB_PORT}" =~ ^[0-9]+$ ]] || [ "${DB_PORT}" -lt 1 ] || [ "${DB_PORT}" -gt 65535 ]; then
+      fail "Invalid DB port: ${DB_PORT} (expected 1-65535)."
+    fi
   fi
 
-  if [ "${DB_PORT}" = "${PANEL_PORT}" ]; then
+  if [ -n "${DB_PORT}" ] && [ -n "${PANEL_PORT}" ] && [ "${DB_PORT}" = "${PANEL_PORT}" ]; then
     fail "DB port and panel port cannot be the same (${PANEL_PORT})."
   fi
 
@@ -327,11 +381,51 @@ ensure_supported_os() {
 
 install_dependencies() {
   info "Installing dependencies..."
-  apt-get update
+  apt-get update -qq
 
-  if ! apt-get install -y curl wget git nano ufw openssl docker.io docker-compose-plugin; then
-    warn "docker-compose-plugin install failed, trying docker-compose package..."
-    apt-get install -y curl wget git nano ufw openssl docker.io docker-compose
+  # Install base dependencies first (these rarely fail)
+  apt-get install -y -qq curl wget git nano ufw openssl lsof ca-certificates gnupg
+
+  # Install Docker — prefer docker.io from Ubuntu/Debian repos, fall back to official Docker repo
+  if ! command -v docker >/dev/null 2>&1; then
+    info "Installing Docker..."
+    if apt-get install -y -qq docker.io 2>/dev/null; then
+      ok "Docker installed from system packages."
+    else
+      warn "docker.io package not available, installing from official Docker repository..."
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+      chmod a+r /etc/apt/keyrings/docker.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      apt-get update -qq
+      apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    fi
+  fi
+
+  # Ensure Docker Compose v2 plugin is available
+  if ! docker compose version >/dev/null 2>&1; then
+    info "Docker Compose plugin not found, attempting install..."
+    if ! apt-get install -y -qq docker-compose-plugin 2>/dev/null; then
+      warn "docker-compose-plugin package not available, installing manually..."
+      local compose_arch
+      compose_arch="$(uname -m)"
+      case "${compose_arch}" in
+        x86_64)  compose_arch="x86_64" ;;
+        aarch64) compose_arch="aarch64" ;;
+        armv7l)  compose_arch="armv7" ;;
+      esac
+      mkdir -p /usr/local/lib/docker/cli-plugins
+      curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${compose_arch}" -o /usr/local/lib/docker/cli-plugins/docker-compose
+      chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    fi
+
+    # Verify it works now
+    if ! docker compose version >/dev/null 2>&1; then
+      # Last resort: try legacy docker-compose
+      if ! command -v docker-compose >/dev/null 2>&1; then
+        apt-get install -y -qq docker-compose 2>/dev/null || true
+      fi
+    fi
   fi
 
   systemctl enable docker
@@ -368,10 +462,10 @@ stop_existing_containers() {
 
   if [ "${has_existing}" = "true" ]; then
     info "Stopping existing One-UI containers..."
-    # Try compose down -v from install dir first (removes containers AND volumes)
-    # This prevents stale postgres_data volumes with old passwords from causing auth failures.
+    # Stop containers but preserve volumes (keeps database data across re-installs).
+    # Using 'down' without -v keeps named volumes like postgres_data intact.
     if [ -f "${INSTALL_DIR}/docker-compose.yml" ]; then
-      (cd "${INSTALL_DIR}" && compose down -v 2>/dev/null) || true
+      (cd "${INSTALL_DIR}" && compose down 2>/dev/null) || true
     fi
     # Force-stop any stragglers
     for name in one-ui-backend one-ui-db xray-core one-ui-prometheus one-ui-alertmanager one-ui-grafana; do
@@ -386,15 +480,33 @@ stop_existing_containers() {
 ensure_ports_available() {
   info "Checking ports..."
 
-  if is_port_in_use "${PANEL_PORT}"; then
-    fail "Port ${PANEL_PORT} is already in use by another application. Set ONEUI_PORT or use --port."
+  # Auto-assign panel port if not specified
+  if [ -z "${PANEL_PORT}" ]; then
+    PANEL_PORT="$(find_available_port)"
+    ok "Auto-assigned panel port: ${PANEL_PORT}"
+  elif is_port_in_use "${PANEL_PORT}"; then
+    warn "Port ${PANEL_PORT} is already in use. Finding an available port..."
+    PANEL_PORT="$(find_available_port)"
+    ok "Auto-assigned panel port: ${PANEL_PORT}"
   fi
 
-  if is_port_in_use "${DB_PORT}"; then
-    fail "Port ${DB_PORT} is already in use by another application. Set ONEUI_DB_PORT or use --db-port."
+  # Auto-assign DB port if not specified
+  if [ -z "${DB_PORT}" ]; then
+    DB_PORT="$(find_available_db_port)"
+    ok "Auto-assigned database port: ${DB_PORT}"
+  elif is_port_in_use "${DB_PORT}"; then
+    warn "DB port ${DB_PORT} is already in use. Finding an available port..."
+    DB_PORT="$(find_available_db_port)"
+    ok "Auto-assigned database port: ${DB_PORT}"
   fi
 
-  ok "Ports available: panel=${PANEL_PORT}, db=127.0.0.1:${DB_PORT}"
+  # Generate random panel path for security (like 3x-ui)
+  if [ -z "${PANEL_PATH}" ]; then
+    PANEL_PATH="$(generate_random_path)"
+    ok "Generated random panel path: /${PANEL_PATH}/"
+  fi
+
+  ok "Ports available: panel=${PANEL_PORT}, db=127.0.0.1:${DB_PORT}, path=/${PANEL_PATH}/"
 }
 
 prepare_directories() {
@@ -539,14 +651,23 @@ write_backend_env() {
   local ssl_enabled="false"
 
   if [ -n "${DOMAIN}" ]; then
-    subscription_url="http://${DOMAIN}:${PANEL_PORT}"
-    ssl_enabled="true"
+    if is_truthy "${SKIP_SSL}"; then
+      subscription_url="http://${DOMAIN}:${PANEL_PORT}"
+      ssl_enabled="false"
+    else
+      subscription_url="https://${DOMAIN}"
+      ssl_enabled="true"
+    fi
   fi
 
   # Build CORS_ORIGIN — must not be '*' in production
   local cors_origin
   if [ -n "${DOMAIN}" ]; then
-    cors_origin="http://${DOMAIN}:${PANEL_PORT}"
+    if is_truthy "${SKIP_SSL}"; then
+      cors_origin="http://${DOMAIN}:${PANEL_PORT}"
+    else
+      cors_origin="https://${DOMAIN}"
+    fi
   else
     local server_ip
     server_ip="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
@@ -564,6 +685,7 @@ NODE_ENV=production
 PORT=${PANEL_PORT}
 API_VERSION=v1
 SERVE_FRONTEND=true
+PANEL_PATH=/${PANEL_PATH}
 
 # Database
 DATABASE_URL=postgresql://postgres:${db_password}@127.0.0.1:${DB_PORT}/xray_panel
@@ -573,7 +695,7 @@ JWT_SECRET=${jwt_secret}
 JWT_EXPIRY=7d
 JWT_ACCESS_EXPIRY=15m
 JWT_REFRESH_EXPIRY=30d
-AUTH_REQUIRE_2FA_SUPER_ADMIN=true
+AUTH_REQUIRE_2FA_SUPER_ADMIN=false
 AUTH_STRICT_SESSION_BINDING=false
 ADMIN_REQUIRE_PRIVATE_IP=false
 SECRETS_ENCRYPTION_KEY=
@@ -723,6 +845,8 @@ services:
     network_mode: host
     cap_add:
       - NET_ADMIN
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
@@ -744,7 +868,7 @@ build_frontend_assets() {
     -v "${INSTALL_DIR}:/work" \
     -w /work/frontend \
     node:20-alpine \
-    sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=/api npm run build"
+    sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=/${PANEL_PATH}/api VITE_PANEL_PATH=/${PANEL_PATH} npm run build"
 
   rm -rf "${INSTALL_DIR}/backend/public"
   mkdir -p "${INSTALL_DIR}/backend/public"
@@ -757,6 +881,7 @@ build_frontend_assets() {
 wait_for_backend() {
   info "Waiting for backend to become healthy..."
   for _ in $(seq 1 45); do
+    # Try both direct /api and panel-path-prefixed /PANEL_PATH/api health checks
     if curl -fsS "http://127.0.0.1:${PANEL_PORT}/api/system/health" >/dev/null 2>&1; then
       ok "Backend is healthy."
       return
@@ -825,10 +950,17 @@ create_admin() {
   admin_user_b64="$(printf '%s' "${ADMIN_USER}" | base64 | tr -d '\n')"
   admin_pass_b64="$(printf '%s' "${ADMIN_PASS}" | base64 | tr -d '\n')"
 
-  compose run --rm -T \
-    -e "ADMIN_USER_B64=${admin_user_b64}" \
-    -e "ADMIN_PASS_B64=${admin_pass_b64}" \
-    backend node -e "
+  local max_attempts=3
+  local attempt=0
+  local admin_ok=false
+
+  while [ "${attempt}" -lt "${max_attempts}" ]; do
+    attempt=$((attempt + 1))
+
+    if compose run --rm -T \
+      -e "ADMIN_USER_B64=${admin_user_b64}" \
+      -e "ADMIN_PASS_B64=${admin_pass_b64}" \
+      backend node -e "
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -854,9 +986,25 @@ const bcrypt = require('bcrypt');
 
   await prisma.\$disconnect();
 })();
-" || warn "Admin creation failed. You can create an admin later via the API."
+" 2>&1; then
+      admin_ok=true
+      break
+    fi
 
-  ok "Admin account ready."
+    if [ "${attempt}" -lt "${max_attempts}" ]; then
+      warn "Admin creation attempt ${attempt}/${max_attempts} failed. Retrying in 3s..."
+      sleep 3
+    fi
+  done
+
+  if [ "${admin_ok}" = "true" ]; then
+    ok "Admin account ready."
+  else
+    echo
+    warn "Admin account creation failed after ${max_attempts} attempts."
+    warn "Fix this after install by running: one-ui reset-password"
+    echo
+  fi
 }
 
 setup_ssl_if_requested() {
@@ -926,33 +1074,6 @@ set -euo pipefail
 
 ONEUI_HOME="\${ONEUI_INSTALL_DIR:-${INSTALL_DIR}}"
 
-if [[ "\${1:-}" == "-h" || "\${1:-}" == "--help" || "\${1:-}" == "help" ]]; then
-  cat <<'USAGE'
-One-UI CLI (Docker Compose wrapper)
-
-Usage:
-  one-ui [command]
-
-Commands:
-  menu               Open interactive menu (./scripts/menu.sh)
-  status|ps          Show container status
-  up                 Build + start containers
-  down               Stop containers
-  restart            Restart containers
-  logs [service]     Tail logs (optionally for a service)
-  update             git pull + rebuild + restart
-
-Examples:
-  sudo one-ui status
-  sudo one-ui logs backend
-  sudo one-ui menu
-
-Override install directory:
-  ONEUI_INSTALL_DIR=/opt/one-ui sudo one-ui status
-USAGE
-  exit 0
-fi
-
 if [[ ! -d "\${ONEUI_HOME}" ]]; then
   echo "One-UI install directory not found: \${ONEUI_HOME}" >&2
   echo "Set ONEUI_INSTALL_DIR or reinstall One-UI." >&2
@@ -961,52 +1082,9 @@ fi
 
 cd "\${ONEUI_HOME}"
 
-COMPOSE=(docker compose)
-if ! docker compose version >/dev/null 2>&1; then
-  if command -v docker-compose >/dev/null 2>&1; then
-    COMPOSE=(docker-compose)
-  fi
-fi
-
-cmd="\${1:-}"
-shift || true
-
-if [[ -z "\${cmd}" ]]; then
-  if [[ -t 1 ]]; then
-    cmd="menu"
-  else
-    cmd="help"
-  fi
-fi
-
-case "\${cmd}" in
-  menu)
-    exec ./scripts/menu.sh "\$@"
-    ;;
-  status|ps)
-    exec "\${COMPOSE[@]}" ps "\$@"
-    ;;
-  up)
-    exec "\${COMPOSE[@]}" up -d --build "\$@"
-    ;;
-  down)
-    exec "\${COMPOSE[@]}" down "\$@"
-    ;;
-  restart)
-    exec "\${COMPOSE[@]}" restart "\$@"
-    ;;
-  logs)
-    exec "\${COMPOSE[@]}" logs -f "\$@"
-    ;;
-  update)
-    git pull || true
-    exec "\${COMPOSE[@]}" up -d --build
-    ;;
-  *)
-    # Forward unknown commands to docker compose (e.g. "exec", "pull")
-    exec "\${COMPOSE[@]}" "\${cmd}" "\$@"
-    ;;
-esac
+# All commands are handled by the management script (scripts/menu.sh).
+# It supports both interactive menu (no args) and direct CLI commands.
+exec ./scripts/menu.sh "\$@"
 EOF
 
   chmod +x "${bin_path}"
@@ -1015,45 +1093,55 @@ EOF
 
 print_summary() {
   local panel_url
+  local base_url
   if [ -n "${DOMAIN}" ]; then
-    panel_url="http://${DOMAIN}:${PANEL_PORT}"
+    base_url="http://${DOMAIN}:${PANEL_PORT}"
   else
     local ip
     ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
     ip="${ip:-$(curl -s ifconfig.me || echo 'SERVER_IP')}"
-    panel_url="http://${ip}:${PANEL_PORT}"
+    base_url="http://${ip}:${PANEL_PORT}"
   fi
+  panel_url="${base_url}/${PANEL_PATH}/"
+
+  # Save panel config for management script
+  echo "${PANEL_PORT}" > "${INSTALL_DIR}/.panel_port"
+  echo "/${PANEL_PATH}" > "${INSTALL_DIR}/.panel_path"
 
   echo
-  ok "========================================="
-  ok "Installation Complete"
-  ok "========================================="
+  echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${GREEN}║              INSTALLATION COMPLETE!                          ║${NC}"
+  echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
   echo
-  echo -e "${YELLOW}Access Information:${NC}"
-  echo "Panel URL: ${panel_url}"
-  echo "Username: ${ADMIN_USER}"
-  echo "Password: ${ADMIN_PASS}"
+  echo -e "${YELLOW}┌──────────────────────────────────────────────────────────────┐${NC}"
+  echo -e "${YELLOW}│${NC}  Panel URL:  ${GREEN}${panel_url}${NC}"
+  echo -e "${YELLOW}│${NC}  Port:       ${GREEN}${PANEL_PORT}${NC}"
+  echo -e "${YELLOW}│${NC}  Path:       ${GREEN}/${PANEL_PATH}/${NC}"
+  echo -e "${YELLOW}│${NC}"
+  echo -e "${YELLOW}│${NC}  Username:   ${GREEN}${ADMIN_USER}${NC}"
+  echo -e "${YELLOW}│${NC}  Password:   ${GREEN}${ADMIN_PASS}${NC}"
+  echo -e "${YELLOW}│${NC}"
+  echo -e "${YELLOW}│${NC}  ${RED}⚠ IMPORTANT: Change the password after first login!${NC}"
+  echo -e "${YELLOW}│${NC}  ${RED}⚠ SAVE YOUR PANEL PATH - You need it to access the panel!${NC}"
+  echo -e "${YELLOW}└──────────────────────────────────────────────────────────────┘${NC}"
   echo
   echo -e "${YELLOW}Important:${NC}"
-  echo "- Save your credentials in a secure location."
+  echo "- Save your credentials and panel path in a secure location."
   echo "- Configure Telegram bot in backend/.env."
   echo "- Add inbounds and users via admin panel."
+  echo "- Enable 2FA for SUPER_ADMIN accounts from Settings after first login."
   if [ -n "${DOMAIN}" ] && is_truthy "${SKIP_SSL}"; then
     echo "- SSL issuance was skipped. Configure SSL later via Settings/API."
   fi
   echo
   echo -e "${YELLOW}Useful Commands:${NC}"
-  echo "- View logs: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') logs -f"
-  echo "- Restart: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') restart"
-  echo "- Stop: cd \"${INSTALL_DIR}\" && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') down"
-  echo "- CLI menu: sudo one-ui menu"
+  echo "- CLI menu:   sudo one-ui menu"
+  echo "- CLI info:   sudo one-ui info"
   echo "- CLI status: sudo one-ui status"
-  echo "- CLI logs: sudo one-ui logs backend"
-  echo "- Run core smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-core-api.sh"
-  echo "- Run Myanmar smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-myanmar-hardening.sh"
-  echo "- Run smoke suite from menu: cd \"${INSTALL_DIR}\" && ./scripts/menu.sh (option 7)"
-  echo "- Deploy with smoke gate: cd \"${INSTALL_DIR}\" && ./scripts/deploy-complete.sh"
-  echo "- Deploy without smoke gate: cd \"${INSTALL_DIR}\" && SMOKE_GATE_ENABLED=false ./scripts/deploy-complete.sh"
+  echo "- CLI logs:   sudo one-ui logs backend"
+  echo "- View logs: cd \"${INSTALL_DIR}\" && docker compose logs -f"
+  echo "- Restart:   cd \"${INSTALL_DIR}\" && docker compose restart"
+  echo "- Stop:      cd \"${INSTALL_DIR}\" && docker compose down"
 }
 
 main() {
