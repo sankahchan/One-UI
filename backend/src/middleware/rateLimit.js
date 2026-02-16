@@ -7,7 +7,15 @@ const LOCALHOST_IPS = new Set([
   '::ffff:127.0.0.1'
 ]);
 
+// File extensions that indicate static frontend assets (not API calls).
+const STATIC_ASSET_RE = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|map|webp|avif)(\?|$)/i;
+
 function shouldBypassRateLimit(req) {
+  // Never rate-limit static frontend assets — a single page load fetches many files.
+  if (STATIC_ASSET_RE.test(req.originalUrl)) {
+    return true;
+  }
+
   const bypassHeader = String(req.headers['x-oneui-e2e-bypass'] || '').trim().toLowerCase();
   if (bypassHeader !== '1' && bypassHeader !== 'true') {
     return false;
