@@ -1,632 +1,202 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Xray-9+-blue?style=flat-square" alt="Xray Protocols" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+</p>
+
 # One-UI
 
-Foundational backend for One-UI with PostgreSQL, Prisma ORM, JWT auth, and CRUD APIs for users and inbounds.
+A modern Xray proxy management panel. Install in one command, manage from the web or CLI.
 
-## Stack
+---
 
-- Node.js 20+
-- Express.js
-- PostgreSQL 15
-- Prisma ORM
-- JWT authentication
-- Docker + Docker Compose
-- Winston logging
-- express-validator for request validation
+## Features
 
-## Project structure
+| | |
+|---|---|
+| **9 Protocols** | VLESS, VMess, Trojan, Shadowsocks, SOCKS, HTTP, Dokodemo-door, WireGuard, MTProto |
+| **REALITY** | One-click setup with auto key generation |
+| **Users** | Create, bulk-create, disable, extend expiry, reset traffic, rotate keys |
+| **Groups** | Group users with shared limits, inbound assignments, schedules |
+| **Subscriptions** | Per-user links, Clash/ClashMeta YAML, QR codes |
+| **Telegram Bot** | User stats, system alerts, daily reports |
+| **Backup** | Scheduled backups with retention, one-click restore |
+| **SSL** | Auto-issue & renew via Let's Encrypt / Cloudflare DNS |
+| **Security** | 2FA, IP/CIDR/country blocking, random panel path |
+| **CLI** | `one-ui` command with interactive menu + 40 direct commands |
 
-```text
-One-UI/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── seed.js
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── config/
-│   │   │   ├── database.js
-│   │   │   ├── logger.js
-│   │   │   └── env.js
-│   │   ├── middleware/
-│   │   │   ├── auth.js
-│   │   │   ├── errorHandler.js
-│   │   │   ├── rateLimit.js
-│   │   │   └── validator.js
-│   │   ├── routes/
-│   │   │   ├── auth.routes.js
-│   │   │   ├── user.routes.js
-│   │   │   ├── inbound.routes.js
-│   │   │   └── system.routes.js
-│   │   ├── controllers/
-│   │   │   ├── auth.controller.js
-│   │   │   ├── user.controller.js
-│   │   │   ├── inbound.controller.js
-│   │   │   ├── system.controller.js
-│   │   │   └── xray.controller.js
-│   │   ├── services/
-│   │   │   ├── auth.service.js
-│   │   │   ├── user.service.js
-│   │   │   ├── inbound.service.js
-│   │   │   └── crypto.service.js
-│   │   ├── xray/
-│   │   │   ├── config-generator.js
-│   │   │   ├── manager.js
-│   │   │   ├── protocols/
-│   │   │   └── templates/
-│   │   └── utils/
-│   │       ├── response.js
-│   │       ├── errors.js
-│   │       └── validators.js
-│   ├── package.json
-│   ├── .env.example
-│   └── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
+---
 
-## Data model highlights
-
-- `Admin` for panel authentication (roles: `SUPER_ADMIN`, `ADMIN`, `AGENT`)
-- `User` for client/account lifecycle, traffic limits, and subscription tokens
-- `Inbound` for protocol and transport configuration
-- `UserInbound` join table for user-to-inbound assignments
-- `TrafficLog` and `SystemLog` for usage/system event history
-
-## Auth security hardening
-
-- Access tokens now include a session claim (`sid`) when issued from login/refresh flows.
-- Sensitive auth routes enforce active-session checks (`/auth/profile`, `/auth/logout-all`, `/auth/2fa/*`, Telegram link management).
-- Added auth session management endpoints:
-  - `GET /api/auth/sessions?limit=20`
-  - `DELETE /api/auth/sessions/:sid`
-- Added dedicated rate limiters for auth-sensitive endpoints:
-  - `AUTH_REFRESH_RATE_LIMIT_MAX`
-  - `AUTH_PROFILE_RATE_LIMIT_MAX`
-- Optional strict session-claim requirement:
-  - `AUTH_REQUIRE_SESSION_CLAIM=true` (enabled by default in production).
-
-## Connection limits and device fingerprinting
-
-- User limits are now enforced independently:
-  - `ipLimit` for distinct client IPs
-  - `deviceLimit` for distinct device fingerprints
-- Subscription requests now support optional fingerprint headers:
-  - `X-Device-Fingerprint`
-  - `X-Client-Fingerprint`
-  - `X-OneUI-Device-Id`
-- If no explicit fingerprint header is provided, One-UI derives a deterministic fingerprint from request metadata.
-- New admin endpoints:
-  - `GET /api/users/:id/devices?windowMinutes=60`
-  - `DELETE /api/users/:id/devices/:fingerprint`
-- Device-session freshness window is configurable via:
-  - `DEVICE_TRACKING_TTL_SECONDS` (default `1800`).
-
-## Local setup
-
-### One-command bootstrap (recommended)
-
-From project root:
+## Install
 
 ```bash
-./scripts/dev-up.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh)
 ```
 
-This command now:
+The installer will:
+1. Install Docker if needed
+2. Set up PostgreSQL + build the panel
+3. Auto-assign a random port and secure panel path
+4. Start all services and print your login URL
 
-- starts PostgreSQL (`docker compose up -d db`)
-- runs Prisma generate + migrations + seed
-- starts backend on `http://127.0.0.1:3000`
-- starts frontend on `http://127.0.0.1:5173`
-- waits for backend/frontend readiness before returning
-- retries runtime startup automatically when a process exits during boot
-
-Startup retry/timeout controls (optional):
+### Non-interactive
 
 ```bash
-STARTUP_MAX_ATTEMPTS=3 BACKEND_READY_TIMEOUT_SECONDS=120 FRONTEND_READY_TIMEOUT_SECONDS=120 ./scripts/dev-up.sh
-```
-
-Stop local services:
-
-```bash
-./scripts/dev-down.sh
-```
-
-Stop local services and database container:
-
-```bash
-./scripts/dev-down.sh --with-db
-```
-
-### Manual setup
-
-1. Create environment file:
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-2. Install dependencies and generate Prisma client:
-
-```bash
-npm install
-npm run prisma:generate
-```
-
-3. Sync database schema and seed admin account:
-
-```bash
-npm run prisma:push
-npm run prisma:seed
-```
-
-4. Start API:
-
-```bash
-npm run dev
-```
-
-## E2E smoke tests
-
-Install Playwright browser (first time only):
-
-```bash
-cd frontend
-npx playwright install chromium
-```
-
-Run smoke tests (expects local stack running on ports `3000` and `5173`):
-
-```bash
-cd frontend
-npm run e2e:smoke
-```
-
-Run full E2E suite:
-
-```bash
-cd frontend
-npm run e2e:full
-```
-
-Or run with automated bootstrap + teardown from project root:
-
-```bash
-PLAYWRIGHT_INSTALL=1 ./scripts/e2e-smoke.sh
-```
-
-Run API-only core smoke checks (health/login/users/inbounds/basic CRUD lifecycle):
-
-```bash
-./scripts/smoke-core-api.sh
-```
-
-Run REALITY hardening smoke checks (Myanmar-focused REALITY endpoints + config mapping):
-
-```bash
-./scripts/smoke-reality-hardening.sh
-```
-
-Run Myanmar connectivity hardening smoke checks (pack apply + bulk/group assignment + reorder + profile counters):
-
-```bash
-./scripts/smoke-myanmar-hardening.sh
-```
-
-Run full release checklist (core smoke + Myanmar smoke + API budget + API SLO + rollback readiness) with one summary:
-
-```bash
-./scripts/release-check.sh
-```
-
-Run checklist with automated local bootstrap + teardown:
-
-```bash
-./scripts/release-check.sh --bootstrap --teardown --quiet
-```
-
-Run checklist with local preflight reset (clears in-memory limiter state before checks):
-
-```bash
-./scripts/release-check.sh --preflight-reset --quiet
-```
-
-Run only the preflight reset step:
-
-```bash
-./scripts/release-preflight-reset.sh
-```
-
-Update Xray-core safely (build/pull + canary preflight + restart + config test + rollback):
-
-```bash
-./scripts/update-xray-core.sh --stable --canary
-```
-
-Use latest channel explicitly:
-
-```bash
-./scripts/update-xray-core.sh --latest --canary
-```
-
-Pin to a specific Xray-core image tag:
-
-```bash
-./scripts/update-xray-core.sh --image ghcr.io/xtls/xray-core:v1.8.24 --canary
-```
-
-Open interactive operations menu:
-
-```bash
-./scripts/menu.sh
-```
-
-Menu includes:
-
-- `7) Run smoke suite (core + Myanmar hardening)`
-- `8) Run release checklist` (uses preflight reset + rollback readiness + quiet logs)
-
-Run rollback readiness gate only:
-
-```bash
-./scripts/rollback-readiness-check.sh
-```
-
-Run production hardening audit (env/containers/secrets baseline):
-
-```bash
-./scripts/production-hardening-audit.sh
-```
-
-Detailed operations checklist is documented in:
-
-- `/Users/sankahchan/xray-panel/docs/production-hardening-runbook.md`
-
-Canary policy + audit trail API endpoints:
-
-```bash
-# policy
-curl -H "Authorization: Bearer <TOKEN>" http://localhost:3000/api/xray/update/policy
-
-# preflight checks (script/docker/lock readiness)
-curl -H "Authorization: Bearer <TOKEN>" http://localhost:3000/api/xray/update/preflight
-
-# run canary (no restart)
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"channel":"stable"}' \
-  http://localhost:3000/api/xray/update/canary
-
-# run full rollout (restart)
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"channel":"stable"}' \
-  http://localhost:3000/api/xray/update/full
-
-# list rollback backup tags
-curl -H "Authorization: Bearer <TOKEN>" \
-  http://localhost:3000/api/xray/update/backups
-
-# run rollback (latest backup by default)
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{}' \
-  http://localhost:3000/api/xray/update/rollback
-
-# force unlock stuck update lock (SUPER_ADMIN only)
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"reason":"manual-force-unlock","force":true}' \
-  http://localhost:3000/api/xray/update/unlock
-
-# history
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://localhost:3000/api/xray/update/history?page=1&limit=20"
-```
-
-Skip core API smoke from E2E wrappers if needed:
-
-```bash
-SKIP_CORE_SMOKE=1 ./scripts/e2e-smoke.sh
-```
-
-Run API response-time budget checks only:
-
-```bash
-./scripts/api-budget-check.sh
-```
-
-Run API percentile SLO checks (`p95`/`p99`) only:
-
-```bash
-./scripts/api-slo-check.sh
-```
-
-Nightly/full script from project root:
-
-```bash
-PLAYWRIGHT_INSTALL=1 ./scripts/e2e-full.sh
-```
-
-## CI checks
-
-GitHub Actions workflow: `.github/workflows/ci.yml`
-
-- Push/PR:
-  - `Frontend Lint + Build (Node 20)`
-  - `Frontend Lint + Build (Node 22)`
-  - `Smoke E2E (Node 20)`
-  - `Smoke E2E (Node 22)`
-  - `API Smoke Scripts (Core + Myanmar)`
-- Smoke E2E includes API response-time budget validation for:
-  - `/api/system/health`
-  - `/api/system/metrics`
-  - `/api/auth/login`
-  - `/api/users`
-  - `/api/inbounds`
-- Smoke E2E also includes API percentile SLO validation (`p95`/`p99`) for:
-  - `/api/system/health`
-  - `/api/system/metrics`
-  - `/api/users`
-  - `/api/inbounds`
-  - `/api/system/stats`
-- Nightly (03:00 UTC) / Manual (`workflow_dispatch`):
-  - `Full E2E (Nightly/Manual)`
-
-## Deploy smoke gate
-
-`/Users/sankahchan/xray-panel/scripts/deploy-complete.sh` now includes a pre-deploy smoke gate after backend startup:
-
-- `./scripts/smoke-core-api.sh`
-- `./scripts/smoke-myanmar-hardening.sh`
-
-If either script fails, deployment stops immediately.
-
-Control flags:
-
-```bash
-# default is true
-export SMOKE_GATE_ENABLED=true
-
-# optional overrides
-export SMOKE_API_BASE_URL=http://127.0.0.1:3000/api
-export SMOKE_ADMIN_USERNAME=admin
-export SMOKE_ADMIN_PASSWORD=admin123
-```
-
-Skip gate when needed:
-
-```bash
-SMOKE_GATE_ENABLED=false ./scripts/deploy-complete.sh
-```
-
-## Docker setup
-
-From project root:
-
-```bash
-docker compose up --build
-```
-
-API: `http://localhost:3000`
-
-## One-command install (VPS)
-
-One-UI ships with a one-command installer (Ubuntu/Debian):
-
-```bash
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
-```
-
-Defaults:
-
-- Install dir: `/opt/one-ui`
-- Data dir: `/var/lib/one-ui` (certs under `/var/lib/one-ui/certs`)
-- Backup dir: `/var/backups/one-ui`
-- Panel port: `3000`
-
-### Post-install: `one-ui` command
-
-The installer also installs a small CLI wrapper at `/usr/local/bin/one-ui`:
-
-```bash
-sudo one-ui status
-sudo one-ui logs backend
-sudo one-ui menu
-sudo one-ui update
-```
-
-If you installed One-UI to a non-default directory:
-
-```bash
-ONEUI_INSTALL_DIR=/opt/one-ui sudo one-ui status
-```
-
-### Non-interactive installer (flags/env only)
-
-Run without prompts (recommended for automation):
-
-```bash
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
+bash <(curl -fsSL https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh) \
   --non-interactive \
-  --domain yourdomain.com \
-  --admin-user admin \
-  --admin-pass 'StrongPasswordHere' \
-  --ssl-email admin@yourdomain.com \
-  --cf-token 'your-cloudflare-api-token'
+  --domain panel.example.com \
+  --admin-pass 'YourStrongPassword' \
+  --cf-token 'cloudflare-api-token'
 ```
 
-Environment-based example:
+<details>
+<summary>All installer flags</summary>
+
+| Flag | Env var | Description |
+|------|---------|-------------|
+| `--domain` | `ONEUI_DOMAIN` | Panel domain (enables SSL) |
+| `--admin-user` | `ONEUI_ADMIN_USER` | Admin username (default: `admin`) |
+| `--admin-pass` | `ONEUI_ADMIN_PASS` | Admin password |
+| `--ssl-email` | `ONEUI_SSL_EMAIL` | Email for Let's Encrypt |
+| `--cf-token` | `ONEUI_CF_TOKEN` | Cloudflare API token |
+| `--cf-email` | `ONEUI_CF_EMAIL` | Cloudflare account email |
+| `--cf-key` | `ONEUI_CF_KEY` | Cloudflare Global API key |
+| `--skip-ssl` | — | Skip SSL certificate issuance |
+| `--non-interactive` | `ONEUI_NON_INTERACTIVE=true` | No prompts |
+| `--port` | `ONEUI_PORT` | Panel port (default: auto) |
+| `--db-port` | `ONEUI_DB_PORT` | PostgreSQL port (default: auto) |
+
+</details>
+
+---
+
+## CLI
+
+After installation, manage everything with `one-ui`:
 
 ```bash
-export ONEUI_NON_INTERACTIVE=true
-export ONEUI_DOMAIN=yourdomain.com
-export ONEUI_ADMIN_USER=admin
-export ONEUI_ADMIN_PASS='StrongPasswordHere'
-export ONEUI_SSL_EMAIL=admin@yourdomain.com
-export ONEUI_CF_TOKEN='your-cloudflare-api-token'
-
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
+one-ui                    # Interactive menu (36 options)
+one-ui status             # Service status
+one-ui health             # Full health check
+one-ui logs backend       # View backend logs
 ```
 
-Global API key fallback (if you don’t want to use a token):
+### Users
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
-  --non-interactive \
-  --domain yourdomain.com \
-  --admin-pass 'StrongPasswordHere' \
-  --cf-email your-cloudflare-email@example.com \
-  --cf-key 'your-cloudflare-global-api-key'
+one-ui users              # User management menu
+one-ui list-users         # List all users
+one-ui add-user           # Add a user
+one-ui bulk               # Bulk operations (create, disable, extend, reset, delete)
+one-ui bulk-create        # Bulk create users
 ```
 
-To skip SSL issuance during unattended installs:
+### Configuration
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash -s -- \
-  --non-interactive \
-  --domain yourdomain.com \
-  --admin-pass 'StrongPasswordHere' \
-  --skip-ssl
+one-ui reset-password     # Reset admin credentials
+one-ui port               # Change panel port
+one-ui ssl                # SSL certificate management
+one-ui telegram           # Telegram bot setup
+one-ui backup             # Backup & restore
+one-ui setup-2fa          # Two-factor authentication
+one-ui subscription       # Configure subscription URLs
+one-ui security-rules     # IP/CIDR/Country block rules
 ```
 
-Optional port overrides (use if `3000` or `5432` are already used):
+### Xray
 
 ```bash
-export ONEUI_PORT=3200
-export ONEUI_DB_PORT=15432
-wget -qO- https://raw.githubusercontent.com/sankahchan/One-UI/main/install.sh | sudo bash
+one-ui add-inbound        # Quick-add inbound (protocol presets)
+one-ui traffic            # Live traffic monitoring
+one-ui xray-update        # Update Xray core
+one-ui xray-rollback      # Rollback Xray core
 ```
 
-## Observability (Prometheus + Alertmanager + Grafana)
-
-Bring up monitoring services:
+### Service control
 
 ```bash
-./scripts/observability-up.sh
+one-ui start              # Start all services
+one-ui stop               # Stop all services
+one-ui restart            # Restart all services
+one-ui update             # Update One-UI to latest
+one-ui uninstall          # Uninstall One-UI
 ```
 
-Stop monitoring services:
+---
+
+## After Install
+
+1. Open the panel URL shown in your terminal
+2. Log in with the credentials you set (or `admin` / `admin123` if defaults)
+3. **Change your password** in Settings
+4. **Enable 2FA** in Settings for security
+5. Add your first inbound via the web UI or `one-ui add-inbound`
+6. Create users and share their subscription links
+
+---
+
+## SSL Setup
+
+**With Cloudflare (recommended):**
+```bash
+one-ui ssl
+# or during install:
+--domain panel.example.com --cf-token 'your-token'
+```
+
+**Skip SSL and configure later:**
+```bash
+--domain panel.example.com --skip-ssl
+```
+
+---
+
+## Backup & Restore
 
 ```bash
-./scripts/observability-down.sh
+one-ui backup             # Open backup menu
+one-ui backup-create      # Create a backup now
+one-ui backup-list        # List existing backups
 ```
 
-Send a synthetic firing alert to Alertmanager (end-to-end test):
+Backups are saved to `/var/backups/one-ui` by default. Enable scheduled backups and set retention from the backup menu.
+
+---
+
+## Telegram Bot
 
 ```bash
-./scripts/alertmanager-test.sh
+one-ui telegram
 ```
 
-Send a synthetic resolved alert:
+Set your bot token and admin chat IDs. Once enabled you get:
+- Daily usage reports
+- Expiry and traffic limit alerts
+- System health notifications
 
-```bash
-./scripts/alertmanager-test.sh --resolve
-```
+---
 
-Endpoints:
+## Troubleshooting
 
-- Alertmanager: `http://127.0.0.1:9093`
-- Prometheus: `http://127.0.0.1:9090`
-- Grafana: `http://127.0.0.1:3001`
+| Problem | Solution |
+|---------|----------|
+| Can't access panel | Check `one-ui status` and `one-ui info` for URL/port |
+| Forgot panel path | Run `one-ui settings` to see the current path |
+| Forgot password | Run `one-ui reset-password` |
+| Services won't start | Run `one-ui logs backend` to check errors |
+| Port conflict | Run `one-ui port` to change the panel port |
+| SSL not working | Run `one-ui ssl` to re-issue or check `one-ui health` |
+| Xray not connecting | Run `one-ui health` and check xray logs with `one-ui logs xray` |
 
-Grafana default credentials:
+---
 
-- Username: `admin`
-- Password: `admin`
+## Contributing
 
-To override Grafana credentials:
+See [DEVELOPMENT.md](DEVELOPMENT.md) for dev setup, architecture, API reference, and testing.
 
-```bash
-export GRAFANA_ADMIN_USER=your_admin
-export GRAFANA_ADMIN_PASSWORD=your_strong_password
-export ALERT_WEBHOOK_SECRET=your_strong_alert_secret
-./scripts/observability-up.sh
-```
+---
 
-Pre-provisioned Grafana dashboard:
+## License
 
-- `One-UI Backend Overview`
-
-Pre-provisioned Prometheus alert rules:
-
-- `OneUIBackendDown`
-- `OneUIHighHttp5xxRate`
-- `OneUIHighHttpLatencyP95`
-- `OneUIHighDbLatencyP95`
-- `OneUIOnlineUsersDroppedToZero`
-
-Alertmanager noise-control policies:
-
-- Critical alerts inhibit warning/info alerts with the same `alertname` and `service`
-- Warning alerts inhibit info alerts with the same `alertname` and `service`
-- `OneUIBackendDown` inhibits latency/5xx alerts for the same service
-- Info alerts are muted during configured night windows (`oneui-night-silence`)
-
-Alert flow:
-
-- Prometheus evaluates rules from `/Users/sankahchan/xray-panel/monitoring/prometheus/alerts.yml`
-- Prometheus sends firing/resolved alerts to Alertmanager
-- Alertmanager sends webhook to `POST /api/system/alerts/webhook`
-- Backend validates `Authorization: Bearer <ALERT_WEBHOOK_SECRET>` and forwards to Telegram admins
-
-## Default seeded admin
-
-- Username: `admin`
-- Password: `admin123`
-- Role: `SUPER_ADMIN`
-
-Override with `SEED_ADMIN_*` environment variables.
-
-## API endpoints
-
-### Auth
-
-- `POST /api/auth/login` (username/password)
-- `POST /api/auth/logout` (Bearer token)
-- `GET /api/auth/me` (Bearer token)
-
-### Users (`SUPER_ADMIN` / `ADMIN`)
-
-- `GET /api/users`
-- `GET /api/users/:id`
-- `POST /api/users`
-- `PUT /api/users/:id`
-- `DELETE /api/users/:id`
-
-### Inbounds (authenticated admin)
-
-- `GET /api/inbounds`
-- `GET /api/inbounds/:id`
-- `POST /api/inbounds`
-- `PUT /api/inbounds/:id`
-- `DELETE /api/inbounds/:id`
-
-### Xray (authenticated admin)
-
-- `GET /api/xray/status`
-- `GET /api/xray/config`
-- `POST /api/xray/config/reload`
-- `POST /api/xray/start`
-- `POST /api/xray/stop`
-- `POST /api/xray/restart`
-
-### System
-
-- `GET /api/system/health`
-- `GET /api/system/metrics` (Prometheus format)
-- `POST /api/system/alerts/webhook` (internal Alertmanager receiver, Bearer secret required)
-- `GET /api/system/stats` (Bearer token)
-
-## Response format
-
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": {},
-  "meta": {}
-}
-```
-
-## Notes
-
-- `BigInt` values are serialized as strings in API responses.
-- Passwords are stored as bcrypt hashes.
+MIT

@@ -37,12 +37,14 @@ const RouteLoader: React.FC = () => (
   </div>
 );
 
+const panelBasePath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+
 const AppRoutes: React.FC = () => {
   // Initializes and keeps the selected/system theme synced with the root element.
   useTheme();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={panelBasePath}>
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />

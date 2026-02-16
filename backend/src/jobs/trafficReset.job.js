@@ -3,7 +3,6 @@
  * Automatically resets user traffic based on their trafficResetPeriod setting
  */
 
-const logger = require('../config/logger');
 const prisma = require('../config/database');
 
 class TrafficResetJob {

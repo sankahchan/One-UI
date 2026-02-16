@@ -3,10 +3,9 @@
  * Generates SingBox JSON configuration from database inbounds
  */
 
+const prisma = require('../../config/database');
 const fs = require('node:fs').promises;
 const path = require('node:path');
-
-const prisma = require('../../config/database');
 
 function parseAlpn(raw) {
     if (!raw) return undefined;
@@ -16,6 +15,7 @@ function parseAlpn(raw) {
     } catch {}
     return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
+
 
 class SingBoxConfigGenerator {
     constructor() {

@@ -3,9 +3,9 @@
  * Handles creation, validation, and revocation of API keys
  */
 
+const prisma = require('../config/database');
 const crypto = require('crypto');
 
-const prisma = require('../config/database');
 
 class ApiKeyService {
     /**

@@ -371,6 +371,7 @@ export interface LoginCredentials {
 export interface AuthResponse {
   token: string;
   refreshToken?: string;
+  requiresTwoFactorSetup?: boolean;
   admin: {
     id: number;
     username: string;

@@ -12,6 +12,7 @@ import {
   Wifi
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router-dom';
 
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
@@ -1027,6 +1028,7 @@ function getRolloutSummary(rollout: GroupPolicyRollout) {
 export function Groups() {
   const { t } = useTranslation();
   const toast = useToast();
+  const { id: routeGroupId } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<GroupTab>('groups');
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteTarget>(null);
 
@@ -1164,6 +1166,17 @@ export function Groups() {
   useEffect(() => {
     setRolloutPage(1);
   }, [rolloutGroupFilter, rolloutStatusFilter, rolloutSourceFilter]);
+
+  // Auto-open the group editor when navigated via /groups/:id
+  useEffect(() => {
+    if (routeGroupId && groups.length > 0) {
+      const targetGroup = groups.find((g) => g.id === Number(routeGroupId));
+      if (targetGroup && !editorOpen) {
+        setEditingGroup(targetGroup);
+        setEditorOpen(true);
+      }
+    }
+  }, [routeGroupId, groups, editorOpen]);
 
   const handleRefresh = async () => {
     try {

@@ -393,9 +393,9 @@ class AuthService {
       throw new UnauthorizedError('Invalid credentials');
     }
 
-    if (this.isSuperAdmin2FARequired() && admin.role === 'SUPER_ADMIN' && !admin.twoFactorEnabled) {
-      throw new ForbiddenError('Two-factor authentication is required for SUPER_ADMIN accounts');
-    }
+    // If 2FA is required for SUPER_ADMIN but not yet set up, allow login
+    // but flag the response so the frontend can redirect to 2FA setup.
+    const needsTwoFactorSetup = this.isSuperAdmin2FARequired() && admin.role === 'SUPER_ADMIN' && !admin.twoFactorEnabled;
 
     if (admin.twoFactorEnabled) {
       if (!otp) {
@@ -411,7 +411,11 @@ class AuthService {
       }
     }
 
-    return this.issueLoginSession(admin, { ipAddress, userAgent });
+    const session = await this.issueLoginSession(admin, { ipAddress, userAgent });
+    if (needsTwoFactorSetup) {
+      session.requiresTwoFactorSetup = true;
+    }
+    return session;
   }
 
   async loginWithTelegram(payload, options = {}) {
@@ -427,9 +431,7 @@ class AuthService {
       throw new UnauthorizedError('Account temporarily locked due to failed login attempts');
     }
 
-    if (this.isSuperAdmin2FARequired() && admin.role === 'SUPER_ADMIN' && !admin.twoFactorEnabled) {
-      throw new ForbiddenError('Two-factor authentication is required for SUPER_ADMIN accounts');
-    }
+    const needsTwoFactorSetup = this.isSuperAdmin2FARequired() && admin.role === 'SUPER_ADMIN' && !admin.twoFactorEnabled;
 
     if (admin.twoFactorEnabled) {
       if (!otp) {
@@ -443,7 +445,11 @@ class AuthService {
       }
     }
 
-    return this.issueLoginSession(admin, { ipAddress, userAgent });
+    const session = await this.issueLoginSession(admin, { ipAddress, userAgent });
+    if (needsTwoFactorSetup) {
+      session.requiresTwoFactorSetup = true;
+    }
+    return session;
   }
 
   async refreshSession(refreshToken, options = {}) {
