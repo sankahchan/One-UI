@@ -203,7 +203,24 @@ class BackupManager {
         inbounds: await this.prisma.inbound.findMany(),
         userInbounds: await this.prisma.userInbound.findMany(),
         trafficLogs: await this.prisma.trafficLog.findMany(),
-        systemLogs: await this.prisma.systemLog.findMany()
+        systemLogs: await this.prisma.systemLog.findMany(),
+        groups: await this.prisma.group.findMany(),
+        userGroups: await this.prisma.userGroup.findMany(),
+        groupInbounds: await this.prisma.groupInbound.findMany(),
+        groupPolicyTemplates: await this.prisma.groupPolicyTemplate.findMany(),
+        groupPolicySchedules: await this.prisma.groupPolicySchedule.findMany(),
+        groupPolicyRollouts: await this.prisma.groupPolicyRollout.findMany(),
+        apiKeys: await this.prisma.apiKey.findMany(),
+        adminSessions: await this.prisma.adminSession.findMany(),
+        notificationSettings: await this.prisma.notificationSetting.findMany(),
+        notificationSettingsAuditLogs: await this.prisma.notificationSettingsAuditLog.findMany(),
+        connectionLogs: await this.prisma.connectionLog.findMany(),
+        xrayTemplates: await this.prisma.xrayTemplate.findMany(),
+        workerLocks: await this.prisma.workerLock.findMany(),
+        securityRules: await this.prisma.securityRule.findMany(),
+        subscriptionBrandings: await this.prisma.subscriptionBranding.findMany(),
+        usageSnapshots: await this.prisma.usageSnapshot.findMany(),
+        subscriptionTemplates: await this.prisma.subscriptionTemplate.findMany()
       }
     };
 
@@ -325,15 +342,49 @@ class BackupManager {
       inbounds = [],
       userInbounds = [],
       trafficLogs = [],
-      systemLogs = []
+      systemLogs = [],
+      groups = [],
+      userGroups = [],
+      groupInbounds = [],
+      groupPolicyTemplates = [],
+      groupPolicySchedules = [],
+      groupPolicyRollouts = [],
+      apiKeys = [],
+      adminSessions = [],
+      notificationSettings = [],
+      notificationSettingsAuditLogs = [],
+      connectionLogs = [],
+      xrayTemplates = [],
+      workerLocks = [],
+      securityRules = [],
+      subscriptionBrandings = [],
+      usageSnapshots = [],
+      subscriptionTemplates = []
     } = parsed.data;
 
     await this.prisma.$transaction([
+      this.prisma.usageSnapshot.deleteMany(),
+      this.prisma.subscriptionBranding.deleteMany(),
+      this.prisma.notificationSettingsAuditLog.deleteMany(),
+      this.prisma.notificationSetting.deleteMany(),
+      this.prisma.connectionLog.deleteMany(),
+      this.prisma.groupPolicyRollout.deleteMany(),
+      this.prisma.groupPolicySchedule.deleteMany(),
+      this.prisma.groupPolicyTemplate.deleteMany(),
+      this.prisma.groupInbound.deleteMany(),
+      this.prisma.userGroup.deleteMany(),
+      this.prisma.workerLock.deleteMany(),
+      this.prisma.securityRule.deleteMany(),
+      this.prisma.xrayTemplate.deleteMany(),
+      this.prisma.subscriptionTemplate.deleteMany(),
+      this.prisma.adminSession.deleteMany(),
+      this.prisma.apiKey.deleteMany(),
       this.prisma.trafficLog.deleteMany(),
       this.prisma.userInbound.deleteMany(),
       this.prisma.systemLog.deleteMany(),
       this.prisma.inbound.deleteMany(),
       this.prisma.user.deleteMany(),
+      this.prisma.group.deleteMany(),
       this.prisma.admin.deleteMany()
     ]);
 

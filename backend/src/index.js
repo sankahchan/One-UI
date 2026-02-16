@@ -48,6 +48,7 @@ const panelPath = (process.env.PANEL_PATH || '').replace(/\/+$/, '') || '';
 app.use(
   helmet({
     contentSecurityPolicy: false,
+    hsts: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false
   })

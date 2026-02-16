@@ -8,6 +8,7 @@ const QRCode = require('qrcode');
 const ApiResponse = require('../utils/response');
 const { sendSuccess } = require('../utils/response');
 
+
 function buildActorContext(req) {
   if (!req?.admin) {
     return null;

@@ -61,14 +61,14 @@ class TrafficResetJob {
         await prisma.user.update({
             where: { id: userId },
             data: {
-                uploadUsed: 0,
-                downloadUsed: 0,
+                uploadUsed: 0n,
+                downloadUsed: 0n,
                 lastTrafficReset: new Date(),
                 status: 'ACTIVE' // Re-enable if was LIMITED
             }
         });
 
-        console.log(`[TrafficReset] Reset traffic for user ${userId}`);
+        logger.info(`[TrafficReset] Reset traffic for user ${userId}`);
     }
 
     /**
@@ -76,7 +76,7 @@ class TrafficResetJob {
      */
     async run() {
         if (this.isRunning) {
-            console.log('[TrafficReset] Already running, skipping');
+            logger.info('[TrafficReset] Already running, skipping');
             return;
         }
 
@@ -108,10 +108,10 @@ class TrafficResetJob {
             }
 
             if (resetCount > 0) {
-                console.log(`[TrafficReset] Reset traffic for ${resetCount} users`);
+                logger.info(`[TrafficReset] Reset traffic for ${resetCount} users`);
             }
         } catch (error) {
-            console.error('[TrafficReset] Error:', error);
+            logger.error('[TrafficReset] Error:', error);
         } finally {
             this.isRunning = false;
         }
@@ -129,7 +129,7 @@ class TrafficResetJob {
             this.run();
         }, 60 * 60 * 1000);
 
-        console.log('[TrafficReset] Scheduler started');
+        logger.info('[TrafficReset] Scheduler started');
     }
 
     /**
@@ -140,7 +140,7 @@ class TrafficResetJob {
             clearInterval(this.interval);
             this.interval = null;
         }
-        console.log('[TrafficReset] Scheduler stopped');
+        logger.info('[TrafficReset] Scheduler stopped');
     }
 }
 

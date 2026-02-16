@@ -1176,7 +1176,7 @@ export function Groups() {
         setEditorOpen(true);
       }
     }
-  }, [routeGroupId, groups]);
+  }, [routeGroupId, groups, editorOpen]);
 
   const handleRefresh = async () => {
     try {

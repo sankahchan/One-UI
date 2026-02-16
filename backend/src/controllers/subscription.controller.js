@@ -5,6 +5,7 @@ const { buildProtocolUrl } = require('../subscription/formats/url-builder');
 const QRCode = require('qrcode');
 const metrics = require('../observability/metrics');
 
+
 class SubscriptionController {
   buildRequestContext(req) {
     return {

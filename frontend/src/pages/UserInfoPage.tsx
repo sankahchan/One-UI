@@ -153,6 +153,7 @@ export const UserInfoPage = () => {
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string>('');
   const [devicesWindowMinutes] = useState(60);
+  const [revokingFingerprint, setRevokingFingerprint] = useState<string | null>(null);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -938,13 +939,16 @@ export const UserInfoPage = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          loading={revokeDeviceMutation.isPending}
+                          loading={revokeDeviceMutation.isPending && revokingFingerprint === device.fingerprint}
                           onClick={() => {
                             const ok = window.confirm(
                               t('portal.confirmRevokeDevice', { defaultValue: 'Revoke this device? It will need to reconnect.' })
                             );
                             if (ok) {
-                              revokeDeviceMutation.mutate(device.fingerprint);
+                              setRevokingFingerprint(device.fingerprint);
+                              revokeDeviceMutation.mutate(device.fingerprint, {
+                                onSettled: () => setRevokingFingerprint(null)
+                              });
                             }
                           }}
                         >

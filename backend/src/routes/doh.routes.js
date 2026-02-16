@@ -4,13 +4,9 @@
  */
 
 const express = require('express');
-const dns = require('dns');
-const { promisify } = require('util');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const router = express.Router();
-const resolve4 = promisify(dns.resolve4);
-const resolve6 = promisify(dns.resolve6);
 
 // Default upstream DoH provider (Cloudflare)
 const UPSTREAM_DOH = 'https://cloudflare-dns.com/dns-query';
@@ -22,14 +18,14 @@ const UPSTREAM_DOH = 'https://cloudflare-dns.com/dns-query';
  */
 async function handleDohRequest(req, res, next) {
     try {
-        const { dns } = req.query;
+        const { dns: dnsParam } = req.query;
         const accept = req.headers.accept;
         const contentType = req.headers['content-type'];
 
         let packet;
 
-        if (req.method === 'GET' && dns) {
-            packet = Buffer.from(dns, 'base64');
+        if (req.method === 'GET' && dnsParam) {
+            packet = Buffer.from(dnsParam, 'base64');
         } else if (req.method === 'POST') {
             // For POST, body is the packet
             if (contentType !== 'application/dns-message') {
@@ -55,7 +51,7 @@ async function handleDohRequest(req, res, next) {
             return res.status(response.status).send(response.statusText);
         }
 
-        const responseBuffer = await response.buffer();
+        const responseBuffer = Buffer.from(await response.arrayBuffer());
 
         res.set({
             'Content-Type': 'application/dns-message',

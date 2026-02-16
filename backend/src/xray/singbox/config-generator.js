@@ -7,6 +7,16 @@ const prisma = require('../../config/database');
 const fs = require('node:fs').promises;
 const path = require('node:path');
 
+function parseAlpn(raw) {
+    if (!raw) return undefined;
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+    } catch {}
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+
 class SingBoxConfigGenerator {
     constructor() {
         this.templatePath = path.resolve(__dirname, 'templates', 'base-config.json');
@@ -98,7 +108,7 @@ class SingBoxConfigGenerator {
             baseInbound.tls = {
                 enabled: true,
                 server_name: inbound.serverName || inbound.serverAddress,
-                alpn: inbound.alpn ? JSON.parse(inbound.alpn) : undefined,
+                alpn: parseAlpn(inbound.alpn),
                 certificate_path: process.env.SSL_CERT_PATH,
                 key_path: process.env.SSL_KEY_PATH
             };

@@ -6,6 +6,7 @@
 const prisma = require('../config/database');
 const crypto = require('crypto');
 
+
 class ApiKeyService {
     /**
      * Generate a secure API key
