@@ -341,14 +341,18 @@ update_oneui() {
   cp .panel_port.backup .panel_port 2>/dev/null || true
   cp .panel_path.backup .panel_path 2>/dev/null || true
 
+  echo -e "${BLUE}[*]${NC} Stopping containers to free memory for build..."
+  compose down 2>/dev/null || true
+
   echo -e "${BLUE}[*]${NC} Rebuilding frontend..."
   ensure_swap
   local panel_path
   panel_path="$(get_panel_path)"
   docker run --rm \
+    --memory-swap -1 \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
-    -e NODE_OPTIONS="--max-old-space-size=512" \
+    -e NODE_OPTIONS="--max-old-space-size=1024" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${panel_path}/api VITE_PANEL_PATH=${panel_path} npm run build"
 
@@ -416,14 +420,18 @@ install_legacy_version() {
   cp .panel_port.backup .panel_port 2>/dev/null || true
   cp .panel_path.backup .panel_path 2>/dev/null || true
 
+  echo -e "${BLUE}[*]${NC} Stopping containers to free memory for build..."
+  compose down 2>/dev/null || true
+
   echo -e "${BLUE}[*]${NC} Rebuilding frontend..."
   ensure_swap
   local panel_path
   panel_path="$(get_panel_path)"
   docker run --rm \
+    --memory-swap -1 \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
-    -e NODE_OPTIONS="--max-old-space-size=512" \
+    -e NODE_OPTIONS="--max-old-space-size=1024" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${panel_path}/api VITE_PANEL_PATH=${panel_path} npm run build" || true
 
@@ -639,13 +647,17 @@ reset_web_base_path() {
     fi
   fi
 
-  # Rebuild frontend with new path
+  # Stop containers to free memory, rebuild frontend with new path
+  echo -e "${BLUE}[*]${NC} Stopping containers to free memory for build..."
+  compose down 2>/dev/null || true
+
   echo -e "${BLUE}[*]${NC} Rebuilding frontend with new path..."
   ensure_swap
   docker run --rm \
+    --memory-swap -1 \
     -v "${ROOT_DIR}:/work" \
     -w /work/frontend \
-    -e NODE_OPTIONS="--max-old-space-size=512" \
+    -e NODE_OPTIONS="--max-old-space-size=1024" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=${new_path}/api VITE_PANEL_PATH=${new_path} npm run build"
 
@@ -653,9 +665,9 @@ reset_web_base_path() {
   mkdir -p "${ROOT_DIR}/backend/public"
   cp -R "${ROOT_DIR}/frontend/dist/." "${ROOT_DIR}/backend/public/"
 
-  # Restart backend
-  echo -e "${BLUE}[*]${NC} Restarting backend..."
-  compose restart backend
+  # Start containers back up
+  echo -e "${BLUE}[*]${NC} Starting containers..."
+  compose up -d
 
   sleep 3
   echo ""

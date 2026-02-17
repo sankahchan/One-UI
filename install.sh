@@ -885,11 +885,12 @@ build_frontend_assets() {
   ensure_swap
 
   # Build inside a clean Node container so we don't need Node.js installed on the VPS.
-  # NODE_OPTIONS limits the V8 heap so the build doesn't get OOM-killed on low-memory VPS.
+  # NODE_OPTIONS limits the V8 heap; --memory-swap -1 lets Docker use all host swap.
   docker run --rm \
+    --memory-swap -1 \
     -v "${INSTALL_DIR}:/work" \
     -w /work/frontend \
-    -e NODE_OPTIONS="--max-old-space-size=512" \
+    -e NODE_OPTIONS="--max-old-space-size=1024" \
     node:20-alpine \
     sh -lc "set -e; npm ci --loglevel=error; VITE_API_URL=/${PANEL_PATH}/api VITE_PANEL_PATH=/${PANEL_PATH} npm run build"
 
