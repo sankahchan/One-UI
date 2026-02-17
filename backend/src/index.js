@@ -139,9 +139,15 @@ if (panelPath) {
   app.use('/api/logs', logsRoutes);
 }
 
+// Public routes: mount at root and under panel path so they work from both locations.
 app.use('/sub', subscriptionRoutes);
-app.use('/user', userInfoRoutes); // Public user info pages
-app.use('/dns-query', dohRoutes); // DNS over HTTPS endpoint
+app.use('/user', userInfoRoutes);
+app.use('/dns-query', dohRoutes);
+if (panelPath) {
+  app.use(`${panelPath}/sub`, subscriptionRoutes);
+  app.use(`${panelPath}/user`, userInfoRoutes);
+  app.use(`${panelPath}/dns-query`, dohRoutes);
+}
 
 // Optional: serve the React admin UI from the backend (installer places build into backend/public).
 if (serveFrontend) {
@@ -151,15 +157,21 @@ if (serveFrontend) {
     app.use(frontendBase, express.static(publicDir));
     app.get(`${frontendBase}*`, (req, res, next) => {
       // Keep API, subscriptions, and public endpoints working.
+      // When panel path is set, req.path includes the full path (e.g. /panel/sub/token),
+      // so we strip the panel prefix before checking the route.
+      const checkPath = panelPath && req.path.startsWith(panelPath)
+        ? req.path.slice(panelPath.length)
+        : req.path;
+
       if (
-        req.path === '/api' ||
-        req.path.startsWith('/api/') ||
-        req.path === '/sub' ||
-        req.path.startsWith('/sub/') ||
-        req.path === '/user' ||
-        req.path.startsWith('/user/') ||
-        req.path === '/dns-query' ||
-        req.path.startsWith('/dns-query/')
+        checkPath === '/api' ||
+        checkPath.startsWith('/api/') ||
+        checkPath === '/sub' ||
+        checkPath.startsWith('/sub/') ||
+        checkPath === '/user' ||
+        checkPath.startsWith('/user/') ||
+        checkPath === '/dns-query' ||
+        checkPath.startsWith('/dns-query/')
       ) {
         return next();
       }
