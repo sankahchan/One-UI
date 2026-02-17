@@ -12,7 +12,7 @@ import { Input } from '../atoms/Input';
 interface UserFormModalProps {
   user?: User;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (createdUser?: User) => void;
 }
 
 interface FormData {
@@ -61,11 +61,11 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
       const expiryDaysValue = isDeferredExpiry
         ? Math.max(
-            1,
-            Math.ceil(
-              (new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / msPerDay
-            )
+          1,
+          Math.ceil(
+            (new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / msPerDay
           )
+        )
         : Math.max(1, Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / msPerDay));
 
       reset({
@@ -120,10 +120,11 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
           id: user.id,
           data: payload
         });
+        onSuccess();
       } else {
-        await createUser.mutateAsync(payload);
+        const response = await createUser.mutateAsync(payload as any);
+        onSuccess(response.data);
       }
-      onSuccess();
     } catch (error: any) {
       setSubmitError(error?.message || t('users.form.saveFailed', { defaultValue: 'Failed to save user' }));
     }
