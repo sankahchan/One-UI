@@ -55,8 +55,7 @@ export const DashboardLayout: React.FC = () => {
     <button
       type="button"
       onClick={() => handleNavigate('/settings?tab=system&section=xray-updates')}
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-        xrayUpdatePreflightQuery.isLoading
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${xrayUpdatePreflightQuery.isLoading
           ? 'border-line/70 bg-card/70 text-muted'
           : xrayUpdatePreflight?.ready
             ? 'border-emerald-500/45 bg-emerald-500/15 text-emerald-300'
@@ -65,7 +64,7 @@ export const DashboardLayout: React.FC = () => {
               : hasBlockingFailure
                 ? 'border-amber-500/45 bg-amber-500/15 text-amber-300'
                 : 'border-line/70 bg-card/70 text-muted'
-      }`}
+        }`}
       title="Xray update preflight status"
     >
       {xrayUpdatePreflightQuery.isLoading ? (
@@ -150,11 +149,10 @@ export const DashboardLayout: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex min-h-screen w-full">
+      <div className="flex h-screen w-full overflow-hidden">
         <aside
-          className={`glass-panel fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          className={`glass-panel fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
         >
           <div className="flex h-full flex-col">
             <div className="border-b border-line/70 px-6 py-6">
@@ -186,11 +184,10 @@ export const DashboardLayout: React.FC = () => {
                     onMouseEnter={() => prefetchRoute(path)}
                     onFocus={() => prefetchRoute(path)}
                     onTouchStart={() => prefetchRoute(path)}
-                    className={`group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all ${
-                      active
+                    className={`group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all ${active
                         ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-soft'
                         : 'text-muted hover:bg-card hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     <Icon className={`h-5 w-5 ${active ? 'text-white' : 'text-muted group-hover:text-foreground'}`} />
                     <span>{label}</span>
@@ -220,7 +217,7 @@ export const DashboardLayout: React.FC = () => {
           />
         ) : null}
 
-        <main className="min-w-0 flex-1 overflow-x-hidden">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent">
           <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-line/70 bg-card/75 px-6 py-4 backdrop-blur-xl lg:flex xl:px-8">
             <SearchBar />
             <div className="flex items-center gap-3">
@@ -250,9 +247,8 @@ export const DashboardLayout: React.FC = () => {
                   onMouseEnter={() => prefetchRoute(path)}
                   onFocus={() => prefetchRoute(path)}
                   onTouchStart={() => prefetchRoute(path)}
-                  className={`flex w-full flex-col items-center justify-center rounded-xl px-2 py-2.5 text-[11px] font-medium transition-all ${
-                    active ? 'bg-brand-500 text-white shadow-soft' : 'text-muted hover:bg-card hover:text-foreground'
-                  }`}
+                  className={`flex w-full flex-col items-center justify-center rounded-xl px-2 py-2.5 text-[11px] font-medium transition-all ${active ? 'bg-brand-500 text-white shadow-soft' : 'text-muted hover:bg-card hover:text-foreground'
+                    }`}
                 >
                   <Icon className="mb-1 h-4 w-4" />
                   <span className="truncate">{label}</span>
