@@ -168,8 +168,6 @@ if (serveFrontend) {
         checkPath.startsWith('/api/') ||
         checkPath === '/sub' ||
         checkPath.startsWith('/sub/') ||
-        checkPath === '/user' ||
-        checkPath.startsWith('/user/') ||
         checkPath === '/dns-query' ||
         checkPath.startsWith('/dns-query/')
       ) {
