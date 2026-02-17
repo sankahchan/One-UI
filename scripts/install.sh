@@ -400,6 +400,8 @@ download_project() {
     fi
     git clone "${repo_url}" .
   fi
+  # Ensure all shell scripts are executable (git may not preserve +x on some systems).
+  find "${INSTALL_DIR}/scripts" -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
   ok "Project downloaded."
 }
 
@@ -586,6 +588,8 @@ XRAY_PID_PATH=/tmp/one-ui-xray.pid
 XRAY_TRAFFIC_SYNC_ENABLED=true
 XRAY_API_URL=http://127.0.0.1:10085
 TRAFFIC_SYNC_INTERVAL=60
+XRAY_UPDATE_SCRIPT=/opt/one-ui/scripts/update-xray-core.sh
+COMPOSE_FILE=/opt/one-ui/docker-compose.yml
 
 # SSL / ACME
 SSL_ENABLED=${ssl_enabled}
@@ -667,6 +671,8 @@ services:
       - /var/log/xray:/var/log/xray
       - ${BACKUP_DIR}:${BACKUP_DIR}
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${INSTALL_DIR}/scripts:/opt/one-ui/scripts:ro
+      - ${INSTALL_DIR}/docker-compose.yml:/opt/one-ui/docker-compose.yml:ro
     network_mode: host
     depends_on:
       db:
