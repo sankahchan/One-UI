@@ -60,7 +60,7 @@ class RealityProtocol {
             dest: inbound.realityDest || `${inbound.serverName || 'www.microsoft.com'}:443`,
             xver: 0,
             serverNames: this.getServerNames(inbound),
-            privateKey: inbound.realityPrivateKey || '',
+            privateKey: (inbound.realityPrivateKey || '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
             shortIds: this.getPrimaryShortId(inbound) ? [this.getPrimaryShortId(inbound)] : [''],
             fingerprint: inbound.realityFingerprint || 'chrome'
         };
