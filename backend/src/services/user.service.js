@@ -1604,6 +1604,43 @@ class UserService {
       (a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime()
     );
 
+    if (devices.length === 0 || !devices.some((device) => device.online)) {
+      const recentTraffic = await prisma.trafficLog.findFirst({
+        where: {
+          userId,
+          timestamp: {
+            gte: since
+          }
+        },
+        select: {
+          timestamp: true,
+          upload: true,
+          download: true
+        },
+        orderBy: {
+          timestamp: 'desc'
+        }
+      });
+
+      const recentTrafficBytes =
+        Number(recentTraffic?.upload || 0n) + Number(recentTraffic?.download || 0n);
+      if (recentTraffic && recentTrafficBytes > 0) {
+        const trafficSeenAt = recentTraffic.timestamp.toISOString();
+        const trafficOnline = now - recentTraffic.timestamp.getTime() <= staleThresholdMs;
+        devices.unshift({
+          fingerprint: `traffic:${userId}`,
+          shortFingerprint: 'traffic',
+          online: trafficOnline,
+          lastSeenAt: trafficSeenAt,
+          lastAction: 'connect',
+          clientIp: null,
+          userAgent: 'xray-stats',
+          inbound: null,
+          hitCount: 1
+        });
+      }
+    }
+
     return {
       user: {
         id: user.id,

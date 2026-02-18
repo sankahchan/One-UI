@@ -36,6 +36,7 @@ const { initBot, stopTelegramBot } = require('./telegram/bot');
 const WorkerRuntime = require('./worker/runtime');
 const startupGates = require('./startup/gates');
 const webhookService = require('./services/webhook.service');
+const xrayConfigGenerator = require('./xray/config-generator');
 
 const app = express();
 const inlineRuntime = new WorkerRuntime('api-inline');
@@ -195,6 +196,10 @@ async function startServer() {
     await prisma.$connect();
     await webhookService.initialize();
     await startupGates.runStartupHealthGate();
+
+    // Initialize Xray config
+    await xrayConfigGenerator.reloadConfig();
+    logger.info('Initialized Xray configuration');
 
     const server = app.listen(env.PORT, () => {
       logger.info(`Server running on port ${env.PORT}`);

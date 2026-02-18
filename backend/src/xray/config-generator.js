@@ -389,14 +389,17 @@ class XrayConfigGenerator {
       services: this.resolveApiServices(config.api?.services)
     };
 
+    const apiListen = String(process.env.XRAY_API_LISTEN || '127.0.0.1').trim() || '127.0.0.1';
+    const apiAddress = String(process.env.XRAY_API_ADDRESS || '127.0.0.1').trim() || '127.0.0.1';
+
     config.inbounds = [
       ...inboundConfigs,
       {
-        listen: '127.0.0.1',
+        listen: apiListen,
         port: 10085,
         protocol: 'dokodemo-door',
         settings: {
-          address: '127.0.0.1'
+          address: apiAddress
         },
         tag: 'api'
       }
@@ -414,8 +417,8 @@ class XrayConfigGenerator {
         tag: 'api',
         settings: {}
       });
-      config.outbounds = existingOutbounds;
     }
+    config.outbounds = existingOutbounds;
 
     config.routing = config.routing || {};
     const baseRulesRaw = Array.isArray(config.routing.rules) ? config.routing.rules : [];
@@ -429,17 +432,15 @@ class XrayConfigGenerator {
       seenRuleFingerprints.add(fingerprint);
       return true;
     });
-    const hasApiRule = baseRules.some(
-      (rule) => rule?.outboundTag === 'api' && Array.isArray(rule?.inboundTag) && rule.inboundTag.includes('api')
+    const apiRule = {
+      type: 'field',
+      inboundTag: ['api'],
+      outboundTag: 'api'
+    };
+    const nonApiRules = baseRules.filter(
+      (rule) => !(rule?.outboundTag === 'api' && Array.isArray(rule?.inboundTag) && rule.inboundTag.includes('api'))
     );
-    if (!hasApiRule) {
-      baseRules.unshift({
-        type: 'field',
-        inboundTag: ['api'],
-        outboundTag: 'api'
-      });
-    }
-    config.routing.rules = baseRules;
+    config.routing.rules = [apiRule, ...nonApiRules];
 
     const observabilityConfig = this.buildObservabilityConfig();
     if (observabilityConfig) {

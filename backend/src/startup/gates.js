@@ -1,10 +1,10 @@
 const { spawn } = require('child_process');
 const path = require('path');
-const axios = require('axios');
 
 const env = require('../config/env');
 const logger = require('../config/logger');
 const prisma = require('../config/database');
+const statsCollector = require('../xray/stats-collector');
 
 const BACKEND_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -77,15 +77,13 @@ async function checkDatabaseHealth() {
 }
 
 async function checkXrayStatsHealth() {
-  const http = axios.create({
-    baseURL: env.XRAY_API_URL,
-    timeout: env.STARTUP_HEALTH_GATE_TIMEOUT_MS
-  });
-
-  await http.post('/stats/query', {
-    pattern: 'user>>>one-ui-health-check>>>traffic>>>uplink',
-    reset: false
-  });
+  const timeoutMs = Math.max(1000, Number(env.STARTUP_HEALTH_GATE_TIMEOUT_MS || 7000));
+  await Promise.race([
+    statsCollector.checkHealth(),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Xray stats health check timed out after ${timeoutMs}ms`)), timeoutMs);
+    })
+  ]);
 }
 
 async function runStartupHealthGate() {
@@ -147,4 +145,3 @@ module.exports = {
   runStartupMigrationGate,
   runStartupHealthGate
 };
-
