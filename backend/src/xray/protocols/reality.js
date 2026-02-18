@@ -22,13 +22,9 @@ class RealityProtocol {
         };
 
         if (inbound.wsHost) {
-            const hosts = String(inbound.wsHost)
-                .split(',')
-                .map((entry) => entry.trim())
-                .filter(Boolean);
-
-            if (hosts.length > 0) {
-                settings.host = hosts;
+            const host = String(inbound.wsHost).split(',')[0].trim();
+            if (host) {
+                settings.host = host;
             }
         }
 
