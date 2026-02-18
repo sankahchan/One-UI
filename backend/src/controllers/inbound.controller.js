@@ -1,6 +1,7 @@
 const inboundService = require('../services/inbound.service');
 const webhookService = require('../services/webhook.service');
 const { sendSuccess } = require('../utils/response');
+const { scheduleXrayReload } = require('../utils/xrayReloadQueue');
 
 function buildActorContext(req) {
   if (!req?.admin) {
@@ -175,6 +176,7 @@ async function assignRandomPort(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.port.randomized');
     return response;
   } catch (error) {
     return next(error);
@@ -206,6 +208,7 @@ async function createInbound(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.created');
     return response;
   } catch (error) {
     return next(error);
@@ -241,6 +244,9 @@ async function applyMyanmarPreset(req, res, next) {
       }
     );
 
+    if (!dryRun) {
+      scheduleXrayReload('inbound.preset.myanmar.applied');
+    }
     return response;
   } catch (error) {
     return next(error);
@@ -273,6 +279,7 @@ async function updateInbound(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.updated');
     return response;
   } catch (error) {
     return next(error);
@@ -300,6 +307,7 @@ async function deleteInbound(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.deleted');
     return response;
   } catch (error) {
     return next(error);
@@ -328,6 +336,7 @@ async function bulkDeleteInbounds(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.bulk.deleted');
     return response;
   } catch (error) {
     return next(error);
@@ -356,6 +365,7 @@ async function bulkEnableInbounds(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.bulk.enabled');
     return response;
   } catch (error) {
     return next(error);
@@ -384,6 +394,7 @@ async function bulkDisableInbounds(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.bulk.disabled');
     return response;
   } catch (error) {
     return next(error);
@@ -413,6 +424,7 @@ async function toggleInbound(req, res, next) {
       }
     );
 
+    scheduleXrayReload('inbound.toggled');
     return response;
   } catch (error) {
     return next(error);

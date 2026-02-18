@@ -1,6 +1,7 @@
 const groupService = require('../services/group.service');
 const groupPolicyScheduler = require('../jobs/group-policy-scheduler');
 const { sendSuccess } = require('../utils/response');
+const { scheduleXrayReload } = require('../utils/xrayReloadQueue');
 
 async function listGroups(req, res, next) {
   try {
@@ -54,6 +55,11 @@ async function updateGroup(req, res, next) {
   try {
     const group = await groupService.updateGroup(req.params.id, req.body || {});
 
+    // Reload Xray if group enabled/disabled state changed (affects user routing)
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'isDisabled')) {
+      scheduleXrayReload('group.updated');
+    }
+
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Group updated successfully',
@@ -68,6 +74,7 @@ async function deleteGroup(req, res, next) {
   try {
     const result = await groupService.deleteGroup(req.params.id);
 
+    scheduleXrayReload('group.deleted');
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Group deleted successfully',
@@ -82,6 +89,7 @@ async function addUsers(req, res, next) {
   try {
     const group = await groupService.addUsers(req.params.id, req.body.userIds || []);
 
+    scheduleXrayReload('group.users.added');
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Users added to group successfully',
@@ -96,6 +104,7 @@ async function removeUsers(req, res, next) {
   try {
     const group = await groupService.removeUsers(req.params.id, req.body.userIds || []);
 
+    scheduleXrayReload('group.users.removed');
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Users removed from group successfully',
@@ -110,6 +119,7 @@ async function moveUsers(req, res, next) {
   try {
     const group = await groupService.moveUsers(req.params.id, req.body.userIds || []);
 
+    scheduleXrayReload('group.users.moved');
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Users moved to group successfully',
@@ -124,6 +134,7 @@ async function setInbounds(req, res, next) {
   try {
     const group = await groupService.setInbounds(req.params.id, req.body.inboundIds || []);
 
+    scheduleXrayReload('group.inbounds.updated');
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Group inbounds updated successfully',
@@ -142,6 +153,10 @@ async function applyPolicy(req, res, next) {
       initiatedBy: req.admin?.username || null,
       source: 'MANUAL'
     });
+
+    if (!result.dryRun) {
+      scheduleXrayReload('group.policy.applied');
+    }
 
     return sendSuccess(res, {
       statusCode: 200,
