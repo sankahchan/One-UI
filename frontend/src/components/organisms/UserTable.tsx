@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useState, type FC, type MouseEvent } from 'react';
+import { Fragment, useEffect, useState, type FC } from 'react';
 import { ChevronDown, ChevronUp, MoreVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
+import { DropdownMenu } from '../atoms/DropdownMenu';
 import { ConfirmDialog } from './ConfirmDialog';
 import apiClient from '../../api/client';
 import { formatBytes, formatDateTime, getDaysRemaining } from '../../utils/formatters';
@@ -299,25 +300,6 @@ export const UserTable: FC<UserTableProps> = ({
     return '';
   };
 
-  const closeActionMenu = (target: EventTarget | null) => {
-    const element = target as HTMLElement | null;
-    const details = element?.closest('details') as HTMLDetailsElement | null;
-    if (details) {
-      details.open = false;
-    }
-  };
-
-  const runAction = (
-    event: MouseEvent<HTMLButtonElement>,
-    action: (() => void) | undefined
-  ) => {
-    event.preventDefault();
-    if (action) {
-      action();
-    }
-    closeActionMenu(event.currentTarget);
-  };
-
   const renderActionMenu = (user: User, mobile = false) => {
     const items: Array<{ key: string; label: string; tone?: 'default' | 'danger'; onClick: () => void }> = [];
 
@@ -354,39 +336,15 @@ export const UserTable: FC<UserTableProps> = ({
     }
 
     return (
-      <details className="relative">
-        <summary
-          className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
-            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
-          }`}
-          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
-          title={t('common.moreActions', { defaultValue: 'More actions' })}
-        >
-          <span className="inline-flex items-center">
-            <MoreVertical className="h-4 w-4" />
-          </span>
-        </summary>
-        <div
-          className={`absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm ${
-            mobile ? '' : 'origin-top-right'
-          }`}
-        >
-          {items.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`flex w-full items-center justify-start rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                item.tone === 'danger'
-                  ? 'text-red-500 hover:bg-red-500/10'
-                  : 'text-foreground hover:bg-panel/70'
-              }`}
-              onClick={(event) => runAction(event, item.onClick)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </details>
+      <DropdownMenu
+        items={items}
+        ariaLabel={t('common.moreActions', { defaultValue: 'More actions' })}
+        triggerClassName={`rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+          mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
+        }`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenu>
     );
   };
 
