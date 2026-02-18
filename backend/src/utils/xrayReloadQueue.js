@@ -38,6 +38,21 @@ async function _doReload(reasons) {
   try {
     _reloading = true;
     const xrayManager = getXrayManager();
+
+    // Quick check: is Xray actually running? If not, skip the reload
+    // entirely.  This prevents cascading failures in dev/CI where the
+    // backend runs without an Xray process.
+    const status = await xrayManager.getStatus();
+    if (!status.running) {
+      logger.info({
+        action: 'xray_auto_reload',
+        skipped: true,
+        reasons,
+        detail: 'Xray process is not running'
+      });
+      return;
+    }
+
     const result = await xrayManager.reloadConfig();
     logger.info({
       action: 'xray_auto_reload',
@@ -77,6 +92,12 @@ function scheduleXrayReload(reason) {
     const reasons = _pendingReasons.splice(0);
     _doReload(reasons);
   }, RELOAD_DELAY_MS);
+
+  // Don't let this timer keep the Node.js event loop alive (important
+  // for tests and graceful shutdown).
+  if (_timer && typeof _timer.unref === 'function') {
+    _timer.unref();
+  }
 }
 
 /** True while a reload is in flight. */
