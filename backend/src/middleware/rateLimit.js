@@ -11,8 +11,11 @@ const LOCALHOST_IPS = new Set([
 const STATIC_ASSET_RE = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|map|webp|avif)(\?|$)/i;
 
 function shouldBypassRateLimit(req) {
-  // Never rate-limit static frontend assets — a single page load fetches many files.
-  if (STATIC_ASSET_RE.test(req.originalUrl)) {
+  // Only rate-limit API requests. Frontend pages, static assets, and public routes
+  // (/sub, /user, /dns-query) should never be rate-limited.
+  const url = req.originalUrl || '';
+  const isApiRequest = url.includes('/api/');
+  if (!isApiRequest) {
     return true;
   }
 
