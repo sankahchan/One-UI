@@ -14,6 +14,7 @@ const wireguardProtocol = require('./protocols/wireguard');
 const mtprotoProtocol = require('./protocols/mtproto');
 const warpProtocol = require('./protocols/warp');
 const xrayRoutingService = require('../services/xrayRouting.service');
+const logger = require('../config/logger');
 
 
 function parseBooleanFlag(value, fallback = false) {
@@ -484,10 +485,31 @@ class XrayConfigGenerator {
   }
 
   async saveConfig(config) {
-    await fs.mkdir(path.dirname(this.configPath), { recursive: true });
     const configJson = JSON.stringify(config, null, 2);
-    await fs.writeFile(this.configPath, configJson, 'utf8');
-    return this.configPath;
+
+    try {
+      await fs.mkdir(path.dirname(this.configPath), { recursive: true });
+      await fs.writeFile(this.configPath, configJson, 'utf8');
+      return this.configPath;
+    } catch (error) {
+      if (!['EACCES', 'EPERM', 'EROFS'].includes(String(error?.code || ''))) {
+        throw error;
+      }
+
+      const fallbackDir = path.resolve(process.cwd(), 'runtime', 'xray');
+      const fallbackPath = path.join(fallbackDir, 'config.json');
+
+      logger.warn('XRAY_CONFIG_PATH is not writable; falling back to runtime config path', {
+        configPath: this.configPath,
+        fallbackPath,
+        error: error?.message
+      });
+
+      this.configPath = fallbackPath;
+      await fs.mkdir(path.dirname(this.configPath), { recursive: true });
+      await fs.writeFile(this.configPath, configJson, 'utf8');
+      return this.configPath;
+    }
   }
 
   async reloadConfig() {
