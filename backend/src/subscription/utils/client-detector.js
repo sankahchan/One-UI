@@ -25,6 +25,12 @@ class ClientDetector {
     if (ua.includes('sfi')) {
       return 'singbox';
     }
+    if (ua.includes('hiddify')) {
+      return 'singbox';
+    }
+    if (ua.includes('hiddifynext')) {
+      return 'singbox';
+    }
 
     if (ua.includes('v2ray')) {
       return 'v2ray';
