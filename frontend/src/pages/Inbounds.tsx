@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
+import { DropdownMenu } from '../components/atoms/DropdownMenu';
 import { ConfirmDialog } from '../components/organisms/ConfirmDialog';
 import { InboundClientProfileModal } from '../components/organisms/InboundClientProfileModal';
 import { InboundClientsDrawer } from '../components/organisms/InboundClientsDrawer';
@@ -1048,26 +1049,6 @@ export const Inbounds: React.FC = () => {
     []
   );
 
-  const closeActionMenu = (target: EventTarget | null) => {
-    const element = target as HTMLElement | null;
-    const details = element?.closest('details') as HTMLDetailsElement | null;
-    if (details) {
-      details.open = false;
-    }
-  };
-
-  const runMenuAction = (
-    event: React.MouseEvent<HTMLButtonElement>,
-    action: (() => void) | undefined
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (action) {
-      action();
-    }
-    closeActionMenu(event.currentTarget);
-  };
-
   const renderInboundActionMenu = (
     inbound: Inbound,
     options: { mobile?: boolean; includeRandomPort?: boolean } = {}
@@ -1148,41 +1129,15 @@ export const Inbounds: React.FC = () => {
     }
 
     return (
-      <details className="relative">
-        <summary
-          className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
-            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
-          }`}
-          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
-          title={t('common.moreActions', { defaultValue: 'More actions' })}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <span className="inline-flex items-center">
-            <MoreVertical className="h-4 w-4" />
-          </span>
-        </summary>
-        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  item.tone === 'danger'
-                    ? 'text-red-500 hover:bg-red-500/10'
-                    : 'text-foreground hover:bg-panel/70'
-                }`}
-                disabled={item.disabled}
-                onClick={(event) => runMenuAction(event, item.onClick)}
-              >
-                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </details>
+      <DropdownMenu
+        items={menuItems}
+        ariaLabel={t('common.moreActions', { defaultValue: 'More actions' })}
+        triggerClassName={`rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+          mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
+        }`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenu>
     );
   };
 

@@ -13,6 +13,7 @@ import {
   ExternalLink,
   FileCode2,
   GripVertical,
+  LayoutDashboard,
   MoreVertical,
   Power,
   PowerOff,
@@ -26,6 +27,7 @@ import apiClient from '../api/client';
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
+import { DropdownMenu } from '../components/atoms/DropdownMenu';
 import { ConfirmDialog } from '../components/organisms/ConfirmDialog';
 import { InboundClientProfileModal } from '../components/organisms/InboundClientProfileModal';
 import { MyanmarPriorityPreviewModal } from '../components/organisms/MyanmarPriorityPreviewModal';
@@ -439,9 +441,8 @@ export const UserDetail: React.FC = () => {
     return (
       <button
         type="button"
-        className={`inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors ${
-          active ? 'text-foreground' : 'text-muted hover:text-foreground'
-        }`}
+        className={`inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors ${active ? 'text-foreground' : 'text-muted hover:text-foreground'
+          }`}
         onClick={() => handleSort(field)}
       >
         <span>{label}</span>
@@ -452,15 +453,14 @@ export const UserDetail: React.FC = () => {
 
   const renderOnlinePill = (online: boolean) => (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${
-        online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
-      }`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
+        }`}
     >
       <span className="relative inline-flex h-2.5 w-2.5">
         {online ? (
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
         ) : null}
-      <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
+        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
       </span>
       <span>
         {online
@@ -474,16 +474,15 @@ export const UserDetail: React.FC = () => {
     const hasOnlineKeys = onlineCount > 0;
     const label = enabledCount > 0
       ? t('users.keysActive', {
-          defaultValue: 'Keys active {{online}}/{{total}}',
-          online: onlineCount,
-          total: enabledCount
-        })
+        defaultValue: 'Keys active {{online}}/{{total}}',
+        online: onlineCount,
+        total: enabledCount
+      })
       : t('users.detail.noKeysEnabled', { defaultValue: 'No keys enabled' });
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-          hasOnlineKeys ? 'bg-emerald-500/15 text-emerald-300' : 'bg-panel/60 text-muted'
-        }`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${hasOnlineKeys ? 'bg-emerald-500/15 text-emerald-300' : 'bg-panel/60 text-muted'
+          }`}
         title={label}
       >
         <span className="relative inline-flex h-2.5 w-2.5">
@@ -533,26 +532,6 @@ export const UserDetail: React.FC = () => {
         ))}
       </div>
     );
-  };
-
-  const closeActionMenu = (target: EventTarget | null) => {
-    const element = target as HTMLElement | null;
-    const details = element?.closest('details') as HTMLDetailsElement | null;
-    if (details) {
-      details.open = false;
-    }
-  };
-
-  const runMenuAction = (
-    event: React.MouseEvent<HTMLButtonElement>,
-    action: (() => void) | undefined
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (action) {
-      action();
-    }
-    closeActionMenu(event.currentTarget);
   };
 
   const handleResetTraffic = () => {
@@ -691,61 +670,38 @@ export const UserDetail: React.FC = () => {
       disabled?: boolean;
       onClick?: () => void;
     }> = [
-      {
-        key: 'reset-traffic',
-        label: resetTraffic.isPending
-          ? t('users.detail.actions.resettingTraffic', { defaultValue: 'Resetting traffic...' })
-          : t('users.detail.actions.resetTraffic', { defaultValue: 'Reset traffic' }),
-        icon: RotateCcw,
-        disabled: resetTraffic.isPending,
-        onClick: () => handleResetTraffic()
-      },
-      {
-        key: 'delete-user',
-        label: deleteUser.isPending
-          ? t('users.detail.actions.deletingUser', { defaultValue: 'Deleting user...' })
-          : t('users.detail.actions.deleteUser', { defaultValue: 'Delete user' }),
-        icon: Trash2,
-        tone: 'danger',
-        disabled: deleteUser.isPending,
-        onClick: () => handleDelete()
-      }
-    ];
+        {
+          key: 'reset-traffic',
+          label: resetTraffic.isPending
+            ? t('users.detail.actions.resettingTraffic', { defaultValue: 'Resetting traffic...' })
+            : t('users.detail.actions.resetTraffic', { defaultValue: 'Reset traffic' }),
+          icon: RotateCcw,
+          disabled: resetTraffic.isPending,
+          onClick: () => handleResetTraffic()
+        },
+        {
+          key: 'delete-user',
+          label: deleteUser.isPending
+            ? t('users.detail.actions.deletingUser', { defaultValue: 'Deleting user...' })
+            : t('users.detail.actions.deleteUser', { defaultValue: 'Delete user' }),
+          icon: Trash2,
+          tone: 'danger',
+          disabled: deleteUser.isPending,
+          onClick: () => handleDelete()
+        }
+      ];
 
     return (
-      <details className="relative">
-        <summary
-          className="list-none cursor-pointer rounded-xl border border-line/70 bg-card/75 px-3 py-2 text-foreground transition hover:bg-panel/60 [&::-webkit-details-marker]:hidden"
-          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
-          title={t('common.moreActions', { defaultValue: 'More actions' })}
-        >
-          <span className="inline-flex items-center gap-2">
-            <MoreVertical className="h-4 w-4" />
-            <span className="text-sm font-medium">{t('common.actions', { defaultValue: 'Actions' })}</span>
-          </span>
-        </summary>
-        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  item.tone === 'danger'
-                    ? 'text-red-500 hover:bg-red-500/10'
-                    : 'text-foreground hover:bg-panel/70'
-                }`}
-                disabled={item.disabled}
-                onClick={(event) => runMenuAction(event, item.onClick)}
-              >
-                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </details>
+      <DropdownMenu
+        items={menuItems}
+        ariaLabel={t('common.moreActions', { defaultValue: 'More actions' })}
+        triggerClassName="inline-flex items-center rounded-xl border border-line/70 bg-card/75 px-3 py-2 text-foreground transition hover:bg-panel/60 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className="inline-flex items-center gap-2">
+          <MoreVertical className="h-4 w-4" />
+          <span className="text-sm font-medium">{t('common.actions', { defaultValue: 'Actions' })}</span>
+        </span>
+      </DropdownMenu>
     );
   };
 
@@ -765,91 +721,65 @@ export const UserDetail: React.FC = () => {
       disabled?: boolean;
       onClick?: () => void;
     }> = [
-      {
-        key: 'templates',
-        label: t('users.detail.keyMenu.templates', { defaultValue: 'Client templates' }),
-        icon: FileCode2,
-        disabled: !row.inbound,
-        onClick: () => setProfileInbound(row.inbound)
-      },
-      {
-        key: 'copy',
-        label: isCopying
-          ? t('users.detail.keyMenu.copyingKey', { defaultValue: 'Copying key...' })
-          : t('users.detail.keyMenu.copyKeyUrl', { defaultValue: 'Copy key URL' }),
-        icon: Copy,
-        disabled: inboundId <= 0 || isCopying,
-        onClick: () => void copyKeyForInbound(row)
-      },
-      {
-        key: 'toggle',
-        label: isToggling
-          ? t('users.detail.keyMenu.updating', { defaultValue: 'Updating...' })
-          : row.enabled
-          ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
-          : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' }),
-        icon: row.enabled ? PowerOff : Power,
-        disabled: inboundId <= 0 || isToggling,
-        onClick: () => void handleToggleInboundKey(row)
-      },
-      {
-        key: 'move-up',
-        label: t('users.detail.keyMenu.moveUp', { defaultValue: 'Move up (higher priority)' }),
-        icon: ArrowUp,
-        disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority <= 1,
-        onClick: () => void handleAdjustInboundPriority(row, -1)
-      },
-      {
-        key: 'move-down',
-        label: t('users.detail.keyMenu.moveDown', { defaultValue: 'Move down (lower priority)' }),
-        icon: ArrowDown,
-        disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority >= 9999,
-        onClick: () => void handleAdjustInboundPriority(row, 1)
-      },
-      {
-        key: 'open-inbounds',
-        label: t('users.detail.keyMenu.openInbounds', { defaultValue: 'Open inbounds page' }),
-        icon: ExternalLink,
-        onClick: () => navigate('/inbounds?tab=inbounds')
-      }
-    ];
+        {
+          key: 'templates',
+          label: t('users.detail.keyMenu.templates', { defaultValue: 'Client templates' }),
+          icon: FileCode2,
+          disabled: !row.inbound,
+          onClick: () => setProfileInbound(row.inbound)
+        },
+        {
+          key: 'copy',
+          label: isCopying
+            ? t('users.detail.keyMenu.copyingKey', { defaultValue: 'Copying key...' })
+            : t('users.detail.keyMenu.copyKeyUrl', { defaultValue: 'Copy key URL' }),
+          icon: Copy,
+          disabled: inboundId <= 0 || isCopying,
+          onClick: () => void copyKeyForInbound(row)
+        },
+        {
+          key: 'toggle',
+          label: isToggling
+            ? t('users.detail.keyMenu.updating', { defaultValue: 'Updating...' })
+            : row.enabled
+              ? t('users.detail.keyMenu.disableKey', { defaultValue: 'Disable key' })
+              : t('users.detail.keyMenu.enableKey', { defaultValue: 'Enable key' }),
+          icon: row.enabled ? PowerOff : Power,
+          disabled: inboundId <= 0 || isToggling,
+          onClick: () => void handleToggleInboundKey(row)
+        },
+        {
+          key: 'move-up',
+          label: t('users.detail.keyMenu.moveUp', { defaultValue: 'Move up (higher priority)' }),
+          icon: ArrowUp,
+          disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority <= 1,
+          onClick: () => void handleAdjustInboundPriority(row, -1)
+        },
+        {
+          key: 'move-down',
+          label: t('users.detail.keyMenu.moveDown', { defaultValue: 'Move down (lower priority)' }),
+          icon: ArrowDown,
+          disabled: inboundId <= 0 || isUpdatingPriority || isReorderingByDrag || keyRow.priority >= 9999,
+          onClick: () => void handleAdjustInboundPriority(row, 1)
+        },
+        {
+          key: 'open-inbounds',
+          label: t('users.detail.keyMenu.openInbounds', { defaultValue: 'Open inbounds page' }),
+          icon: ExternalLink,
+          onClick: () => navigate('/inbounds?tab=inbounds')
+        }
+      ];
 
     return (
-      <details className="relative">
-        <summary
-          className={`list-none cursor-pointer rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 [&::-webkit-details-marker]:hidden ${
-            mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
-          }`}
-          aria-label={t('common.moreActions', { defaultValue: 'More actions' })}
-          title={t('common.moreActions', { defaultValue: 'More actions' })}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <span className="inline-flex items-center">
-            <MoreVertical className="h-4 w-4" />
-          </span>
-        </summary>
-        <div className="absolute right-0 z-20 mt-2 w-60 rounded-xl border border-line/70 bg-card/95 p-1 shadow-lg shadow-black/10 backdrop-blur-sm">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={`${row.id}-${item.key}`}
-                type="button"
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  item.tone === 'danger'
-                    ? 'text-red-500 hover:bg-red-500/10'
-                    : 'text-foreground hover:bg-panel/70'
-                }`}
-                disabled={item.disabled}
-                onClick={(event) => runMenuAction(event, item.onClick)}
-              >
-                {Icon ? <Icon className={`h-4 w-4 ${item.tone === 'danger' ? 'text-red-500' : 'text-muted'}`} /> : null}
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </details>
+      <DropdownMenu
+        items={menuItems}
+        ariaLabel={t('common.moreActions', { defaultValue: 'More actions' })}
+        triggerClassName={`rounded-lg border border-line/60 bg-card/70 px-2 py-1 text-foreground transition hover:bg-panel/70 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+          mobile ? 'inline-flex h-10 w-10 items-center justify-center' : 'inline-flex h-8 w-8 items-center justify-center'
+        }`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenu>
     );
   };
 
@@ -1105,10 +1035,10 @@ export const UserDetail: React.FC = () => {
   const confirmLoading = pendingConfirm?.type === 'reset-traffic'
     ? resetTraffic.isPending
     : pendingConfirm?.type === 'delete-user'
-    ? deleteUser.isPending
-    : pendingConfirm?.type === 'revoke-device'
-    ? revokeUserDevice.isPending
-    : false;
+      ? deleteUser.isPending
+      : pendingConfirm?.type === 'revoke-device'
+        ? revokeUserDevice.isPending
+        : false;
 
   const handleConfirmPending = async () => {
     if (!pendingConfirm) {
@@ -1168,24 +1098,24 @@ export const UserDetail: React.FC = () => {
   const confirmTitle = pendingConfirm?.type === 'reset-traffic'
     ? t('users.actions.resetTrafficTitle', { defaultValue: 'Reset traffic?' })
     : pendingConfirm?.type === 'delete-user'
-    ? t('users.detail.confirm.deleteTitle', { defaultValue: 'Delete user?' })
-    : pendingConfirm?.type === 'revoke-device'
-    ? t('users.devices.revokeTitle', { defaultValue: 'Revoke Device Session' })
-    : '';
+      ? t('users.detail.confirm.deleteTitle', { defaultValue: 'Delete user?' })
+      : pendingConfirm?.type === 'revoke-device'
+        ? t('users.devices.revokeTitle', { defaultValue: 'Revoke Device Session' })
+        : '';
   const confirmDescription = pendingConfirm?.type === 'reset-traffic'
     ? t('users.actions.resetTrafficDescription', { defaultValue: "Reset this user's upload/download counters." })
     : pendingConfirm?.type === 'delete-user'
-    ? t('users.detail.confirm.deleteDescription', {
+      ? t('users.detail.confirm.deleteDescription', {
         defaultValue: 'Are you sure you want to delete this user? This action cannot be undone.'
       })
-    : pendingConfirm?.type === 'revoke-device'
-    ? t('users.devices.revokeDescription', { defaultValue: 'Revoke this device? It will need to reconnect.' })
-    : '';
+      : pendingConfirm?.type === 'revoke-device'
+        ? t('users.devices.revokeDescription', { defaultValue: 'Revoke this device? It will need to reconnect.' })
+        : '';
   const confirmLabel = pendingConfirm?.type === 'delete-user'
     ? t('common.delete', { defaultValue: 'Delete' })
     : pendingConfirm?.type === 'reset-traffic'
-    ? t('common.reset', { defaultValue: 'Reset' })
-    : t('common.revoke', { defaultValue: 'Revoke' });
+      ? t('common.reset', { defaultValue: 'Reset' })
+      : t('common.revoke', { defaultValue: 'Revoke' });
   const confirmTone = pendingConfirm?.type === 'delete-user' ? 'danger' : 'primary';
 
   const getStatusBadge = () => {
@@ -1218,6 +1148,16 @@ export const UserDetail: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const panelPath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+              window.open(`${panelPath}/user/${user.subscriptionToken}`, '_blank');
+            }}
+          >
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            {t('users.detail.openDashboard', { defaultValue: 'User Dashboard' })}
+          </Button>
           <Button variant="secondary" onClick={() => setShowEditModal(true)}>
             <Edit className="mr-2 h-4 w-4" />
             {t('common.edit', { defaultValue: 'Edit' })}
@@ -1415,18 +1355,17 @@ export const UserDetail: React.FC = () => {
                   {entry.sources.map((source, index) => (
                     <span
                       key={`effective-source-${entry.inboundId}-${index}`}
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                        source.type === 'DIRECT'
-                          ? 'bg-brand-500/20 text-brand-200'
-                          : 'bg-violet-500/20 text-violet-200'
-                      }`}
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${source.type === 'DIRECT'
+                        ? 'bg-brand-500/20 text-brand-200'
+                        : 'bg-violet-500/20 text-violet-200'
+                        }`}
                     >
                       {source.type === 'DIRECT'
                         ? t('users.detail.effectiveInbounds.sourceDirect', { defaultValue: 'Direct' })
                         : t('users.detail.effectiveInbounds.sourceGroup', {
-                            defaultValue: 'Group: {{name}}',
-                            name: source.groupName || String(source.groupId)
-                          })}
+                          defaultValue: 'Group: {{name}}',
+                          name: source.groupName || String(source.groupId)
+                        })}
                     </span>
                   ))}
                 </div>
@@ -1576,11 +1515,10 @@ export const UserDetail: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       {effectivePolicyPayload.inheritedPolicy.trafficResetPeriod
-                        ? `${effectivePolicyPayload.inheritedPolicy.trafficResetPeriod}${
-                            effectivePolicyPayload.inheritedPolicy.trafficResetDay
-                              ? ` @${effectivePolicyPayload.inheritedPolicy.trafficResetDay}`
-                              : ''
-                          }`
+                        ? `${effectivePolicyPayload.inheritedPolicy.trafficResetPeriod}${effectivePolicyPayload.inheritedPolicy.trafficResetDay
+                          ? ` @${effectivePolicyPayload.inheritedPolicy.trafficResetDay}`
+                          : ''
+                        }`
                         : t('common.noOverride', { defaultValue: 'No override' })}
                     </td>
                     <td className="px-4 py-3 text-foreground">
@@ -1711,11 +1649,11 @@ export const UserDetail: React.FC = () => {
           <p className="mt-2 text-xs text-muted">
             {isDragReorderEnabled
               ? t('users.detail.keys.dragHintEnabled', {
-                  defaultValue: 'Drag rows from the Menu column to reorder key priority. The order controls subscription fallback.'
-                })
+                defaultValue: 'Drag rows from the Menu column to reorder key priority. The order controls subscription fallback.'
+              })
               : t('users.detail.keys.dragHintDisabled', {
-                  defaultValue: 'Enable drag reorder by setting Filter: All keys and Sort: Priority ascending.'
-                })}
+                defaultValue: 'Enable drag reorder by setting Filter: All keys and Sort: Priority ascending.'
+              })}
           </p>
         </div>
 
@@ -1769,9 +1707,8 @@ export const UserDetail: React.FC = () => {
                     return (
                       <tr
                         key={row.id}
-                        className={`border-b border-line/70 transition-colors hover:bg-panel/35 ${
-                          isDraggedRow ? 'bg-brand-500/10' : ''
-                        } ${isDropTargetRow ? 'ring-1 ring-inset ring-brand-500/50' : ''}`}
+                        className={`border-b border-line/70 transition-colors hover:bg-panel/35 ${isDraggedRow ? 'bg-brand-500/10' : ''
+                          } ${isDropTargetRow ? 'ring-1 ring-inset ring-brand-500/50' : ''}`}
                         draggable={isInboundDragEnabled}
                         onDragStart={() => {
                           handleInboundDragStart(inboundId);
@@ -1787,15 +1724,14 @@ export const UserDetail: React.FC = () => {
                         <td className={tableBodyCellClass}>
                           <div className="flex items-center gap-2">
                             <span
-                              className={`inline-flex items-center rounded p-1 ${
-                                isInboundDragEnabled ? 'cursor-grab text-muted hover:bg-panel/70 hover:text-foreground' : 'text-muted/40'
-                              }`}
+                              className={`inline-flex items-center rounded p-1 ${isInboundDragEnabled ? 'cursor-grab text-muted hover:bg-panel/70 hover:text-foreground' : 'text-muted/40'
+                                }`}
                               title={
                                 isDragReorderEnabled
                                   ? t('users.detail.keys.dragHandleEnabled', { defaultValue: 'Drag to reorder priority' })
                                   : t('users.detail.keys.dragHandleDisabled', {
-                                      defaultValue: 'Sort by priority ascending to enable drag reorder'
-                                    })
+                                    defaultValue: 'Sort by priority ascending to enable drag reorder'
+                                  })
                               }
                             >
                               <GripVertical className="h-4 w-4" />
@@ -1823,14 +1759,12 @@ export const UserDetail: React.FC = () => {
                             onClick={() => {
                               void handleToggleInboundKey(row);
                             }}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
-                              row.enabled ? 'bg-emerald-500/25' : 'bg-panel/70'
-                            }`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${row.enabled ? 'bg-emerald-500/25' : 'bg-panel/70'
+                              }`}
                           >
                             <span
-                              className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${
-                                row.enabled ? 'translate-x-5' : 'translate-x-1'
-                              }`}
+                              className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${row.enabled ? 'translate-x-5' : 'translate-x-1'
+                                }`}
                             />
                           </button>
                         </td>
@@ -1887,13 +1821,12 @@ export const UserDetail: React.FC = () => {
 
                         <td className={tableBodyCellClass}>
                           <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
-                              keyRow.expirationDays <= 0
-                                ? 'bg-red-500/20 text-red-300'
-                                : keyRow.expirationDays <= 7
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs ${keyRow.expirationDays <= 0
+                              ? 'bg-red-500/20 text-red-300'
+                              : keyRow.expirationDays <= 7
                                 ? 'bg-amber-500/20 text-amber-300'
                                 : 'bg-brand-500/20 text-brand-200'
-                            }`}
+                              }`}
                           >
                             {keyRow.expirationDays <= 0
                               ? t('common.expired', { defaultValue: 'Expired' })
@@ -1984,14 +1917,12 @@ export const UserDetail: React.FC = () => {
                         onClick={() => {
                           void handleToggleInboundKey(row);
                         }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
-                          row.enabled ? 'bg-emerald-500/25' : 'bg-card/70'
-                        }`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full border border-line/70 transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${row.enabled ? 'bg-emerald-500/25' : 'bg-card/70'
+                          }`}
                       >
                         <span
-                          className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${
-                            row.enabled ? 'translate-x-5' : 'translate-x-1'
-                          }`}
+                          className={`inline-block h-5 w-5 transform rounded-full border border-line/70 bg-white shadow-sm transition ${row.enabled ? 'translate-x-5' : 'translate-x-1'
+                            }`}
                         />
                       </button>
                     </div>
@@ -2055,19 +1986,17 @@ export const UserDetail: React.FC = () => {
                 {userDevices.slice(0, 12).map((device) => (
                   <tr key={device.fingerprint} className="border-b border-line/50">
                     <td className="py-2 pr-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
-                            device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
                           }`}
-                        >
+                      >
                         <span className="relative inline-flex h-2.5 w-2.5">
                           {device.online ? (
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
                           ) : null}
                           <span
-                            className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                              device.online ? 'bg-emerald-400' : 'bg-zinc-400'
-                            }`}
+                            className={`relative inline-flex h-2.5 w-2.5 rounded-full ${device.online ? 'bg-emerald-400' : 'bg-zinc-400'
+                              }`}
                           />
                         </span>
                         {device.online

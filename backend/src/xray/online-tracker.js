@@ -58,7 +58,7 @@ class OnlineTracker {
     const lookbackMs = Math.max(this.ttlMs * 4, 15 * 60 * 1000);
     const lookbackDate = new Date(now - lookbackMs);
 
-    const [users, recentConnections] = await Promise.all([
+    const [users, recentConnections, recentTraffic] = await Promise.all([
       prisma.user.findMany({
         select: {
           id: true,
@@ -98,12 +98,30 @@ class OnlineTracker {
           timestamp: 'desc'
         },
         take: 20_000
+      }),
+      prisma.trafficLog.findMany({
+        where: {
+          timestamp: {
+            gte: lookbackDate
+          }
+        },
+        select: {
+          userId: true,
+          timestamp: true,
+          upload: true,
+          download: true
+        },
+        orderBy: {
+          timestamp: 'desc'
+        },
+        take: 20_000
       })
     ]);
 
     const latestConnectionByUserId = new Map();
     const activeInboundSetByUserId = new Map();
     const latestActiveConnectByUserId = new Map();
+    const latestTrafficByUserId = new Map();
     const dedupeByConnection = new Set();
 
     for (const connection of recentConnections) {
@@ -134,6 +152,20 @@ class OnlineTracker {
       if (!latestActiveConnectByUserId.has(connection.userId)) {
         latestActiveConnectByUserId.set(connection.userId, connection);
       }
+    }
+
+    for (const log of recentTraffic) {
+      if (latestTrafficByUserId.has(log.userId)) {
+        continue;
+      }
+
+      const upload = Number(log.upload || 0n);
+      const download = Number(log.download || 0n);
+      if (upload <= 0 && download <= 0) {
+        continue;
+      }
+
+      latestTrafficByUserId.set(log.userId, log);
     }
 
     const onlineUsers = users.filter((user) => {
@@ -173,14 +205,20 @@ class OnlineTracker {
       const latestConnection = latestConnectionByUserId.get(user.id) || null;
       const activeConnection = latestActiveConnectByUserId.get(user.id) || null;
       const activeInboundSet = activeInboundSetByUserId.get(user.id) || new Set();
+      const latestTrafficLog = latestTrafficByUserId.get(user.id) || null;
+      const trafficActive = latestTrafficLog
+        ? now - latestTrafficLog.timestamp.getTime() <= this.ttlMs
+        : false;
       const activeKeyCount = user.inbounds.length;
       const onlineKeyCount = activeInboundSet.size;
-      const online = onlineKeyCount > 0;
+      const online = onlineKeyCount > 0 || trafficActive;
 
       const displayConnection = activeConnection || latestConnection;
       const lastActivity = displayConnection?.timestamp
         ? displayConnection.timestamp.toISOString()
-        : null;
+        : latestTrafficLog?.timestamp
+          ? latestTrafficLog.timestamp.toISOString()
+          : null;
       const liveStat = statByUserId.get(user.id) || { upload: 0, download: 0 };
 
       nextCache.set(user.uuid, {

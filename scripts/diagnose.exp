@@ -1,0 +1,36 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "root@139.59.102.74"
+set password "cherry-betray-behave"
+
+# 1. docker ps
+spawn ssh -o StrictHostKeyChecking=no $host "docker ps"
+expect "password:"
+send "$password\r"
+expect eof
+
+# 2. cat .env
+spawn ssh -o StrictHostKeyChecking=no $host "cat /opt/one-ui/backend/.env"
+expect "password:"
+send "$password\r"
+expect eof
+
+# 3. backend logs
+spawn ssh -o StrictHostKeyChecking=no $host "docker logs --tail 20 one-ui-backend 2>&1"
+expect "password:"
+send "$password\r"
+expect eof
+
+# 4. xray logs
+spawn ssh -o StrictHostKeyChecking=no $host "docker logs --tail 10 xray-core 2>&1"
+expect "password:"
+send "$password\r"
+expect eof
+
+# 5. check port 9290
+spawn ssh -o StrictHostKeyChecking=no $host "ss -tlnp | grep -E '9290|3000'"
+expect "password:"
+send "$password\r"
+expect eof
+
+puts "\n\nDIAGNOSTIC COMPLETE"

@@ -6,4 +6,4 @@ COPY xray/config.json /etc/xray/config.json
 
 EXPOSE 443 80 10085
 
-CMD ["xray", "-config", "/etc/xray/config.json"]
+CMD ["run", "-config", "/etc/xray/config.json"]

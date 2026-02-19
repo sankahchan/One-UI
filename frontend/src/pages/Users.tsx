@@ -299,9 +299,9 @@ export function Users() {
     if (userSessionsQuery.streamStatus === 'connecting') {
       return userSessionsQuery.reconnectAttempts > 0
         ? t('users.streamStatus.reconnecting', {
-            defaultValue: 'Reconnecting ({{count}})',
-            count: userSessionsQuery.reconnectAttempts
-          })
+          defaultValue: 'Reconnecting ({{count}})',
+          count: userSessionsQuery.reconnectAttempts
+        })
         : t('users.streamStatus.connecting', { defaultValue: 'Connecting' });
     }
     if (userSessionsQuery.streamStatus === 'error') {
@@ -1668,11 +1668,10 @@ export function Users() {
                         key={mode}
                         type="button"
                         onClick={() => setViewMode(mode)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          viewMode === mode
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
                             ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
                             : 'text-muted hover:text-foreground'
-                        }`}
+                          }`}
                       >
                         {mode.toUpperCase()}
                       </button>
@@ -1722,11 +1721,10 @@ export function Users() {
                       key={mode}
                       type="button"
                       onClick={() => setViewMode(mode)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                        viewMode === mode
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
                           ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
                           : 'text-muted hover:text-foreground'
-                      }`}
+                        }`}
                     >
                       {mode.toUpperCase()}
                     </button>
@@ -1997,8 +1995,8 @@ export function Users() {
             }}
             onRevokeKeys={canRevokeUsers
               ? (user) => {
-                  void handleRevokeUserKeys(user);
-                }
+                void handleRevokeUserKeys(user);
+              }
               : undefined}
             onDisconnectSessions={(user) => {
               void handleQuickDisconnectSessions(user);
@@ -2014,8 +2012,8 @@ export function Users() {
             }}
             onDisableUser={canRevokeUsers
               ? (user) => {
-                  void handleQuickDisableUser(user);
-                }
+                void handleQuickDisableUser(user);
+              }
               : undefined}
             onCopySubscription={(user) => {
               void handleCopySubscriptionLink(user);
@@ -2034,8 +2032,8 @@ export function Users() {
             }}
             onDelete={canDeleteUsers
               ? (id) => {
-                  void handleDelete(id);
-                }
+                void handleDelete(id);
+              }
               : undefined}
           />
         )}
@@ -2068,9 +2066,30 @@ export function Users() {
       {showAddModal ? (
         <UserFormModal
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
+          onSuccess={(createdUser) => {
             setShowAddModal(false);
             void refreshUsersAndSessions();
+            if (createdUser?.subscriptionToken) {
+              const link = `${window.location.origin}/sub/${createdUser.subscriptionToken}?target=v2ray`;
+              try {
+                void navigator.clipboard.writeText(link).then(() => {
+                  toast.success(
+                    t('common.success', { defaultValue: 'Success' }),
+                    t('users.toast.userCreatedCopied', {
+                      defaultValue: 'User created. Subscription link copied to clipboard.',
+                    })
+                  );
+                });
+              } catch {
+                toast.success(
+                  t('common.success', { defaultValue: 'Success' }),
+                  t('users.toast.userCreated', {
+                    defaultValue: 'User created successfully.',
+                  })
+                );
+              }
+              setQuickQrUser(createdUser);
+            }
           }}
         />
       ) : null}

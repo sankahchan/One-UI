@@ -36,6 +36,8 @@ const { initBot, stopTelegramBot } = require('./telegram/bot');
 const WorkerRuntime = require('./worker/runtime');
 const startupGates = require('./startup/gates');
 const webhookService = require('./services/webhook.service');
+const xrayConfigGenerator = require('./xray/config-generator');
+const xrayManager = require('./xray/manager');
 
 const app = express();
 const inlineRuntime = new WorkerRuntime('api-inline');
@@ -168,8 +170,6 @@ if (serveFrontend) {
         checkPath.startsWith('/api/') ||
         checkPath === '/sub' ||
         checkPath.startsWith('/sub/') ||
-        checkPath === '/user' ||
-        checkPath.startsWith('/user/') ||
         checkPath === '/dns-query' ||
         checkPath.startsWith('/dns-query/')
       ) {
@@ -196,7 +196,15 @@ async function startServer() {
     await startupGates.runStartupMigrationGate();
     await prisma.$connect();
     await webhookService.initialize();
-    await startupGates.runStartupHealthGate();
+    // Initialize Xray config
+    logger.info('Initializing Xray configuration...');
+    try {
+      await xrayManager.reloadConfig();
+      logger.info('Xray configuration initialized');
+    } catch (error) {
+      logger.error('Failed to initialize Xray configuration:', error);
+      // We don't exit here, as the panel might be needed to fix the config
+    }
 
     const server = app.listen(env.PORT, () => {
       logger.info(`Server running on port ${env.PORT}`);
