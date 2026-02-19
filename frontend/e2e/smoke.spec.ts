@@ -298,7 +298,7 @@ test.describe('One-UI smoke flows', () => {
       await expect(page.getByText(/Session stream:/i)).toBeVisible();
 
       await row.getByLabel('More actions').click();
-      const showQrBtn = page.getByRole('button', { name: 'Show QR' }).first();
+      const showQrBtn = page.getByRole('menuitem', { name: 'Show QR' }).first();
       await showQrBtn.waitFor({ state: 'visible', timeout: 10_000 });
       await showQrBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
@@ -307,7 +307,7 @@ test.describe('One-UI smoke flows', () => {
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeHidden();
 
       await row.getByLabel('More actions').click();
-      const quickEditBtn = page.getByRole('button', { name: 'Quick Edit' }).first();
+      const quickEditBtn = page.getByRole('menuitem', { name: 'Quick Edit' }).first();
       await quickEditBtn.waitFor({ state: 'visible', timeout: 10_000 });
       await quickEditBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick Edit' })).toBeVisible();
@@ -460,7 +460,7 @@ test.describe('One-UI smoke flows', () => {
       const rowAfterBack = page.locator('tbody tr', { hasText: user.email }).first();
       await expect(rowAfterBack).toBeVisible();
       await rowAfterBack.getByLabel('More actions').click();
-      const qrBtn = page.getByRole('button', { name: 'Show QR' }).first();
+      const qrBtn = page.getByRole('menuitem', { name: 'Show QR' }).first();
       await qrBtn.waitFor({ state: 'visible', timeout: 10_000 });
       await qrBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
