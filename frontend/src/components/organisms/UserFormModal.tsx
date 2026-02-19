@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { X } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useInbounds } from '../../hooks/useInbounds';
@@ -17,6 +17,7 @@ interface UserFormModalProps {
 
 interface FormData {
   email: string;
+  name: string;
   dataLimit: number;
   expiryDays: number;
   startOnFirstUse: boolean;
@@ -29,7 +30,9 @@ interface FormData {
 export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) {
   const isEdit = !!user;
   const [submitError, setSubmitError] = useState('');
+  const [identityMode, setIdentityMode] = useState<'name' | 'email'>('name');
   const { t } = useTranslation();
+  const generatedDomain = 'one-ui.local';
 
   const { data: inboundsData } = useInbounds();
   const inbounds: Inbound[] = inboundsData || [];
@@ -41,10 +44,14 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
+    clearErrors,
     formState: { errors }
   } = useForm<FormData>({
     defaultValues: {
       email: '',
+      name: '',
       dataLimit: 50,
       expiryDays: 30,
       startOnFirstUse: false,
@@ -57,6 +64,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
 
   useEffect(() => {
     if (user) {
+      setIdentityMode('email');
       const msPerDay = 1000 * 60 * 60 * 24;
       const isDeferredExpiry = Boolean(user.startOnFirstUse) && !user.firstUsedAt;
       const expiryDaysValue = isDeferredExpiry
@@ -70,6 +78,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
 
       reset({
         email: user.email,
+        name: '',
         dataLimit: Number(user.dataLimit) / 1024 ** 3,
         expiryDays: expiryDaysValue,
         startOnFirstUse: Boolean(user.startOnFirstUse),
@@ -81,8 +90,10 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       return;
     }
 
+    setIdentityMode('name');
     reset({
       email: '',
+      name: '',
       dataLimit: 50,
       expiryDays: 30,
       startOnFirstUse: false,
@@ -93,6 +104,50 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
     });
   }, [user, reset]);
 
+  const buildRandomSlug = () => {
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let value = '';
+    for (let index = 0; index < 8; index += 1) {
+      value += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return value;
+  };
+
+  useEffect(() => {
+    if (isEdit) {
+      return;
+    }
+    setValue('name', buildRandomSlug(), { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+  }, [isEdit, setValue]);
+
+  const normalizeName = (value: string): string =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9._-]/g, '')
+      .replace(/[-._]{2,}/g, '-')
+      .replace(/^[-._]+|[-._]+$/g, '')
+      .slice(0, 32);
+
+  const generateIdentity = () => {
+    const next = buildRandomSlug();
+
+    if (identityMode === 'name') {
+      setValue('name', next, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+      clearErrors('name');
+      return;
+    }
+
+    setValue('email', `${next}@${generatedDomain}`, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    clearErrors('email');
+  };
+
+  const identityName = watch('name');
+  const identityPreviewEmail = normalizeName(identityName)
+    ? `${normalizeName(identityName)}@${generatedDomain}`
+    : '';
+
   const onSubmit = async (data: FormData) => {
     setSubmitError('');
 
@@ -100,8 +155,25 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
       .map((value) => Number.parseInt(String(value), 10))
       .filter((value) => Number.isInteger(value) && value > 0);
 
+    const normalizedName = normalizeName(data.name);
+    const identityEmail =
+      !isEdit && identityMode === 'name'
+        ? normalizedName
+          ? `${normalizedName}@${generatedDomain}`
+          : ''
+        : String(data.email || '').trim();
+
+    if (!identityEmail) {
+      setSubmitError(
+        identityMode === 'name'
+          ? t('users.form.validation.nameRequired', { defaultValue: 'Name is required' })
+          : t('users.form.validation.emailRequired', { defaultValue: 'Email is required' })
+      );
+      return;
+    }
+
     const payload: Record<string, unknown> = {
-      email: data.email,
+      email: identityEmail,
       dataLimit: Number(data.dataLimit),
       expiryDays: Number(data.expiryDays),
       ipLimit: Number(data.ipLimit),
@@ -151,19 +223,123 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
             <div className="rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm text-red-500 dark:text-red-300">{submitError}</div>
           ) : null}
 
-          <Input
-            label={`${t('users.email', { defaultValue: 'Email' })} *`}
-            type="email"
-            {...register('email', {
-              required: t('users.form.validation.emailRequired', { defaultValue: 'Email is required' }),
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: t('users.form.validation.emailInvalid', { defaultValue: 'Invalid email address' })
-              }
-            })}
-            error={errors.email?.message}
-            placeholder="user@example.com"
-          />
+          {!isEdit ? (
+            <div className="space-y-2 rounded-xl border border-line/70 bg-panel/40 p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                {t('users.form.identityMode', { defaultValue: 'Identity input' })}
+              </p>
+              <div className="inline-flex rounded-lg border border-line/70 bg-card/70 p-1">
+                <button
+                  type="button"
+                  onClick={() => setIdentityMode('name')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    identityMode === 'name'
+                      ? 'bg-brand-500 text-white'
+                      : 'text-muted hover:bg-card hover:text-foreground'
+                  }`}
+                >
+                  {t('users.form.useName', { defaultValue: 'Name' })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIdentityMode('email')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    identityMode === 'email'
+                      ? 'bg-brand-500 text-white'
+                      : 'text-muted hover:bg-card hover:text-foreground'
+                  }`}
+                >
+                  {t('users.form.useEmail', { defaultValue: 'Email' })}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {!isEdit && identityMode === 'name' ? (
+            <div className="space-y-1.5">
+              <label className="ml-1 block text-sm font-medium text-muted">
+                {`${t('users.form.nameLabel', { defaultValue: 'Name' })} *`}
+              </label>
+              <div className="relative">
+                <input
+                  className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 pr-24 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app sm:text-base"
+                  placeholder={t('users.form.namePlaceholder', { defaultValue: 'client001' })}
+                  {...register('name', {
+                    validate: (value) => {
+                      if (isEdit || identityMode !== 'name') {
+                        return true;
+                      }
+                      if (!String(value || '').trim()) {
+                        return t('users.form.validation.nameRequired', { defaultValue: 'Name is required' });
+                      }
+                      if (!/^[A-Za-z0-9._\-\s]{3,32}$/.test(String(value || ''))) {
+                        return t('users.form.validation.nameInvalid', {
+                          defaultValue: 'Use 3-32 letters, numbers, dots, dashes, or underscores'
+                        });
+                      }
+                      return true;
+                    }
+                  })}
+                />
+                <button
+                  type="button"
+                  onClick={generateIdentity}
+                  className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg border border-line/70 bg-card/90 px-2.5 py-1 text-xs font-medium text-foreground transition hover:bg-panel"
+                  aria-label={t('users.form.generateName', { defaultValue: 'Generate name' })}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {t('users.form.generate', { defaultValue: 'Generate' })}
+                </button>
+              </div>
+              {errors.name ? <p className="ml-1 text-sm text-red-500 dark:text-red-300">{errors.name.message}</p> : null}
+              <p className="ml-1 text-xs text-muted">
+                {t('users.form.generatedEmailPreview', {
+                  defaultValue: 'Stored email: {{email}}',
+                  email: identityPreviewEmail || `name@${generatedDomain}`
+                })}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="ml-1 block text-sm font-medium text-muted">
+                {`${t('users.email', { defaultValue: 'Email' })} *`}
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 pr-24 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app sm:text-base"
+                  placeholder="user@example.com"
+                  {...register('email', {
+                    validate: (value) => {
+                      if (!isEdit && identityMode !== 'email') {
+                        return true;
+                      }
+                      const normalized = String(value || '').trim();
+                      if (!normalized) {
+                        return t('users.form.validation.emailRequired', { defaultValue: 'Email is required' });
+                      }
+                      if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(normalized)) {
+                        return t('users.form.validation.emailInvalid', { defaultValue: 'Invalid email address' });
+                      }
+                      return true;
+                    }
+                  })}
+                />
+                {!isEdit ? (
+                  <button
+                    type="button"
+                    onClick={generateIdentity}
+                    className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg border border-line/70 bg-card/90 px-2.5 py-1 text-xs font-medium text-foreground transition hover:bg-panel"
+                    aria-label={t('users.form.generateEmail', { defaultValue: 'Generate email' })}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t('users.form.generate', { defaultValue: 'Generate' })}
+                  </button>
+                ) : null}
+              </div>
+              {errors.email ? <p className="ml-1 text-sm text-red-500 dark:text-red-300">{errors.email.message}</p> : null}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
