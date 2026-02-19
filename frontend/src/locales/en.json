@@ -1328,6 +1328,7 @@
         "keyRevoked": "API key revoked successfully"
     },
     "portal": {
+        "language": "Language",
         "linkCopied": "Link copied to clipboard.",
         "copyFailed": "Please copy manually.",
         "devices": "Devices",

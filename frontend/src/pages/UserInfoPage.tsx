@@ -22,6 +22,7 @@ import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
 import { QRCodeDisplay } from '../components/molecules/QRCodeDisplay';
 import { useToast } from '../hooks/useToast';
+import { changeLanguage, languages } from '../i18n';
 import type { SubscriptionLink } from '../types';
 import {
   detectPlatform,
@@ -145,7 +146,7 @@ function sanitizeHexColor(value: string | null | undefined): string | null {
 export const UserInfoPage = () => {
   const { token } = useParams<{ token: string }>();
   const toast = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [platform, setPlatform] = useState<Platform>('android');
   const [activeFormat, setActiveFormat] = useState<FormatTab>('v2ray');
@@ -240,6 +241,12 @@ export const UserInfoPage = () => {
 
   const shareUrl = publicLinks?.data?.shareUrl || '';
   const nodeLinks = publicLinks?.data?.links || [];
+  const activeLanguageCode = useMemo(() => {
+    const normalized = String(i18n.resolvedLanguage || i18n.language || 'en')
+      .toLowerCase()
+      .split('-')[0];
+    return languages.some((entry) => entry.code === normalized) ? normalized : 'en';
+  }, [i18n.language, i18n.resolvedLanguage]);
 
   const availableFormats = useMemo(() => {
     const entries: Array<{ key: FormatTab; label: string }> = [
@@ -454,6 +461,25 @@ export const UserInfoPage = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 rounded-xl border border-line/70 bg-card/70 px-3 py-2 text-sm text-foreground">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                {t('portal.language', { defaultValue: 'Language' })}
+              </span>
+              <select
+                value={activeLanguageCode}
+                onChange={(event) => {
+                  changeLanguage(event.target.value);
+                }}
+                className="rounded-md border border-line/60 bg-panel/70 px-2 py-1 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                aria-label={t('portal.language', { defaultValue: 'Language' })}
+              >
+                {languages.map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.nativeName}
+                  </option>
+                ))}
+              </select>
+            </label>
             {branding?.supportUrl ? (
               <Button
                 variant="secondary"
