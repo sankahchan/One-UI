@@ -348,6 +348,79 @@ export interface UserDeviceSessionResponse {
   devices: UserDeviceSession[];
 }
 
+export interface TelemetrySyncStatus {
+  status: 'healthy' | 'degraded' | 'stale' | 'starting' | 'stopped';
+  running: boolean;
+  transport: string;
+  intervalMs: number;
+  staleThresholdMs: number;
+  lagMs: number | null;
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorMessage: string | null;
+  consecutiveFailures: number;
+  lastUsersScanned: number;
+  lastUsersUpdated: number;
+  lastTrafficBytes: string;
+  lastDurationMs: number;
+  activeUsers: number;
+  activeUserInbounds: number;
+  generatedAt: string;
+  fallbackAutotune?: {
+    enabled: boolean;
+    schedule: string;
+    windowMinutes: number;
+    minKeys: number;
+    lastRunAt: string | null;
+    lastSuccessAt: string | null;
+    lastErrorAt: string | null;
+    lastErrorMessage: string | null;
+    consecutiveFailures: number;
+    lastSummary?: {
+      targetUsers: number;
+      wouldUpdateUsers: number;
+      updatedUsers: number;
+      unchangedUsers: number;
+      totalKeys: number;
+      scoredKeys: number;
+      changedKeys: number;
+    } | null;
+  };
+}
+
+export interface UserDiagnosticCheck {
+  id: string;
+  label: string;
+  status: 'PASS' | 'WARN' | 'FAIL';
+  details: string;
+  recommendedAction?: string | null;
+}
+
+export interface UserDiagnosticsResult {
+  userId: number;
+  email: string;
+  generatedAt: string;
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+    total: number;
+  };
+  context: {
+    userStatus: string;
+    online: boolean;
+    currentIp: string | null;
+    telemetryStatus: string;
+    xrayRunning: boolean;
+    enabledKeys: number;
+    onlineDevices: number;
+    seenDevices: number;
+  };
+  checks: UserDiagnosticCheck[];
+  recommendedActions: string[];
+}
+
 export interface SystemStats {
   users: {
     total: number;

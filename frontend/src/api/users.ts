@@ -7,7 +7,9 @@ import type {
   UserSessionSnapshotResponse,
   UserDeviceSessionResponse,
   UserActivityPayload,
-  UserActivityQueryParams
+  UserActivityQueryParams,
+  TelemetrySyncStatus,
+  UserDiagnosticsResult
 } from '../types';
 
 interface CreateUserData {
@@ -241,8 +243,23 @@ export const usersApi = {
     });
   },
 
+  getTelemetrySyncStatus: async (): Promise<ApiResponse<TelemetrySyncStatus>> => {
+    return apiClient.get('/users/telemetry/sync-status');
+  },
+
+  runFallbackAutotune: async (): Promise<ApiResponse<any>> => {
+    return apiClient.post('/users/telemetry/fallback-autotune/run');
+  },
+
   getUserSession: async (id: number): Promise<ApiResponse<any>> => {
     return apiClient.get(`/users/${id}/session`);
+  },
+
+  runDiagnostics: async (
+    id: number,
+    payload: { windowMinutes?: number; portProbeTimeoutMs?: number } = {}
+  ): Promise<ApiResponse<UserDiagnosticsResult>> => {
+    return apiClient.post(`/users/${id}/diagnostics`, payload);
   },
 
   getUserDevices: async (id: number, windowMinutes = 60): Promise<ApiResponse<UserDeviceSessionResponse>> => {

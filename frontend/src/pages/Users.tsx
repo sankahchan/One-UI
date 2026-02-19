@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Download, MoreVertical, Plus, RefreshCw, Search, Users as UsersIcon } from 'lucide-react';
+import { ChevronDown, Download, MoreVertical, Plus, RefreshCw, Search, Users as UsersIcon, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -31,9 +31,12 @@ import {
   useBulkRotateUserKeys,
   useBulkUpdateStatus,
   useDeleteUser,
+  useRunFallbackAutotune,
+  useRunUserDiagnostics,
   useRegenerateSubscriptionToken,
   useRevokeUserKeys,
   useRotateUserKeys,
+  useTelemetrySyncStatus,
   useUserSessions,
   useUsers
 } from '../hooks/useUsers';
@@ -170,6 +173,12 @@ export function Users() {
   const bulkUpdateStatusMutation = useBulkUpdateStatus();
   const bulkRotateKeysMutation = useBulkRotateUserKeys();
   const bulkRevokeKeysMutation = useBulkRevokeUserKeys();
+  const telemetrySyncQuery = useTelemetrySyncStatus({
+    refetchInterval: 5_000,
+    staleTime: 5_000
+  });
+  const runFallbackAutotuneMutation = useRunFallbackAutotune();
+  const runUserDiagnosticsMutation = useRunUserDiagnostics();
   const bulkMyanmarPriorityMutation = useMutation({
     mutationFn: ({ userIds, dryRun }: { userIds: number[]; dryRun?: boolean }) =>
       usersApi.bulkReorderUserInboundsByPattern({
@@ -231,9 +240,48 @@ export function Users() {
   const quickLimitUpdateMutation = useMutation({
     mutationFn: ({ userId, payload }: { userId: number; payload: { ipLimit?: number; deviceLimit?: number } }) =>
       usersApi.updateUser(userId, payload),
-    onSuccess: async (_result, variables) => {
+    onMutate: async ({ userId, payload }) => {
+      const previousUsersQueries = queryClient.getQueriesData<any>({ queryKey: ['users'] });
+
+      queryClient.setQueriesData({ queryKey: ['users'] }, (current: any) => {
+        if (!current || !Array.isArray(current.data)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          data: current.data.map((entry: User) =>
+            entry.id === userId
+              ? {
+                ...entry,
+                ipLimit: payload.ipLimit ?? entry.ipLimit,
+                deviceLimit: payload.deviceLimit ?? entry.deviceLimit
+              }
+              : entry
+          )
+        };
+      });
+
+      return { previousUsersQueries };
+    },
+    onError: (_error, _variables, context) => {
+      if (!context?.previousUsersQueries) {
+        return;
+      }
+
+      for (const [key, value] of context.previousUsersQueries) {
+        queryClient.setQueryData(key, value);
+      }
+    },
+    onSuccess: async (result, variables) => {
+      if (result?.data?.id) {
+        queryClient.setQueryData(['user', variables.userId], {
+          success: true,
+          data: result.data
+        });
+      }
+
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['users'] }),
         queryClient.invalidateQueries({ queryKey: ['user', variables.userId] }),
         queryClient.invalidateQueries({ queryKey: ['user-devices', variables.userId, 60] })
       ]);
@@ -323,6 +371,34 @@ export function Users() {
       time: parsed.toLocaleTimeString()
     });
   }, [t, userSessionsQuery.lastSnapshotAt]);
+
+  const telemetrySync = telemetrySyncQuery.data?.data;
+  const telemetryHealthLabel = useMemo(() => {
+    const statusValue = telemetrySync?.status || 'stopped';
+    if (statusValue === 'healthy') {
+      return t('users.telemetry.healthy', { defaultValue: 'Healthy' });
+    }
+    if (statusValue === 'degraded') {
+      return t('users.telemetry.degraded', { defaultValue: 'Degraded' });
+    }
+    if (statusValue === 'stale') {
+      return t('users.telemetry.stale', { defaultValue: 'Stale' });
+    }
+    if (statusValue === 'starting') {
+      return t('users.telemetry.starting', { defaultValue: 'Starting' });
+    }
+    return t('users.telemetry.stopped', { defaultValue: 'Stopped' });
+  }, [t, telemetrySync?.status]);
+
+  const telemetryLagLabel = useMemo(() => {
+    if (!telemetrySync || telemetrySync.lagMs === null || telemetrySync.lagMs === undefined) {
+      return t('users.telemetry.noLag', { defaultValue: 'No lag data yet' });
+    }
+    return t('users.telemetry.lag', {
+      defaultValue: 'Lag {{seconds}}s',
+      seconds: Math.max(0, Math.round(telemetrySync.lagMs / 1000))
+    });
+  }, [t, telemetrySync]);
 
   useEffect(() => {
     setPage(1);
@@ -841,11 +917,84 @@ export function Users() {
         userId: user.id,
         payload: updates
       });
-      await refreshUsersAndSessions();
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.limitUpdated', { defaultValue: 'User limits updated.' })
+      );
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('users.toast.limitUpdateFailed', { defaultValue: 'Failed to update user limits' })
+      );
+    }
+  };
+
+  const handleRunDiagnostics = async (user: User) => {
+    try {
+      const result = await runUserDiagnosticsMutation.mutateAsync({
+        id: user.id,
+        payload: {
+          windowMinutes: 60,
+          portProbeTimeoutMs: 1200
+        }
+      });
+
+      const diagnostics = result?.data;
+      if (!diagnostics) {
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('users.toast.diagnosticsEmpty', { defaultValue: 'No diagnostics result returned.' })
+        );
+        return;
+      }
+
+      const summary = diagnostics.summary || { pass: 0, warn: 0, fail: 0 };
+      const summaryText = t('users.toast.diagnosticsSummary', {
+        defaultValue: 'PASS {{pass}} • WARN {{warn}} • FAIL {{fail}}',
+        pass: summary.pass,
+        warn: summary.warn,
+        fail: summary.fail
+      });
+
+      if (summary.fail > 0 || summary.warn > 0) {
+        const topAction = diagnostics.recommendedActions?.[0];
+        toast.warning(
+          t('users.toast.diagnosticsTitle', { defaultValue: 'Diagnostics completed' }),
+          topAction ? `${summaryText} • ${topAction}` : summaryText,
+          12_000
+        );
+      } else {
+        toast.success(
+          t('users.toast.diagnosticsTitle', { defaultValue: 'Diagnostics completed' }),
+          summaryText
+        );
+      }
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.diagnosticsFailed', { defaultValue: 'Failed to run diagnostics' })
+      );
+    }
+  };
+
+  const handleRunFallbackAutotune = async () => {
+    try {
+      const result = await runFallbackAutotuneMutation.mutateAsync();
+      const summary = result?.data?.summary;
+      const updatedUsers = Number(summary?.updatedUsers || 0);
+      const changedKeys = Number(summary?.changedKeys || 0);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('users.toast.autotuneSummary', {
+          defaultValue: 'Smart fallback completed. Updated users: {{users}}, changed keys: {{keys}}.',
+          users: updatedUsers,
+          keys: changedKeys
+        })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.toast.autotuneFailed', { defaultValue: 'Failed to run smart fallback autotune' })
       );
     }
   };
@@ -1525,6 +1674,16 @@ export function Users() {
             <Download className="mr-2 h-4 w-4" />
             {t('common.export', { defaultValue: 'Export CSV' })}
           </Button>
+          <Button
+            variant="secondary"
+            loading={runFallbackAutotuneMutation.isPending}
+            onClick={() => {
+              void handleRunFallbackAutotune();
+            }}
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            {t('users.smartFallbackNow', { defaultValue: 'Smart Fallback Now' })}
+          </Button>
           <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
             <UsersIcon className="mr-2 h-4 w-4" />
             {t('users.bulkProvision', { defaultValue: 'Bulk Provision' })}
@@ -1567,6 +1726,12 @@ export function Users() {
           <p className="mt-0.5 text-[11px] text-muted">
             {streamLastSeenLabel}
             {userSessionsQuery.streamError ? ` • ${userSessionsQuery.streamError}` : ''}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted">
+            {t('users.telemetry.label', { defaultValue: 'Telemetry' })}:{' '}
+            <span className="font-medium text-foreground">{telemetryHealthLabel}</span>
+            {' • '}
+            {telemetryLagLabel}
           </p>
         </Card>
         <Card>
@@ -2020,6 +2185,9 @@ export function Users() {
             }}
             onUpdateLimits={(user, updates) => {
               void handleQuickLimitUpdate(user, updates);
+            }}
+            onRunDiagnostics={(user) => {
+              void handleRunDiagnostics(user);
             }}
             selectedUserIds={selectedUserIds}
             onSelectionChange={setSelectedUserIds}

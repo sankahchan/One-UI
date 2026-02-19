@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const env = require('../config/env');
 const logger = require('../config/logger');
+const net = require('node:net');
 const cryptoService = require('./crypto.service');
 const xrayManager = require('../xray/manager');
 const xrayStatsCollector = require('../xray/stats-collector');
@@ -526,6 +527,62 @@ async function reloadXrayIfEnabled(operation) {
       throw error;
     }
   }
+}
+
+function normalizeDestHostPort(value, fallbackPort = 443) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { host: '', port: fallbackPort };
+  }
+
+  const segments = raw.split(':');
+  if (segments.length === 1) {
+    return { host: segments[0], port: fallbackPort };
+  }
+
+  const portCandidate = Number.parseInt(segments.pop() || '', 10);
+  const host = segments.join(':');
+  return {
+    host,
+    port: Number.isInteger(portCandidate) && portCandidate > 0 ? portCandidate : fallbackPort
+  };
+}
+
+function probeLocalTcpPort(port, timeoutMs = 1200) {
+  return new Promise((resolve) => {
+    const parsedPort = Number.parseInt(String(port || ''), 10);
+    if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      resolve({
+        reachable: false,
+        error: 'invalid-port',
+        durationMs: 0
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const socket = new net.Socket();
+    let settled = false;
+
+    const finalize = (reachable, errorCode = null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      resolve({
+        reachable,
+        error: errorCode,
+        durationMs: Date.now() - startedAt
+      });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finalize(true, null));
+    socket.once('timeout', () => finalize(false, 'timeout'));
+    socket.once('error', (error) => finalize(false, error?.code || error?.message || 'connect-error'));
+    socket.connect(parsedPort, '127.0.0.1');
+  });
 }
 
 class UserService {
@@ -1968,6 +2025,289 @@ class UserService {
     }
 
     return snapshot.sessions[0];
+  }
+
+  async getTelemetrySyncStatus() {
+    const [activeUsers, activeUserInbounds] = await Promise.all([
+      prisma.user.count({
+        where: {
+          status: 'ACTIVE'
+        }
+      }),
+      prisma.userInbound.count({
+        where: {
+          enabled: true,
+          inbound: {
+            enabled: true
+          }
+        }
+      })
+    ]);
+
+    const sync = xrayStatsCollector.getSyncStatus();
+
+    return {
+      ...sync,
+      activeUsers,
+      activeUserInbounds,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  async runUserDiagnostics(id, options = {}) {
+    const userId = parseId(id);
+    const windowMinutes = parseBoundedInt(options.windowMinutes, { min: 5, max: 1440, fallback: 60 });
+    const portProbeTimeoutMs = parseBoundedInt(options.portProbeTimeoutMs, { min: 300, max: 5000, fallback: 1200 });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        inbounds: {
+          include: {
+            inbound: true
+          },
+          orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
+        }
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const checks = [];
+    const recommendedActions = new Set();
+    const pushCheck = (check) => {
+      checks.push(check);
+      if (check.status !== 'PASS' && check.recommendedAction) {
+        recommendedActions.add(check.recommendedAction);
+      }
+    };
+
+    const [xrayStatus, sessionSnapshot, devicesSnapshot] = await Promise.all([
+      xrayManager.getStatus().catch((error) => ({
+        running: false,
+        error: error?.message || 'Failed to query Xray status'
+      })),
+      this.getSessionSnapshots({
+        userIds: [userId],
+        includeOffline: true,
+        limit: 1
+      }).catch(() => ({
+        sessions: []
+      })),
+      this.getUserDevices(userId, { windowMinutes }).catch(() => ({
+        windowMinutes,
+        total: 0,
+        online: 0,
+        devices: []
+      }))
+    ]);
+
+    const telemetry = xrayStatsCollector.getSyncStatus();
+    const session = sessionSnapshot?.sessions?.[0] || null;
+    const assignedInbounds = Array.isArray(user.inbounds) ? user.inbounds : [];
+    const enabledRelations = assignedInbounds.filter((row) => row.enabled && row.inbound?.enabled);
+
+    pushCheck({
+      id: 'xray-runtime',
+      label: 'Xray runtime',
+      status: xrayStatus?.running ? 'PASS' : 'FAIL',
+      details: xrayStatus?.running
+        ? 'Xray process is running.'
+        : `Xray process is not running${xrayStatus?.error ? ` (${xrayStatus.error})` : ''}.`,
+      recommendedAction: xrayStatus?.running
+        ? null
+        : 'Restart Xray runtime from Settings -> Xray Runtime, then verify inbound ports are listening.'
+    });
+
+    const telemetryStatus = String(telemetry.status || 'unknown');
+    pushCheck({
+      id: 'telemetry-sync',
+      label: 'Telemetry sync',
+      status:
+        telemetryStatus === 'healthy'
+          ? 'PASS'
+          : telemetryStatus === 'degraded' || telemetryStatus === 'stale' || telemetryStatus === 'starting'
+            ? 'WARN'
+            : 'FAIL',
+      details: `Collector status is "${telemetryStatus}" (transport: ${telemetry.transport || 'unknown'}).`,
+      recommendedAction:
+        telemetryStatus === 'healthy'
+          ? null
+          : 'Check XRAY_API_URL/XRAY_API_SERVER and run Settings -> Xray Runtime -> Reload Config.'
+    });
+
+    pushCheck({
+      id: 'assigned-keys',
+      label: 'Assigned keys',
+      status: enabledRelations.length > 0 ? 'PASS' : 'FAIL',
+      details:
+        enabledRelations.length > 0
+          ? `${enabledRelations.length} enabled key(s) are assigned to this user.`
+          : 'No enabled keys are assigned to this user.',
+      recommendedAction:
+        enabledRelations.length > 0 ? null : 'Assign at least one enabled inbound to this user.'
+    });
+
+    if (session?.online) {
+      pushCheck({
+        id: 'live-session',
+        label: 'Live session',
+        status: 'PASS',
+        details: `User is online${session.currentIp ? ` from ${session.currentIp}` : ''}.`,
+        recommendedAction: null
+      });
+    } else {
+      pushCheck({
+        id: 'live-session',
+        label: 'Live session',
+        status: 'WARN',
+        details: 'No active session detected for this user right now.',
+        recommendedAction: 'If the user cannot connect, regenerate subscription and re-import profile in the client app.'
+      });
+    }
+
+    const uniquePorts = Array.from(
+      new Set(
+        enabledRelations
+          .map((row) => Number.parseInt(String(row.inbound?.port || ''), 10))
+          .filter((port) => Number.isInteger(port) && port > 0)
+      )
+    );
+
+    const portProbeByPort = new Map();
+    await Promise.all(
+      uniquePorts.map(async (port) => {
+        const result = await probeLocalTcpPort(port, portProbeTimeoutMs);
+        portProbeByPort.set(port, result);
+      })
+    );
+
+    for (const relation of enabledRelations) {
+      const inbound = relation.inbound;
+      if (!inbound) {
+        continue;
+      }
+
+      const protocol = String(inbound.protocol || '').toUpperCase();
+      const network = String(inbound.network || '').toUpperCase();
+      const security = String(inbound.security || '').toUpperCase();
+      const keyLabel = inbound.remark || inbound.tag || `${protocol}:${inbound.port}`;
+      const port = Number.parseInt(String(inbound.port || ''), 10);
+      const portProbe = portProbeByPort.get(port);
+
+      pushCheck({
+        id: `inbound:${inbound.id}:port`,
+        label: `Inbound ${keyLabel} port`,
+        status: portProbe?.reachable ? 'PASS' : 'FAIL',
+        details: portProbe?.reachable
+          ? `Port ${port} is listening locally (${portProbe.durationMs}ms).`
+          : `Port ${port} is not reachable locally${portProbe?.error ? ` (${portProbe.error})` : ''}.`,
+        recommendedAction: portProbe?.reachable
+          ? null
+          : `Ensure inbound "${keyLabel}" is enabled and open TCP ${port} on host firewall/cloud security groups.`
+      });
+
+      if (security === 'REALITY') {
+        const hasRealityKeys = Boolean(inbound.realityPublicKey && inbound.realityPrivateKey);
+        const hasShortIds = Array.isArray(inbound.realityShortIds) && inbound.realityShortIds.length > 0;
+        const hasServerNames = Array.isArray(inbound.realityServerNames) && inbound.realityServerNames.length > 0;
+        const { host: realityDestHost, port: realityDestPort } = normalizeDestHostPort(inbound.realityDest, 443);
+        const hasRealityDest = Boolean(realityDestHost && realityDestPort);
+
+        pushCheck({
+          id: `inbound:${inbound.id}:reality`,
+          label: `Inbound ${keyLabel} REALITY config`,
+          status: hasRealityKeys && hasShortIds && hasServerNames && hasRealityDest ? 'PASS' : 'FAIL',
+          details:
+            hasRealityKeys && hasShortIds && hasServerNames && hasRealityDest
+              ? 'REALITY keys, short IDs, server names, and destination are configured.'
+              : 'REALITY inbound is missing key fields (keys/shortIds/serverNames/destination).',
+          recommendedAction:
+            hasRealityKeys && hasShortIds && hasServerNames && hasRealityDest
+              ? null
+              : `Open inbound "${keyLabel}" and regenerate REALITY keys plus destination/server names.`
+        });
+      }
+
+      if (security === 'TLS' && !String(inbound.serverName || '').trim()) {
+        pushCheck({
+          id: `inbound:${inbound.id}:tls-sni`,
+          label: `Inbound ${keyLabel} TLS SNI`,
+          status: 'WARN',
+          details: 'TLS inbound has empty Server Name (SNI).',
+          recommendedAction: `Set Server Name on inbound "${keyLabel}" to match your certificate/domain.`
+        });
+      }
+
+      if (network === 'WS' && !String(inbound.wsPath || '').trim()) {
+        pushCheck({
+          id: `inbound:${inbound.id}:ws-path`,
+          label: `Inbound ${keyLabel} WebSocket path`,
+          status: 'WARN',
+          details: 'WebSocket inbound has empty path.',
+          recommendedAction: `Set a non-obvious WebSocket path for inbound "${keyLabel}" (for example /api/v1/stream).`
+        });
+      }
+
+      if (protocol === 'TROJAN' && !String(user.password || '').trim()) {
+        pushCheck({
+          id: `inbound:${inbound.id}:trojan-password`,
+          label: `Inbound ${keyLabel} Trojan secret`,
+          status: 'FAIL',
+          details: 'User Trojan password is missing.',
+          recommendedAction: 'Rotate user credentials to regenerate a Trojan password.'
+        });
+      }
+    }
+
+    if (devicesSnapshot?.online > 0) {
+      pushCheck({
+        id: 'device-session',
+        label: 'Device sessions',
+        status: 'PASS',
+        details: `${devicesSnapshot.online} online device(s), ${devicesSnapshot.total} seen in ${windowMinutes}m.`,
+        recommendedAction: null
+      });
+    } else {
+      pushCheck({
+        id: 'device-session',
+        label: 'Device sessions',
+        status: 'WARN',
+        details: `No online devices detected in the last ${windowMinutes} minutes.`,
+        recommendedAction: 'Ask the user to reconnect and verify session/device tracking endpoints.'
+      });
+    }
+
+    const summary = checks.reduce(
+      (acc, check) => {
+        const key = check.status === 'PASS' ? 'pass' : check.status === 'WARN' ? 'warn' : 'fail';
+        acc[key] += 1;
+        acc.total += 1;
+        return acc;
+      },
+      { pass: 0, warn: 0, fail: 0, total: 0 }
+    );
+
+    return {
+      userId: user.id,
+      email: user.email,
+      generatedAt: new Date().toISOString(),
+      summary,
+      context: {
+        userStatus: user.status,
+        online: Boolean(session?.online),
+        currentIp: session?.currentIp || null,
+        telemetryStatus: telemetryStatus,
+        xrayRunning: Boolean(xrayStatus?.running),
+        enabledKeys: enabledRelations.length,
+        onlineDevices: Number(devicesSnapshot?.online || 0),
+        seenDevices: Number(devicesSnapshot?.total || 0)
+      },
+      checks,
+      recommendedActions: Array.from(recommendedActions)
+    };
   }
 
   async rotateUserKeys(id, options = {}) {

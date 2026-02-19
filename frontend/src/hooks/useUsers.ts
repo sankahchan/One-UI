@@ -24,7 +24,8 @@ import type {
   UserDeviceSessionResponse,
   UserActivityPayload,
   UserActivityQueryParams,
-  UserSessionSnapshotResponse
+  UserSessionSnapshotResponse,
+  TelemetrySyncStatus
 } from '../types';
 
 export const useUsers = (params = {}) => {
@@ -289,6 +290,42 @@ export const useUserSessions = (
     lastSnapshotAt,
     reconnectAttempts
   };
+};
+
+export const useTelemetrySyncStatus = (options: { refetchInterval?: number | false; staleTime?: number } = {}) => {
+  return useQuery<ApiResponse<TelemetrySyncStatus>>({
+    queryKey: ['users-telemetry-sync-status'],
+    queryFn: () => usersApi.getTelemetrySyncStatus(),
+    staleTime: options.staleTime ?? 5_000,
+    refetchInterval: options.refetchInterval ?? 5_000
+  });
+};
+
+export const useRunFallbackAutotune = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => usersApi.runFallbackAutotune(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['users-telemetry-sync-status'] });
+    }
+  });
+};
+
+export const useRunUserDiagnostics = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload?: { windowMinutes?: number; portProbeTimeoutMs?: number } }) =>
+      usersApi.runDiagnostics(id, payload || {}),
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['user', variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['users-telemetry-sync-status'] });
+    }
+  });
 };
 
 export const useCreateUser = () => {

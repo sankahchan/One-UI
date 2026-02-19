@@ -4,6 +4,7 @@ const groupService = require('../services/group.service');
 const webhookService = require('../services/webhook.service');
 const subscriptionBrandingService = require('../services/subscriptionBranding.service');
 const { buildProtocolUrl } = require('../subscription/formats/url-builder');
+const fallbackAutotuneJob = require('../jobs/fallback-autotune');
 const QRCode = require('qrcode');
 const ApiResponse = require('../utils/response');
 const { sendSuccess } = require('../utils/response');
@@ -381,6 +382,68 @@ async function getUserStats(req, res, next) {
       statusCode: 200,
       message: 'User statistics retrieved successfully',
       data: stats
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getTelemetrySyncStatus(req, res, next) {
+  try {
+    const status = await userService.getTelemetrySyncStatus();
+    const fallback = fallbackAutotuneJob.getStatus();
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Telemetry sync status retrieved successfully',
+      data: {
+        ...status,
+        fallbackAutotune: fallback
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function runFallbackAutotune(req, res, next) {
+  try {
+    const result = await fallbackAutotuneJob.run();
+
+    webhookService.emitEvent(
+      'user.bulk.key.order.quality.updated',
+      {
+        source: 'fallback-autotune',
+        summary: result?.summary || null,
+        windowMinutes: result?.windowMinutes || null
+      },
+      {
+        actor: buildActorContext(req),
+        request: buildRequestContext(req)
+      }
+    );
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Smart fallback autotune completed successfully',
+      data: result
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function runUserDiagnostics(req, res, next) {
+  try {
+    const diagnostics = await userService.runUserDiagnostics(req.params.id, {
+      windowMinutes: req.body?.windowMinutes,
+      portProbeTimeoutMs: req.body?.portProbeTimeoutMs
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'User diagnostics completed successfully',
+      data: diagnostics
     });
   } catch (error) {
     return next(error);
@@ -1233,6 +1296,8 @@ module.exports = {
   deleteUser,
   getSubscriptionInfo,
   getUserStats,
+  getTelemetrySyncStatus,
+  runFallbackAutotune,
   resetTraffic,
   extendExpiry,
   toggleUserInbound,
@@ -1250,6 +1315,7 @@ module.exports = {
   revokeUserDevice,
   disconnectUserSessions,
   getUserActivity,
+  runUserDiagnostics,
   bulkDelete,
   bulkResetTraffic,
   bulkExtendExpiry,

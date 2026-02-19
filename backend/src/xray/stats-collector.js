@@ -149,6 +149,21 @@ class XrayStatsCollector {
       baseURL: this.apiUrl,
       timeout: 5000
     });
+
+    const intervalMs = Math.max(5, env.TRAFFIC_SYNC_INTERVAL) * 1000;
+    this.syncState = {
+      running: false,
+      intervalMs,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastErrorMessage: null,
+      consecutiveFailures: 0,
+      lastUsersScanned: 0,
+      lastUsersUpdated: 0,
+      lastTrafficBytes: '0',
+      lastDurationMs: 0
+    };
   }
 
   get userStatsTransportOrder() {
@@ -226,6 +241,9 @@ class XrayStatsCollector {
   }
 
   async collectStats() {
+    const startedAt = Date.now();
+    this.syncState.lastRunAt = new Date(startedAt).toISOString();
+
     try {
       const users = await prisma.user.findMany({
         where: {
@@ -260,6 +278,8 @@ class XrayStatsCollector {
       const userStatsFoundById = new Set();
       const usersById = new Map(users.map((user) => [user.id, user]));
       let onlineUsers = 0;
+      let updatedUsers = 0;
+      let totalTrafficDelta = 0n;
 
       for (const user of users) {
         try {
@@ -398,10 +418,24 @@ class XrayStatsCollector {
         });
 
         onlineUsers += 1;
+        updatedUsers += 1;
+        totalTrafficDelta += delta.upload + delta.download;
       }
 
       metrics.setOnlineUsers(onlineUsers);
+      this.syncState.lastSuccessAt = new Date().toISOString();
+      this.syncState.lastErrorAt = null;
+      this.syncState.lastErrorMessage = null;
+      this.syncState.consecutiveFailures = 0;
+      this.syncState.lastUsersScanned = users.length;
+      this.syncState.lastUsersUpdated = updatedUsers;
+      this.syncState.lastTrafficBytes = totalTrafficDelta.toString();
+      this.syncState.lastDurationMs = Date.now() - startedAt;
     } catch (error) {
+      this.syncState.lastErrorAt = new Date().toISOString();
+      this.syncState.lastErrorMessage = error.message || 'Xray stats collection failed';
+      this.syncState.consecutiveFailures += 1;
+      this.syncState.lastDurationMs = Date.now() - startedAt;
       logger.error('Xray stats collection failed', {
         message: error.message,
         stack: error.stack
@@ -484,6 +518,40 @@ class XrayStatsCollector {
     };
   }
 
+  getSyncStatus() {
+    const now = Date.now();
+    const running = Boolean(this.intervalHandle);
+    const intervalMs = Number(this.syncState.intervalMs || Math.max(5, env.TRAFFIC_SYNC_INTERVAL) * 1000);
+    const staleThresholdMs = Math.max(intervalMs * 3, 60_000);
+    const lastSuccessEpoch = this.syncState.lastSuccessAt ? new Date(this.syncState.lastSuccessAt).getTime() : null;
+    const lagMs = Number.isFinite(lastSuccessEpoch) && lastSuccessEpoch
+      ? Math.max(0, now - lastSuccessEpoch)
+      : null;
+
+    let status = 'stopped';
+    if (running) {
+      if (!lastSuccessEpoch) {
+        status = 'starting';
+      } else if ((this.syncState.consecutiveFailures || 0) > 0) {
+        status = 'degraded';
+      } else if (lagMs !== null && lagMs <= staleThresholdMs) {
+        status = 'healthy';
+      } else {
+        status = 'stale';
+      }
+    }
+
+    return {
+      status,
+      running,
+      transport: this.transportPreference || 'unknown',
+      intervalMs,
+      staleThresholdMs,
+      lagMs,
+      ...this.syncState
+    };
+  }
+
   async resetUserStats(userStatKey) {
     try {
       await Promise.all([
@@ -510,6 +578,8 @@ class XrayStatsCollector {
     }
 
     const intervalMs = Math.max(5, env.TRAFFIC_SYNC_INTERVAL) * 1000;
+    this.syncState.running = true;
+    this.syncState.intervalMs = intervalMs;
 
     this.intervalHandle = setInterval(() => {
       void this.collectStats();
@@ -530,6 +600,7 @@ class XrayStatsCollector {
 
     clearInterval(this.intervalHandle);
     this.intervalHandle = null;
+    this.syncState.running = false;
     logger.info('Traffic collection stopped');
   }
 }

@@ -12,6 +12,7 @@ PROJECT_NAME="One-UI"
 # Runtime configuration (defaults can be overridden by env/flags)
 NON_INTERACTIVE="${ONEUI_NON_INTERACTIVE:-${XRAY_PANEL_NON_INTERACTIVE:-false}}"
 SKIP_SSL="${ONEUI_SKIP_SSL:-${XRAY_PANEL_SKIP_SSL:-false}}"
+REPAIR_MODE="${ONEUI_REPAIR:-${XRAY_PANEL_REPAIR:-false}}"
 
 PANEL_PORT="${ONEUI_PORT:-${XRAY_PANEL_PORT:-3000}}"
 DB_PORT="${ONEUI_DB_PORT:-${XRAY_PANEL_DB_PORT:-5432}}"
@@ -143,6 +144,7 @@ Options:
   --cf-account-id <id>        Cloudflare account id (optional, for token-based DNS)
   --cf-zone-id <id>           Cloudflare zone id (optional)
   --skip-ssl                  Skip SSL issuance even if domain is set
+  --repair                    Repair existing install (restart stack + migrations + health checks)
   --repo <git-url>            Override repository URL (XRAY_PANEL_REPO)
   -h, --help                  Show help
 
@@ -161,6 +163,7 @@ Environment equivalents (recommended ONEUI_*; XRAY_PANEL_* still supported):
   ONEUI_CF_ACCOUNT_ID=cloudflare_account_id
   ONEUI_CF_ZONE_ID=cloudflare_zone_id
   ONEUI_SKIP_SSL=true
+  ONEUI_REPAIR=true
   ONEUI_INSTALL_DIR=/opt/one-ui
   ONEUI_DATA_DIR=/var/lib/one-ui
   ONEUI_BACKUP_DIR=/var/backups/one-ui
@@ -179,6 +182,9 @@ parse_cli() {
         ;;
       --skip-ssl)
         SKIP_SSL="true"
+        ;;
+      --repair)
+        REPAIR_MODE="true"
         ;;
       --port)
         [ "$#" -ge 2 ] || fail "Missing value for --port"
@@ -575,6 +581,10 @@ JOBS_ENABLED=true
 TRAFFIC_MONITOR_CRON=*/10 * * * *
 EXPIRY_CHECK_CRON=0 * * * *
 SSL_RENEW_CRON=0 3 * * *
+SMART_FALLBACK_ENABLED=true
+SMART_FALLBACK_CRON=*/15 * * * *
+SMART_FALLBACK_WINDOW_MINUTES=60
+SMART_FALLBACK_MIN_KEYS=2
 
 # Startup gates (avoid hard failures when XRAY API is temporarily unavailable during boot)
 STARTUP_HEALTH_GATE_STRICT=false
@@ -745,6 +755,76 @@ wait_for_backend() {
   done
 
   warn "Backend health endpoint not ready yet. Continuing."
+}
+
+load_existing_runtime_config() {
+  local env_file="${INSTALL_DIR}/backend/.env"
+  if [ ! -f "${env_file}" ]; then
+    return
+  fi
+
+  local file_port
+  file_port="$(grep -E '^PORT=' "${env_file}" | head -n 1 | cut -d '=' -f2- || true)"
+  if [[ "${file_port}" =~ ^[0-9]+$ ]]; then
+    PANEL_PORT="${file_port}"
+  fi
+
+  local file_domain
+  file_domain="$(grep -E '^SSL_DOMAIN=' "${env_file}" | head -n 1 | cut -d '=' -f2- || true)"
+  if [ -n "${file_domain}" ]; then
+    DOMAIN="${file_domain}"
+  fi
+}
+
+run_post_install_checks() {
+  info "Running post-install self-checks..."
+  local failures=0
+
+  if compose ps >/tmp/one-ui-compose-ps.txt 2>/tmp/one-ui-compose-ps.err; then
+    if grep -Eq "(one-ui-backend|one-ui-db|xray-core)" /tmp/one-ui-compose-ps.txt; then
+      ok "Compose services detected."
+    else
+      warn "Compose services not found in ps output."
+      failures=$((failures + 1))
+    fi
+  else
+    warn "Unable to read compose status: $(cat /tmp/one-ui-compose-ps.err 2>/dev/null || true)"
+    failures=$((failures + 1))
+  fi
+
+  if curl -fsS "http://127.0.0.1:${PANEL_PORT}/api/system/health" >/tmp/one-ui-health.json 2>/tmp/one-ui-health.err; then
+    ok "Backend health endpoint is reachable."
+  else
+    warn "Backend health endpoint failed on :${PANEL_PORT}."
+    failures=$((failures + 1))
+  fi
+
+  if [ -n "${ADMIN_USER}" ] && [ -n "${ADMIN_PASS}" ]; then
+    if curl -fsS -X POST "http://127.0.0.1:${PANEL_PORT}/api/auth/login" \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}" \
+      >/tmp/one-ui-auth.json 2>/tmp/one-ui-auth.err; then
+      if grep -q '"token"' /tmp/one-ui-auth.json; then
+        ok "Admin authentication check passed."
+      else
+        warn "Admin login responded without token."
+        failures=$((failures + 1))
+      fi
+    else
+      warn "Admin authentication check failed."
+      failures=$((failures + 1))
+    fi
+  else
+    warn "Skipping admin auth self-check (admin credentials not provided)."
+  fi
+
+  rm -f /tmp/one-ui-compose-ps.txt /tmp/one-ui-compose-ps.err /tmp/one-ui-health.json /tmp/one-ui-health.err /tmp/one-ui-auth.json /tmp/one-ui-auth.err || true
+
+  if [ "${failures}" -gt 0 ]; then
+    warn "Self-check finished with ${failures} issue(s). Run: sudo one-ui logs backend"
+  else
+    ok "Self-check passed."
+  fi
 }
 
 run_migrations() {
@@ -947,6 +1027,32 @@ EOF
   ok "CLI wrapper installed: ${bin_path}"
 }
 
+repair_existing_install() {
+  print_banner
+  ensure_root
+  ensure_supported_os
+  install_dependencies
+
+  if [ ! -d "${INSTALL_DIR}" ]; then
+    fail "Repair mode failed: install dir not found (${INSTALL_DIR})."
+  fi
+  if [ ! -f "${INSTALL_DIR}/docker-compose.yml" ]; then
+    fail "Repair mode failed: docker-compose.yml not found in ${INSTALL_DIR}."
+  fi
+
+  load_existing_runtime_config
+  cd "${INSTALL_DIR}"
+
+  info "Repair mode: rebuilding and restarting services..."
+  compose up -d --build
+
+  wait_for_backend
+  run_migrations || warn "Migration step failed during repair. You can retry with: cd ${INSTALL_DIR} && $(command -v docker-compose >/dev/null 2>&1 && echo 'docker-compose' || echo 'docker compose') exec -T backend npx prisma migrate deploy"
+  install_cli_wrapper
+  run_post_install_checks
+  print_summary
+}
+
 print_summary() {
   local panel_url
   if [ -n "${DOMAIN}" ]; then
@@ -965,8 +1071,14 @@ print_summary() {
   echo
   echo -e "${YELLOW}Access Information:${NC}"
   echo "Panel URL: ${panel_url}"
-  echo "Username: ${ADMIN_USER}"
-  echo "Password: ${ADMIN_PASS}"
+  if [ -n "${ADMIN_USER}" ]; then
+    echo "Username: ${ADMIN_USER}"
+  fi
+  if [ -n "${ADMIN_PASS}" ]; then
+    echo "Password: ${ADMIN_PASS}"
+  else
+    echo "Password: (unchanged / hidden)"
+  fi
   echo
   echo -e "${YELLOW}Important:${NC}"
   echo "- Save your credentials in a secure location."
@@ -992,6 +1104,12 @@ print_summary() {
 
 main() {
   parse_cli "$@"
+
+  if is_truthy "${REPAIR_MODE}"; then
+    repair_existing_install
+    return
+  fi
+
   if is_truthy "${NON_INTERACTIVE}"; then
     # Fail fast before privileged install steps.
     load_admin_password_from_file
@@ -1025,6 +1143,7 @@ main() {
   setup_ssl_if_requested
   configure_firewall
   install_cli_wrapper
+  run_post_install_checks
   print_summary
 }
 

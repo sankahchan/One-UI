@@ -39,6 +39,8 @@ import {
   useDeleteUser,
   useResetTraffic,
   useReorderUserInbounds,
+  useRunUserDiagnostics,
+  useTelemetrySyncStatus,
   useRevokeUserDevice,
   useToggleUserInbound,
   useUpdateUserInboundPriority,
@@ -47,7 +49,7 @@ import {
   useUserSessions
 } from '../hooks/useUsers';
 import { usersApi, type UserInboundPatternPreviewEntry, type UserInboundQualityPreviewEntry } from '../api/users';
-import type { Inbound, UserInbound } from '../types';
+import type { Inbound, UserDiagnosticsResult, UserInbound } from '../types';
 import { formatBytes, formatDate } from '../utils/formatters';
 
 const TrafficChart = React.lazy(() =>
@@ -192,6 +194,7 @@ export const UserDetail: React.FC = () => {
     newTop3: UserInboundQualityPreviewEntry[];
     previewLines: string[];
   } | null>(null);
+  const [diagnosticsResult, setDiagnosticsResult] = useState<UserDiagnosticsResult | null>(null);
 
   const userId = Number.parseInt(id || '', 10);
   const { data, isLoading, refetch } = useUser(userId);
@@ -207,6 +210,11 @@ export const UserDetail: React.FC = () => {
   const toggleUserInbound = useToggleUserInbound();
   const updateInboundPriority = useUpdateUserInboundPriority();
   const reorderUserInbounds = useReorderUserInbounds();
+  const runUserDiagnosticsMutation = useRunUserDiagnostics();
+  const telemetrySyncQuery = useTelemetrySyncStatus({
+    refetchInterval: refreshInterval === 0 ? false : refreshInterval,
+    staleTime: 5_000
+  });
   const userSessionQuery = useUserSessions(
     Number.isInteger(userId) && userId > 0 ? [userId] : [],
     {
@@ -227,6 +235,10 @@ export const UserDetail: React.FC = () => {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    setDiagnosticsResult(null);
+  }, [userId]);
 
   const user = data?.data ?? null;
   const session = useMemo(
@@ -406,6 +418,33 @@ export const UserDetail: React.FC = () => {
     return filtered;
   }, [accessKeyFilter, accessKeyRows, sortDirection, sortField]);
   const isDragReorderEnabled = accessKeyFilter === 'all' && sortField === 'priority' && sortDirection === 'asc';
+  const telemetrySync = telemetrySyncQuery.data?.data;
+  const telemetryStatusLabel = useMemo(() => {
+    const statusValue = telemetrySync?.status || 'stopped';
+    if (statusValue === 'healthy') {
+      return t('users.telemetry.healthy', { defaultValue: 'Healthy' });
+    }
+    if (statusValue === 'degraded') {
+      return t('users.telemetry.degraded', { defaultValue: 'Degraded' });
+    }
+    if (statusValue === 'stale') {
+      return t('users.telemetry.stale', { defaultValue: 'Stale' });
+    }
+    if (statusValue === 'starting') {
+      return t('users.telemetry.starting', { defaultValue: 'Starting' });
+    }
+    return t('users.telemetry.stopped', { defaultValue: 'Stopped' });
+  }, [t, telemetrySync?.status]);
+
+  const telemetryLagLabel = useMemo(() => {
+    if (!telemetrySync || telemetrySync.lagMs === null || telemetrySync.lagMs === undefined) {
+      return t('users.telemetry.noLag', { defaultValue: 'No lag data yet' });
+    }
+    return t('users.telemetry.lag', {
+      defaultValue: 'Lag {{seconds}}s',
+      seconds: Math.max(0, Math.round(telemetrySync.lagMs / 1000))
+    });
+  }, [t, telemetrySync]);
 
   if (isLoading) {
     return (
@@ -540,6 +579,49 @@ export const UserDetail: React.FC = () => {
 
   const handleDelete = () => {
     setPendingConfirm({ type: 'delete-user' });
+  };
+
+  const handleRunDiagnostics = async () => {
+    try {
+      const result = await runUserDiagnosticsMutation.mutateAsync({
+        id: user.id,
+        payload: {
+          windowMinutes: 60,
+          portProbeTimeoutMs: 1200
+        }
+      });
+
+      if (!result?.data) {
+        throw new Error(t('users.detail.diagnostics.empty', { defaultValue: 'Diagnostics returned no data.' }));
+      }
+
+      setDiagnosticsResult(result.data);
+
+      const summary = result.data.summary || { pass: 0, warn: 0, fail: 0 };
+      const message = t('users.detail.diagnostics.summary', {
+        defaultValue: 'PASS {{pass}} • WARN {{warn}} • FAIL {{fail}}',
+        pass: summary.pass,
+        warn: summary.warn,
+        fail: summary.fail
+      });
+
+      if (summary.fail > 0 || summary.warn > 0) {
+        toast.warning(
+          t('users.detail.diagnostics.title', { defaultValue: 'Diagnostics completed' }),
+          message
+        );
+      } else {
+        toast.success(
+          t('users.detail.diagnostics.title', { defaultValue: 'Diagnostics completed' }),
+          message
+        );
+      }
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('users.detail.diagnostics.failed', { defaultValue: 'Failed to run diagnostics' })
+      );
+    }
   };
 
   const copyToClipboard = async (field: string, text: string) => {
@@ -1162,6 +1244,16 @@ export const UserDetail: React.FC = () => {
             <Edit className="mr-2 h-4 w-4" />
             {t('common.edit', { defaultValue: 'Edit' })}
           </Button>
+          <Button
+            variant="secondary"
+            loading={runUserDiagnosticsMutation.isPending}
+            onClick={() => {
+              void handleRunDiagnostics();
+            }}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {t('users.detail.runDiagnostics', { defaultValue: 'Run Diagnostics' })}
+          </Button>
           {renderUserHeaderActionMenu()}
         </div>
       </div>
@@ -1228,6 +1320,103 @@ export const UserDetail: React.FC = () => {
           )}
         </Card>
       </div>
+
+      <Card>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              {t('users.detail.diagnostics.panelTitle', { defaultValue: 'Connection diagnostics' })}
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {t('users.detail.diagnostics.panelSubtitle', {
+                defaultValue: 'Run health checks for runtime, key config, port reachability, and live sessions.'
+              })}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={runUserDiagnosticsMutation.isPending}
+            onClick={() => {
+              void handleRunDiagnostics();
+            }}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {t('users.detail.runDiagnostics', { defaultValue: 'Run Diagnostics' })}
+          </Button>
+        </div>
+
+        <div className="mb-4 rounded-xl border border-line/70 bg-panel/55 p-3 text-xs text-muted">
+          <p>
+            {t('users.telemetry.label', { defaultValue: 'Telemetry' })}:{' '}
+            <span className="font-medium text-foreground">{telemetryStatusLabel}</span>
+            {' • '}
+            {telemetryLagLabel}
+          </p>
+          {telemetrySync?.lastErrorMessage ? (
+            <p className="mt-1 text-rose-300">
+              {t('users.telemetry.lastError', { defaultValue: 'Last error: {{message}}', message: telemetrySync.lastErrorMessage })}
+            </p>
+          ) : null}
+        </div>
+
+        {!diagnosticsResult ? (
+          <div className="rounded-xl border border-line/70 bg-panel/45 p-4 text-sm text-muted">
+            {t('users.detail.diagnostics.empty', {
+              defaultValue: 'No diagnostics report yet. Click "Run Diagnostics" to generate one.'
+            })}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-line/70 bg-card/70 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{t('common.pass', { defaultValue: 'Pass' })}</p>
+                <p className="mt-1 text-lg font-semibold text-emerald-400">{diagnosticsResult.summary.pass}</p>
+              </div>
+              <div className="rounded-lg border border-line/70 bg-card/70 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{t('common.warning', { defaultValue: 'Warning' })}</p>
+                <p className="mt-1 text-lg font-semibold text-amber-300">{diagnosticsResult.summary.warn}</p>
+              </div>
+              <div className="rounded-lg border border-line/70 bg-card/70 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{t('common.fail', { defaultValue: 'Fail' })}</p>
+                <p className="mt-1 text-lg font-semibold text-rose-400">{diagnosticsResult.summary.fail}</p>
+              </div>
+              <div className="rounded-lg border border-line/70 bg-card/70 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{t('common.total', { defaultValue: 'Total' })}</p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{diagnosticsResult.summary.total}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {(diagnosticsResult.checks || []).map((check) => (
+                <div
+                  key={check.id}
+                  className="rounded-xl border border-line/70 bg-panel/45 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{check.label}</p>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        check.status === 'PASS'
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : check.status === 'WARN'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-rose-500/20 text-rose-300'
+                      }`}
+                    >
+                      {check.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{check.details}</p>
+                  {check.recommendedAction ? (
+                    <p className="mt-1 text-xs text-amber-300">{check.recommendedAction}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card>
         <h2 className="mb-4 text-xl font-bold text-foreground">

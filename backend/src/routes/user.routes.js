@@ -17,6 +17,8 @@ router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 
 // Static routes MUST come before parameterized routes
 router.get('/stats', userController.getUserStats);
+router.get('/telemetry/sync-status', userController.getTelemetrySyncStatus);
+router.post('/telemetry/fallback-autotune/run', userController.runFallbackAutotune);
 router.get(
   '/sessions/stream',
   [
@@ -136,6 +138,24 @@ router.get(
   ],
   validator,
   userController.getUserDevices
+);
+router.post(
+  '/:id/diagnostics',
+  [
+    ...idParamValidator,
+    body('windowMinutes')
+      .optional()
+      .isInt({ min: 5, max: 1440 })
+      .withMessage('windowMinutes must be between 5 and 1440')
+      .toInt(),
+    body('portProbeTimeoutMs')
+      .optional()
+      .isInt({ min: 300, max: 5000 })
+      .withMessage('portProbeTimeoutMs must be between 300 and 5000')
+      .toInt()
+  ],
+  validator,
+  userController.runUserDiagnostics
 );
 router.delete(
   '/:id/devices/:fingerprint',

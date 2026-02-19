@@ -4,6 +4,7 @@ const logger = require('../config/logger');
 const expiryChecker = require('../jobs/expiry-checker');
 const trafficMonitor = require('../jobs/traffic-monitor');
 const certificateMonitor = require('../jobs/certificate-monitor');
+const fallbackAutotuneJob = require('../jobs/fallback-autotune');
 const groupPolicyScheduler = require('../jobs/group-policy-scheduler');
 const statsCollector = require('../xray/stats-collector');
 const systemMonitor = require('../system/monitor');
@@ -30,6 +31,12 @@ class WorkerRuntime {
       const trafficTask = trafficMonitor.start(env.TRAFFIC_MONITOR_CRON);
       const certTask = certificateMonitor.start(env.SSL_RENEW_CRON);
       this.scheduledTasks.push(expiryTask, trafficTask, certTask);
+      if (env.SMART_FALLBACK_ENABLED) {
+        const fallbackTask = fallbackAutotuneJob.start(env.SMART_FALLBACK_CRON);
+        this.scheduledTasks.push(fallbackTask);
+      } else {
+        logger.info('Smart fallback autotune disabled by SMART_FALLBACK_ENABLED=false', { runtime: this.name });
+      }
       await groupPolicyScheduler.start();
       logger.info('Scheduled jobs started', { runtime: this.name });
     } else {

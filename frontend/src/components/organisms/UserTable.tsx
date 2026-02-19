@@ -120,6 +120,7 @@ interface UserTableProps {
   onDelete?: (userId: number) => void;
   onQuickQr?: (user: User) => void;
   onQuickEdit?: (user: User) => void;
+  onRunDiagnostics?: (user: User) => void;
   onRotateKeys?: (user: User) => void;
   onRevokeKeys?: (user: User) => void;
   onDisconnectSessions?: (user: User) => void;
@@ -143,6 +144,7 @@ export const UserTable: FC<UserTableProps> = ({
   onDelete,
   onQuickQr,
   onQuickEdit,
+  onRunDiagnostics,
   onRotateKeys,
   onRevokeKeys,
   onDisconnectSessions,
@@ -305,6 +307,7 @@ export const UserTable: FC<UserTableProps> = ({
 
     if (onQuickQr) items.push({ key: 'qr', label: t('users.actions.showQr', { defaultValue: 'Show QR' }), onClick: () => onQuickQr(user) });
     if (onQuickEdit) items.push({ key: 'edit', label: t('users.actions.quickEdit', { defaultValue: 'Quick Edit' }), onClick: () => onQuickEdit(user) });
+    if (onRunDiagnostics) items.push({ key: 'diagnostics', label: t('users.actions.runDiagnostics', { defaultValue: 'Run diagnostics' }), onClick: () => onRunDiagnostics(user) });
     if (!onQuickEdit && onUpdateLimits) {
       items.push({
         key: 'limits',
