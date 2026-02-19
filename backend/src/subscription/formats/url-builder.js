@@ -147,7 +147,7 @@ class URLBuilder {
     return `trojan://${user.password}@${inbound.serverAddress}:${inbound.port}?${params.toString()}#${remark}`;
   }
 
-  // Shadowsocks URL: ss://base64(cipher:password)@host:port#remark
+  // Shadowsocks URL: ss://base64(method:password)@host:port#remark
   static buildShadowsocksURL(user, inbound) {
     const cipher = inbound.cipher || 'chacha20-ietf-poly1305';
     const userInfo = `${cipher}:${user.password}`;

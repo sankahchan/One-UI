@@ -7,6 +7,7 @@ const { buildProtocolUrl } = require('../subscription/formats/url-builder');
 const QRCode = require('qrcode');
 const ApiResponse = require('../utils/response');
 const { sendSuccess } = require('../utils/response');
+const { scheduleXrayReload } = require('../utils/xrayReloadQueue');
 
 
 function buildActorContext(req) {
@@ -198,6 +199,7 @@ async function createUser(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.created');
     return response;
   } catch (error) {
     return next(error);
@@ -243,6 +245,7 @@ async function updateUser(req, res, next) {
       );
     }
 
+    scheduleXrayReload('user.updated');
     return response;
   } catch (error) {
     return next(error);
@@ -270,6 +273,7 @@ async function deleteUser(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.deleted');
     return response;
   } catch (error) {
     return next(error);
@@ -467,6 +471,7 @@ async function toggleUserInbound(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.key.toggled');
     return response;
   } catch (error) {
     return next(error);
@@ -701,6 +706,7 @@ async function rotateUserKeys(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.keys.rotated');
     return response;
   } catch (error) {
     return next(error);
@@ -730,6 +736,7 @@ async function revokeUserKeys(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.keys.revoked');
     return response;
   } catch (error) {
     return next(error);
@@ -923,6 +930,7 @@ async function bulkDelete(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.deleted');
     return response;
   } catch (error) {
     return next(error);
@@ -952,6 +960,7 @@ async function bulkCreate(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.created');
     return response;
   } catch (error) {
     return next(error);
@@ -1038,6 +1047,7 @@ async function bulkUpdateStatus(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.status.updated');
     return response;
   } catch (error) {
     return next(error);
@@ -1069,6 +1079,7 @@ async function bulkAssignInbounds(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.inbounds.assigned');
     return response;
   } catch (error) {
     return next(error);
@@ -1098,6 +1109,7 @@ async function bulkRotateUserKeys(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.keys.rotated');
     return response;
   } catch (error) {
     return next(error);
@@ -1127,6 +1139,7 @@ async function bulkRevokeUserKeys(req, res, next) {
       }
     );
 
+    scheduleXrayReload('user.bulk.keys.revoked');
     return response;
   } catch (error) {
     return next(error);

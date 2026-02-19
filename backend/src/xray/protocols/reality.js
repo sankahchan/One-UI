@@ -22,13 +22,9 @@ class RealityProtocol {
         };
 
         if (inbound.wsHost) {
-            const hosts = String(inbound.wsHost)
-                .split(',')
-                .map((entry) => entry.trim())
-                .filter(Boolean);
-
-            if (hosts.length > 0) {
-                settings.host = hosts;
+            const host = String(inbound.wsHost).split(',')[0].trim();
+            if (host) {
+                settings.host = host;
             }
         }
 
@@ -64,7 +60,7 @@ class RealityProtocol {
             dest: inbound.realityDest || `${inbound.serverName || 'www.microsoft.com'}:443`,
             xver: 0,
             serverNames: this.getServerNames(inbound),
-            privateKey: inbound.realityPrivateKey || '',
+            privateKey: (inbound.realityPrivateKey || '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
             shortIds: this.getPrimaryShortId(inbound) ? [this.getPrimaryShortId(inbound)] : [''],
             fingerprint: inbound.realityFingerprint || 'chrome'
         };

@@ -202,9 +202,13 @@ async function deleteUser(request: APIRequestContext, token: string, userId: num
     return;
   }
 
-  await request.delete(`${API_BASE_URL}/users/${userId}`, {
-    headers: authHeaders(token)
-  });
+  try {
+    await request.delete(`${API_BASE_URL}/users/${userId}`, {
+      headers: authHeaders(token)
+    });
+  } catch {
+    // context may already be closed during teardown
+  }
 }
 
 async function deleteInbound(request: APIRequestContext, token: string, inboundId: number | undefined) {
@@ -212,9 +216,13 @@ async function deleteInbound(request: APIRequestContext, token: string, inboundI
     return;
   }
 
-  await request.delete(`${API_BASE_URL}/inbounds/${inboundId}`, {
-    headers: authHeaders(token)
-  });
+  try {
+    await request.delete(`${API_BASE_URL}/inbounds/${inboundId}`, {
+      headers: authHeaders(token)
+    });
+  } catch {
+    // context may already be closed during teardown
+  }
 }
 
 async function loginUi(page: Page, session: AdminAuthSession) {
@@ -290,14 +298,18 @@ test.describe('One-UI smoke flows', () => {
       await expect(page.getByText(/Session stream:/i)).toBeVisible();
 
       await row.getByLabel('More actions').click();
-      await row.getByRole('button', { name: 'Show QR' }).click();
+      const showQrBtn = page.getByRole('menuitem', { name: 'Show QR' }).first();
+      await showQrBtn.waitFor({ state: 'visible', timeout: 10_000 });
+      await showQrBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
       await expect(page.getByText('/sub/')).toBeVisible();
       await page.locator('button[aria-label="Close"]').first().click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeHidden();
 
       await row.getByLabel('More actions').click();
-      await row.getByRole('button', { name: 'Quick Edit' }).click();
+      const quickEditBtn = page.getByRole('menuitem', { name: 'Quick Edit' }).first();
+      await quickEditBtn.waitFor({ state: 'visible', timeout: 10_000 });
+      await quickEditBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick Edit' })).toBeVisible();
 
       const date = new Date();
@@ -446,8 +458,11 @@ test.describe('One-UI smoke flows', () => {
       await page.getByRole('button', { name: 'Refresh' }).click();
 
       const rowAfterBack = page.locator('tbody tr', { hasText: user.email }).first();
+      await expect(rowAfterBack).toBeVisible();
       await rowAfterBack.getByLabel('More actions').click();
-      await page.getByRole('button', { name: 'Show QR' }).first().click();
+      const qrBtn = page.getByRole('menuitem', { name: 'Show QR' }).first();
+      await qrBtn.waitFor({ state: 'visible', timeout: 10_000 });
+      await qrBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
     } finally {
       await deleteUser(request, adminSession.token, user.id);

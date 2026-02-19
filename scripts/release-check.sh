@@ -56,6 +56,10 @@ while [[ $# -gt 0 ]]; do
       PREFLIGHT_RESET=true
       shift
       ;;
+    --allow-empty-backups)
+      export ROLLBACK_REQUIRE_BACKUPS=false
+      shift
+      ;;
     -h|--help)
       usage
       exit 0

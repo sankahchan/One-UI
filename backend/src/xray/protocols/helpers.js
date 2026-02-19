@@ -79,7 +79,7 @@ function buildNetworkSettings(inbound) {
         xhttpSettings: {
           path: inbound.wsPath || '/',
           host: inbound.wsHost
-            ? inbound.wsHost.split(',').map((value) => value.trim()).filter(Boolean)
+            ? String(inbound.wsHost).split(',')[0].trim() || undefined
             : undefined,
           mode: inbound.xhttpMode || undefined
         }
