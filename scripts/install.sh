@@ -957,6 +957,7 @@ Commands:
   restart            Restart containers
   logs [service]     Tail logs (optionally for a service)
   update             git pull + rebuild + restart
+  self-heal          Repair runtime env drift and restart backend
 
 Examples:
   sudo one-ui status
@@ -1015,6 +1016,9 @@ case "\${cmd}" in
   update)
     git pull || true
     exec "\${COMPOSE[@]}" up -d --build
+    ;;
+  self-heal)
+    exec ./scripts/menu.sh self-heal
     ;;
   *)
     # Forward unknown commands to docker compose (e.g. "exec", "pull")
@@ -1095,6 +1099,7 @@ print_summary() {
   echo "- CLI menu: sudo one-ui menu"
   echo "- CLI status: sudo one-ui status"
   echo "- CLI logs: sudo one-ui logs backend"
+  echo "- Runtime fix: sudo one-ui self-heal"
   echo "- Run core smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-core-api.sh"
   echo "- Run Myanmar smoke: cd \"${INSTALL_DIR}\" && ./scripts/smoke-myanmar-hardening.sh"
   echo "- Run smoke suite from menu: cd \"${INSTALL_DIR}\" && ./scripts/menu.sh (option 7)"

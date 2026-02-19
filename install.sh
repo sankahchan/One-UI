@@ -1285,6 +1285,7 @@ print_summary() {
   echo "- CLI info:   sudo one-ui info"
   echo "- CLI status: sudo one-ui status"
   echo "- CLI logs:   sudo one-ui logs backend"
+  echo "- Runtime fix: sudo one-ui self-heal"
   echo "- View logs: cd \"${INSTALL_DIR}\" && docker compose logs -f"
   echo "- Restart:   cd \"${INSTALL_DIR}\" && docker compose restart"
   echo "- Stop:      cd \"${INSTALL_DIR}\" && docker compose down"

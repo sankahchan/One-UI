@@ -4313,6 +4313,139 @@ health_check() {
 }
 
 # ============================================
+# 35. Runtime Self-Heal
+# ============================================
+
+runtime_self_heal() {
+  echo ""
+  echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║              Xray Runtime Self-Heal                          ║${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+
+  local env_file="$ROOT_DIR/backend/.env"
+  if [ ! -f "$env_file" ]; then
+    echo -e "${RED}[✗]${NC} Missing backend env file: $env_file"
+    return 1
+  fi
+
+  local expected_update_script expected_compose_file
+  if [ -f "/opt/one-ui/scripts/update-xray-core.sh" ]; then
+    expected_update_script="/opt/one-ui/scripts/update-xray-core.sh"
+  else
+    expected_update_script="$ROOT_DIR/scripts/update-xray-core.sh"
+  fi
+
+  if [ -f "/opt/one-ui/docker-compose.yml" ]; then
+    expected_compose_file="/opt/one-ui/docker-compose.yml"
+  else
+    expected_compose_file="$ROOT_DIR/docker-compose.yml"
+  fi
+
+  local changed=0
+  local current=""
+
+  current="$(grep -oP '^XRAY_DEPLOYMENT=\K.*' "$env_file" 2>/dev/null || true)"
+  if [ "$current" != "docker" ]; then
+    set_env_var "$env_file" "XRAY_DEPLOYMENT" "docker"
+    echo -e "${GREEN}[✓]${NC} Set XRAY_DEPLOYMENT=docker"
+    changed=$((changed + 1))
+  else
+    echo -e "${GREEN}[✓]${NC} XRAY_DEPLOYMENT is already docker"
+  fi
+
+  current="$(grep -oP '^XRAY_UPDATE_MODE=\K.*' "$env_file" 2>/dev/null || true)"
+  if [ "$current" != "docker" ]; then
+    set_env_var "$env_file" "XRAY_UPDATE_MODE" "docker"
+    echo -e "${GREEN}[✓]${NC} Set XRAY_UPDATE_MODE=docker"
+    changed=$((changed + 1))
+  else
+    echo -e "${GREEN}[✓]${NC} XRAY_UPDATE_MODE is already docker"
+  fi
+
+  current="$(grep -oP '^XRAY_UPDATE_SCRIPT=\K.*' "$env_file" 2>/dev/null || true)"
+  if [ "$current" != "$expected_update_script" ]; then
+    set_env_var "$env_file" "XRAY_UPDATE_SCRIPT" "$expected_update_script"
+    echo -e "${GREEN}[✓]${NC} Set XRAY_UPDATE_SCRIPT=$expected_update_script"
+    changed=$((changed + 1))
+  else
+    echo -e "${GREEN}[✓]${NC} XRAY_UPDATE_SCRIPT is already correct"
+  fi
+
+  current="$(grep -oP '^COMPOSE_FILE=\K.*' "$env_file" 2>/dev/null || true)"
+  if [ "$current" != "$expected_compose_file" ]; then
+    set_env_var "$env_file" "COMPOSE_FILE" "$expected_compose_file"
+    echo -e "${GREEN}[✓]${NC} Set COMPOSE_FILE=$expected_compose_file"
+    changed=$((changed + 1))
+  else
+    echo -e "${GREEN}[✓]${NC} COMPOSE_FILE is already correct"
+  fi
+
+  current="$(grep -oP '^STARTUP_HEALTH_GATE=\K.*' "$env_file" 2>/dev/null || true)"
+  if [ "$current" != "true" ]; then
+    set_env_var "$env_file" "STARTUP_HEALTH_GATE" "true"
+    echo -e "${GREEN}[✓]${NC} Enabled STARTUP_HEALTH_GATE=true"
+    changed=$((changed + 1))
+  else
+    echo -e "${GREEN}[✓]${NC} STARTUP_HEALTH_GATE is already enabled"
+  fi
+
+  echo ""
+  echo -e "${BLUE}[*]${NC} Rebuilding and restarting backend..."
+  cd "$ROOT_DIR"
+  compose up -d --build backend >/dev/null
+
+  local healthy=false
+  local port panel_path api_base code
+  port="$(get_panel_port)"
+  panel_path="$(get_panel_path)"
+  api_base="http://127.0.0.1:${port}${panel_path}/api"
+  for _ in $(seq 1 30); do
+    code="$(curl -s -o /dev/null -w '%{http_code}' "${api_base}/system/health" 2>/dev/null || echo "000")"
+    if [ "$code" = "200" ]; then
+      healthy=true
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$healthy" = true ]; then
+    echo -e "${GREEN}[✓]${NC} Backend health check passed."
+  else
+    echo -e "${RED}[✗]${NC} Backend health check failed."
+    compose logs --tail=80 backend
+    return 1
+  fi
+
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qFx "one-ui-backend"; then
+    local sock_state runtime_status
+    sock_state="$(docker exec one-ui-backend sh -lc 'if [ -S /var/run/docker.sock ]; then echo ok; else echo missing; fi' 2>/dev/null || echo "missing")"
+    runtime_status="$(docker exec one-ui-backend node -e "const m=require('/app/src/xray/manager');m.getStatus().then((s)=>{console.log(JSON.stringify(s));process.exit(0);}).catch(()=>process.exit(1));" 2>/dev/null || echo '{}')"
+
+    if [ "$sock_state" = "ok" ]; then
+      echo -e "${GREEN}[✓]${NC} Docker socket is mounted inside backend."
+    else
+      echo -e "${YELLOW}[!]${NC} Docker socket is missing in backend container. Xray status/update features may degrade."
+      echo -e "    Add volume: ${CYAN}/var/run/docker.sock:/var/run/docker.sock${NC} to backend service."
+    fi
+
+    local mode running mismatch
+    mode="$(echo "$runtime_status" | python3 -c "import sys,json;print(json.loads(sys.stdin.read() or '{}').get('mode','unknown'))" 2>/dev/null || echo "unknown")"
+    running="$(echo "$runtime_status" | python3 -c "import sys,json;print(json.loads(sys.stdin.read() or '{}').get('running',False))" 2>/dev/null || echo "False")"
+    mismatch="$(echo "$runtime_status" | python3 -c "import sys,json;print(json.loads(sys.stdin.read() or '{}').get('hintMismatch',False))" 2>/dev/null || echo "False")"
+
+    echo -e "${BLUE}[*]${NC} Runtime check: mode=${mode} running=${running} hintMismatch=${mismatch}"
+  fi
+
+  if [ "$changed" -eq 0 ]; then
+    echo -e "${GREEN}[✓]${NC} Self-heal complete. No env changes were required."
+  else
+    echo -e "${GREEN}[✓]${NC} Self-heal complete. Applied ${changed} env change(s)."
+  fi
+  echo ""
+}
+
+# ============================================
 # 35. Security Rules Manager
 # ============================================
 
@@ -5157,11 +5290,12 @@ show_menu() {
   echo ""
   echo -e "  ${GREEN}35)${NC}  Health Check"
   echo -e "  ${GREEN}36)${NC}  Run Smoke Tests"
+  echo -e "  ${GREEN}37)${NC}  Runtime Self-Heal"
   echo ""
   echo -e "  ${GREEN} 0)${NC}  Exit"
   echo ""
 
-  read -r -p "  Please enter your choice [0-36]: " choice
+  read -r -p "  Please enter your choice [0-37]: " choice
 
   case "$choice" in
     1)  do_install ;;
@@ -5200,6 +5334,7 @@ show_menu() {
     34) bulk_operations ;;
     35) health_check ;;
     36) run_smoke_suite ;;
+    37) runtime_self_heal ;;
     0)
       echo -e "${GREEN}Bye.${NC}"
       exit 0
@@ -5260,6 +5395,7 @@ case "${1:-}" in
     echo "  security-rules      Security rules manager"
     echo "  bulk                Bulk user operations"
     echo "  health              Health check (all services)"
+    echo "  self-heal           Repair runtime mode/env drift and restart backend"
     echo ""
     echo "  xray-update         Update Xray (stable)"
     echo "  xray-latest         Update Xray (latest)"
@@ -5412,6 +5548,9 @@ case "${1:-}" in
     ;;
   smoke)
     run_smoke_suite
+    ;;
+  self-heal|runtime-heal|runtime-self-heal)
+    runtime_self_heal
     ;;
   "")
     # Interactive menu loop
