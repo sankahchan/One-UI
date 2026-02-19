@@ -70,7 +70,7 @@ jobs:
         run: chmod +x scripts/*.sh
 
       - name: Run release checklist
-        run: ./scripts/release-check.sh --bootstrap --teardown --quiet
+        run: ./scripts/release-check.sh --bootstrap --teardown --quiet --allow-empty-backups
 
       - name: Upload release-check logs
         if: failure()

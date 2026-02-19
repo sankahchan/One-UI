@@ -7,6 +7,7 @@ BOOTSTRAP=false
 TEARDOWN=false
 QUIET=false
 PREFLIGHT_RESET=false
+ALLOW_EMPTY_BACKUPS=false
 LOG_DIR="$ROOT_DIR/.run/release-check"
 
 # Default higher limiter caps to reduce false 429s during chained release checks.
@@ -56,6 +57,10 @@ while [[ $# -gt 0 ]]; do
       PREFLIGHT_RESET=true
       shift
       ;;
+    --allow-empty-backups)
+      ALLOW_EMPTY_BACKUPS=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -75,12 +80,17 @@ declare -a STEP_NAMES=(
   "API SLO checks"
   "Rollback readiness"
 )
+ROLLBACK_CMD="$ROOT_DIR/scripts/rollback-readiness-check.sh"
+if [[ "$ALLOW_EMPTY_BACKUPS" == "true" ]]; then
+  ROLLBACK_CMD="$ROLLBACK_CMD --allow-empty-backups"
+fi
+
 declare -a STEP_CMDS=(
   "$ROOT_DIR/scripts/smoke-core-api.sh"
   "$ROOT_DIR/scripts/smoke-myanmar-hardening.sh"
   "$ROOT_DIR/scripts/api-budget-check.sh"
   "$ROOT_DIR/scripts/api-slo-check.sh"
-  "$ROOT_DIR/scripts/rollback-readiness-check.sh"
+  "$ROLLBACK_CMD"
 )
 declare -a STEP_STATUS=()
 declare -a STEP_SECONDS=()

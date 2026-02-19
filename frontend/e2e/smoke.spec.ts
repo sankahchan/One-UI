@@ -202,9 +202,13 @@ async function deleteUser(request: APIRequestContext, token: string, userId: num
     return;
   }
 
-  await request.delete(`${API_BASE_URL}/users/${userId}`, {
-    headers: authHeaders(token)
-  });
+  try {
+    await request.delete(`${API_BASE_URL}/users/${userId}`, {
+      headers: authHeaders(token)
+    });
+  } catch {
+    // context may already be closed during teardown
+  }
 }
 
 async function deleteInbound(request: APIRequestContext, token: string, inboundId: number | undefined) {
@@ -212,9 +216,13 @@ async function deleteInbound(request: APIRequestContext, token: string, inboundI
     return;
   }
 
-  await request.delete(`${API_BASE_URL}/inbounds/${inboundId}`, {
-    headers: authHeaders(token)
-  });
+  try {
+    await request.delete(`${API_BASE_URL}/inbounds/${inboundId}`, {
+      headers: authHeaders(token)
+    });
+  } catch {
+    // context may already be closed during teardown
+  }
 }
 
 async function loginUi(page: Page, session: AdminAuthSession) {
