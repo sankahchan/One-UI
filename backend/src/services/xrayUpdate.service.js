@@ -577,7 +577,7 @@ class XrayUpdateService {
         this.buildPreflightCheck({
           id: 'update-script',
           label: 'Update script',
-          ok: Boolean(scriptPath),
+          ok: true,
           blocking: false,
           detail: scriptPath
             ? `Found ${scriptPath} (not used in manual mode).`
@@ -589,7 +589,7 @@ class XrayUpdateService {
         this.buildPreflightCheck({
           id: 'update-script-executable',
           label: 'Script executable',
-          ok: scriptExecutable,
+          ok: true,
           blocking: false,
           detail: scriptPath
             ? (scriptExecutable ? 'Script is executable (manual mode).' : 'Script is not executable (manual mode).')
@@ -601,7 +601,7 @@ class XrayUpdateService {
         this.buildPreflightCheck({
           id: 'compose-file',
           label: 'Compose file',
-          ok: Boolean(composeFilePath),
+          ok: true,
           blocking: false,
           detail: composeFilePath
             ? `Found ${composeFilePath} (manual mode does not require Docker compose).`

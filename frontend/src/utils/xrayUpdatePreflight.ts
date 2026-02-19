@@ -10,9 +10,9 @@ function getMetadataString(
 
 export function getPreflightFixCommands(check: XrayUpdatePreflightCheck): string[] {
   const scriptPath =
-    getMetadataString(check.metadata, 'scriptPath') || '/opt/xray-panel/scripts/update-xray-core.sh';
+    getMetadataString(check.metadata, 'scriptPath') || '/opt/one-ui/scripts/update-xray-core.sh';
   const composeFilePath =
-    getMetadataString(check.metadata, 'composeFilePath') || '/opt/xray-panel/docker-compose.yml';
+    getMetadataString(check.metadata, 'composeFilePath') || '/opt/one-ui/docker-compose.yml';
   const containerName = getMetadataString(check.metadata, 'containerName') || 'xray-core';
   const command = getMetadataString(check.metadata, 'command');
   const lockName = getMetadataString(check.metadata, 'lockName') || 'one-ui-xray-update';
@@ -64,4 +64,3 @@ export function getPreflightMetadataString(
 ): string | null {
   return getMetadataString(check?.metadata, key);
 }
-
