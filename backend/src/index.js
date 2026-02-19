@@ -195,6 +195,7 @@ async function startServer() {
   try {
     await startupGates.runStartupMigrationGate();
     await prisma.$connect();
+    await startupGates.runStartupHealthGate();
     await webhookService.initialize();
     // Initialize Xray config
     logger.info('Initializing Xray configuration...');

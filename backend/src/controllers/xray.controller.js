@@ -69,7 +69,11 @@ class XrayController {
       res.json(
         ApiResponse.success({
           running: status.running,
-          version
+          version,
+          mode: status.mode,
+          state: status.state,
+          deploymentHint: status.deploymentHint,
+          hintMismatch: status.hintMismatch
         })
       );
     } catch (error) {

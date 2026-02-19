@@ -26,6 +26,23 @@ function parsePositiveInt(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGE
   return Math.min(Math.max(parsed, min), max);
 }
 
+function normalizeDeploymentHint(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+
+  if (['docker', 'container', 'compose'].includes(normalized)) {
+    return 'docker';
+  }
+  if (['systemd', 'service'].includes(normalized)) {
+    return 'systemd';
+  }
+  if (['local', 'process', 'manual', 'binary'].includes(normalized)) {
+    return 'local';
+  }
+  return null;
+}
+
 class XrayManager {
   constructor() {
     this.xrayBinary = process.env.XRAY_BINARY || process.env.XRAY_BINARY_PATH || '/usr/local/bin/xray';
@@ -38,13 +55,210 @@ class XrayManager {
     this.snapshotRetention = parsePositiveInt(process.env.XRAY_CONFIG_SNAPSHOT_RETENTION, 20, 1, 500);
   }
 
-  async isDockerContainerRunning(containerName = 'xray-core') {
+  async hasCommand(command) {
     try {
-      const { stdout } = await execPromise(`docker inspect -f '{{.State.Running}}' ${containerName}`);
-      return stdout.trim() === 'true';
+      await execPromise(`command -v ${command} >/dev/null 2>&1`);
+      return true;
     } catch (_error) {
       return false;
     }
+  }
+
+  getDeploymentHint() {
+    return normalizeDeploymentHint(process.env.XRAY_DEPLOYMENT);
+  }
+
+  async inspectDockerContainer(containerName = 'xray-core') {
+    if (!(await this.hasCommand('docker'))) {
+      return {
+        source: 'docker',
+        available: false,
+        exists: false,
+        running: false,
+        state: 'unavailable',
+        containerName
+      };
+    }
+
+    try {
+      const { stdout } = await execPromise(
+        `docker inspect -f '{{.State.Running}}|{{.State.Status}}|{{.State.StartedAt}}' ${containerName}`
+      );
+      const [runningRaw = 'false', stateRaw = 'unknown', startedAtRaw = ''] = stdout.trim().split('|');
+
+      return {
+        source: 'docker',
+        available: true,
+        exists: true,
+        running: runningRaw.trim() === 'true',
+        state: stateRaw.trim().toLowerCase() || 'unknown',
+        startedAt: startedAtRaw.trim() || null,
+        containerName
+      };
+    } catch (error) {
+      const diagnostic = String(error?.stderr || error?.stdout || error?.message || '').toLowerCase();
+      const missing = diagnostic.includes('no such object') || diagnostic.includes('not found');
+
+      return {
+        source: 'docker',
+        available: true,
+        exists: false,
+        running: false,
+        state: missing ? 'missing' : 'unknown',
+        containerName
+      };
+    }
+  }
+
+  async inspectSystemdService(serviceName = 'xray') {
+    if (!(await this.hasCommand('systemctl'))) {
+      return {
+        source: 'systemd',
+        available: false,
+        exists: false,
+        running: false,
+        state: 'unavailable',
+        serviceName
+      };
+    }
+
+    try {
+      const { stdout } = await execPromise(`systemctl is-active ${serviceName} 2>/dev/null || true`);
+      const state = String(stdout || '').trim().toLowerCase();
+      const knownStates = ['active', 'inactive', 'failed', 'activating', 'deactivating', 'reloading', 'unknown'];
+      const normalizedState = knownStates.includes(state) ? state : 'unknown';
+
+      return {
+        source: 'systemd',
+        available: true,
+        exists: normalizedState !== 'unknown',
+        running: normalizedState === 'active',
+        state: normalizedState,
+        serviceName
+      };
+    } catch (_error) {
+      return {
+        source: 'systemd',
+        available: true,
+        exists: false,
+        running: false,
+        state: 'unknown',
+        serviceName
+      };
+    }
+  }
+
+  async inspectLocalProcess() {
+    const pidExists = await fs.access(this.pidFile).then(() => true).catch(() => false);
+    if (!pidExists) {
+      return {
+        source: 'local',
+        available: true,
+        exists: false,
+        running: false,
+        state: 'missing-pid',
+        pidFile: this.pidFile
+      };
+    }
+
+    try {
+      const pid = (await fs.readFile(this.pidFile, 'utf8')).trim();
+      if (!/^\d+$/.test(pid)) {
+        return {
+          source: 'local',
+          available: true,
+          exists: true,
+          running: false,
+          state: 'invalid-pid',
+          pidFile: this.pidFile
+        };
+      }
+
+      const { stdout } = await execPromise(`ps -p ${pid} -o comm=`);
+      const running = String(stdout || '').toLowerCase().includes('xray');
+
+      return {
+        source: 'local',
+        available: true,
+        exists: true,
+        running,
+        state: running ? 'running' : 'stale-pid',
+        pidFile: this.pidFile
+      };
+    } catch (_error) {
+      return {
+        source: 'local',
+        available: true,
+        exists: true,
+        running: false,
+        state: 'stale-pid',
+        pidFile: this.pidFile
+      };
+    }
+  }
+
+  selectRuntimeSource(details, deploymentHint = null) {
+    const priorityByHint = {
+      docker: ['docker', 'systemd', 'local'],
+      systemd: ['systemd', 'docker', 'local'],
+      local: ['local', 'docker', 'systemd']
+    };
+    const priority = priorityByHint[deploymentHint] || ['docker', 'systemd', 'local'];
+
+    for (const source of priority) {
+      const detail = details[source];
+      if (!detail) {
+        continue;
+      }
+
+      if (source === 'local') {
+        if (detail.running || detail.exists) {
+          return source;
+        }
+        continue;
+      }
+
+      if (detail.available && (detail.running || detail.exists)) {
+        return source;
+      }
+    }
+
+    if (deploymentHint && details[deploymentHint]) {
+      return deploymentHint;
+    }
+
+    return 'local';
+  }
+
+  async resolveRuntimeStatus() {
+    const deploymentHint = this.getDeploymentHint();
+    const [docker, systemd, local] = await Promise.all([
+      this.inspectDockerContainer('xray-core'),
+      this.inspectSystemdService('xray'),
+      this.inspectLocalProcess()
+    ]);
+    const details = { docker, systemd, local };
+    const source = this.selectRuntimeSource(details, deploymentHint);
+    const selected = details[source] || details.local || {
+      running: false,
+      state: 'unknown'
+    };
+    const mode = source || deploymentHint || 'local';
+
+    return {
+      mode,
+      source,
+      running: Boolean(selected.running),
+      state: selected.state || (selected.running ? 'running' : 'unknown'),
+      deploymentHint: deploymentHint || 'auto',
+      hintMismatch: Boolean(deploymentHint && mode !== deploymentHint),
+      details
+    };
+  }
+
+  async isDockerContainerRunning(containerName = 'xray-core') {
+    const status = await this.inspectDockerContainer(containerName);
+    return status.running;
   }
 
   async readCurrentConfigRaw() {
@@ -186,12 +400,14 @@ class XrayManager {
   }
 
   async restartProcess() {
-    if (process.env.XRAY_DEPLOYMENT === 'systemd') {
+    const runtime = await this.resolveRuntimeStatus();
+
+    if (runtime.mode === 'systemd') {
       await execPromise('systemctl restart xray');
       return;
     }
 
-    if (process.env.XRAY_DEPLOYMENT === 'docker') {
+    if (runtime.mode === 'docker') {
       await execPromise('docker restart xray-core');
       return;
     }
@@ -201,12 +417,17 @@ class XrayManager {
   }
 
   async hotReloadProcess() {
-    if (process.env.XRAY_DEPLOYMENT === 'systemd') {
+    const runtime = await this.resolveRuntimeStatus();
+
+    if (runtime.mode === 'systemd') {
       await execPromise('systemctl reload xray');
       return;
     }
 
-    if (process.env.XRAY_DEPLOYMENT === 'docker') {
+    if (runtime.mode === 'docker') {
+      if (!runtime.running) {
+        throw new Error('Xray docker runtime is not running');
+      }
       await execPromise('docker kill --signal HUP xray-core');
       return;
     }
@@ -385,8 +606,12 @@ class XrayManager {
 
   async stop() {
     try {
-      if (process.env.XRAY_DEPLOYMENT === 'systemd') {
+      const runtime = await this.resolveRuntimeStatus();
+
+      if (runtime.mode === 'systemd') {
         await execPromise('systemctl stop xray');
+      } else if (runtime.mode === 'docker') {
+        await execPromise('docker stop xray-core');
       } else {
         // Kill process by PID
         const pid = await fs.readFile(this.pidFile, 'utf8');
@@ -405,7 +630,9 @@ class XrayManager {
 
   async testConfig() {
     try {
-      if (process.env.XRAY_DEPLOYMENT === 'docker') {
+      const runtime = await this.resolveRuntimeStatus();
+
+      if (runtime.mode === 'docker') {
         const { stdout, stderr } = await execPromise(
           `docker exec xray-core ${this.xrayBinary} -test -config ${this.configPath}`
         );
@@ -431,24 +658,15 @@ class XrayManager {
 
   async getStatus() {
     try {
-      if (process.env.XRAY_DEPLOYMENT === 'docker') {
-        return { running: await this.isDockerContainerRunning('xray-core') };
-      }
-
-      if (process.env.XRAY_DEPLOYMENT === 'systemd') {
-        const { stdout } = await execPromise('systemctl is-active xray');
-        return { running: stdout.trim() === 'active' };
-      }
-
-      // Check if process is running
-      const pidExists = await fs.access(this.pidFile).then(() => true).catch(() => false);
-      if (!pidExists) {
-        return { running: false };
-      }
-
-      const pid = await fs.readFile(this.pidFile, 'utf8');
-      const { stdout } = await execPromise(`ps -p ${pid.trim()} -o comm=`);
-      return { running: stdout.includes('xray') };
+      const runtime = await this.resolveRuntimeStatus();
+      return {
+        running: runtime.running,
+        mode: runtime.mode,
+        source: runtime.source,
+        state: runtime.state,
+        deploymentHint: runtime.deploymentHint,
+        hintMismatch: runtime.hintMismatch
+      };
     } catch (_error) {
       return { running: false };
     }
@@ -456,9 +674,10 @@ class XrayManager {
 
   async getVersion() {
     try {
-      if (process.env.XRAY_DEPLOYMENT === 'docker') {
-        const running = await this.isDockerContainerRunning('xray-core');
-        if (!running) {
+      const runtime = await this.resolveRuntimeStatus();
+
+      if (runtime.mode === 'docker') {
+        if (!runtime.details.docker?.running) {
           return 'unknown';
         }
 

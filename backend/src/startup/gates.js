@@ -5,6 +5,7 @@ const env = require('../config/env');
 const logger = require('../config/logger');
 const prisma = require('../config/database');
 const statsCollector = require('../xray/stats-collector');
+const xrayManager = require('../xray/manager');
 
 const BACKEND_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -86,6 +87,25 @@ async function checkXrayStatsHealth() {
   ]);
 }
 
+async function checkXrayDeploymentConsistency() {
+  const deploymentHint = String(process.env.XRAY_DEPLOYMENT || '')
+    .trim()
+    .toLowerCase();
+  if (!deploymentHint) {
+    return;
+  }
+
+  const status = await xrayManager.getStatus();
+  if (!status.mode || status.mode === 'unknown') {
+    throw new Error('Unable to auto-detect Xray runtime mode');
+  }
+  if (status.hintMismatch) {
+    throw new Error(
+      `XRAY_DEPLOYMENT mismatch (hint=${status.deploymentHint}, detected=${status.mode}, state=${status.state || 'unknown'})`
+    );
+  }
+}
+
 async function runStartupHealthGate() {
   if (!env.STARTUP_HEALTH_GATE) {
     logger.info('Startup health gate disabled');
@@ -98,6 +118,10 @@ async function runStartupHealthGate() {
     {
       name: 'database',
       fn: checkDatabaseHealth
+    },
+    {
+      name: 'xray-runtime-mode',
+      fn: checkXrayDeploymentConsistency
     }
   ];
 

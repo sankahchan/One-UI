@@ -73,6 +73,7 @@ const env = cleanEnv(process.env, {
   SMART_FALLBACK_MIN_KEYS: num({ default: 2 }),
   XRAY_TRAFFIC_SYNC_ENABLED: bool({ default: true }),
   XRAY_API_URL: str({ default: 'http://127.0.0.1:10085' }),
+  XRAY_DEPLOYMENT: str({ default: '' }),
   XRAY_API_SERVER: str({ default: '' }),
   XRAY_API_CLI_TIMEOUT_MS: num({ default: 7000 }),
   XRAY_API_LISTEN: str({ default: '127.0.0.1' }),
