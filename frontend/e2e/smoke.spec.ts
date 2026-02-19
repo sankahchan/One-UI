@@ -298,14 +298,14 @@ test.describe('One-UI smoke flows', () => {
       await expect(page.getByText(/Session stream:/i)).toBeVisible();
 
       await row.getByLabel('More actions').click();
-      await row.getByRole('button', { name: 'Show QR' }).click();
+      await page.getByRole('button', { name: 'Show QR' }).first().click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
       await expect(page.getByText('/sub/')).toBeVisible();
       await page.locator('button[aria-label="Close"]').first().click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeHidden();
 
       await row.getByLabel('More actions').click();
-      await row.getByRole('button', { name: 'Quick Edit' }).click();
+      await page.getByRole('button', { name: 'Quick Edit' }).first().click();
       await expect(page.getByRole('heading', { name: 'Quick Edit' })).toBeVisible();
 
       const date = new Date();
