@@ -600,7 +600,8 @@ export const UserInfoPage = () => {
                   <input
                     readOnly
                     value={selectedUrl}
-                    className="flex-1 rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
+                    onClick={(e) => { (e.target as HTMLInputElement).select(); void copyToClipboard(selectedUrl, `sub-${activeFormat}`); }}
+                    className="flex-1 cursor-pointer select-all rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
                   />
                   <Button
                     variant="secondary"

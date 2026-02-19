@@ -214,7 +214,8 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                   type="text"
                   readOnly
                   value={selectedUrl}
-                  className="flex-1 rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
+                  onClick={(e) => { (e.target as HTMLInputElement).select(); copyToClipboard(selectedUrl, `sub-${activeTab}`); }}
+                  className="flex-1 cursor-pointer select-all rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
                 />
                 <Button variant="secondary" onClick={() => copyToClipboard(selectedUrl, `sub-${activeTab}`)}>
                   {copied === `sub-${activeTab}` ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
