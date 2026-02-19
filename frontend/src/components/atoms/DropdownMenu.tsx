@@ -23,7 +23,7 @@ interface DropdownMenuProps {
   disabled?: boolean;
 }
 
-type Coords = { top: number; left: number };
+type Coords = { top: number; left: number; maxHeight?: number };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -73,13 +73,25 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
       left = clamp(left, padding, viewportW - padding - menuRect.width);
 
       let top = triggerRect.bottom + sideOffset;
+      let maxHeight: number | undefined;
       if (top + menuRect.height > viewportH - padding) {
         const above = triggerRect.top - sideOffset - menuRect.height;
-        if (above >= padding) top = above;
-        else top = clamp(top, padding, viewportH - padding - menuRect.height);
+        if (above >= padding) {
+          top = above;
+        } else {
+          const spaceBelow = viewportH - padding - (triggerRect.bottom + sideOffset);
+          const spaceAbove = triggerRect.top - sideOffset - padding;
+          if (spaceAbove > spaceBelow) {
+            maxHeight = spaceAbove;
+            top = padding;
+          } else {
+            maxHeight = spaceBelow;
+            top = triggerRect.bottom + sideOffset;
+          }
+        }
       }
 
-      setCoords({ top, left });
+      setCoords({ top, left, maxHeight });
     };
 
     updatePosition();
@@ -178,7 +190,9 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
                 top: coords?.top ?? 0,
                 left: coords?.left ?? 0,
                 opacity: coords ? 1 : 0,
-                pointerEvents: coords ? 'auto' : 'none'
+                pointerEvents: coords ? 'auto' : 'none',
+                maxHeight: coords?.maxHeight ?? undefined,
+                overflowY: coords?.maxHeight ? 'auto' : undefined
               }}
             >
               {visibleItems.map((item) => {
