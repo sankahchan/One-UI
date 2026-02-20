@@ -1,5 +1,9 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
 
 const { authenticate, authorize, requireBearerAuth } = require('../middleware/auth');
 const ApiResponse = require('../utils/response');
@@ -14,6 +18,29 @@ const { updateEnvValues } = require('../utils/envFile');
 
 const router = express.Router();
 const cdnFinderService = require('../services/cdnFinder.service');
+
+const WALLPAPER_UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'branding', 'wallpapers');
+const MAX_WALLPAPER_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_WALLPAPER_MIME_EXT = Object.freeze({
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+});
+
+const wallpaperUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_WALLPAPER_UPLOAD_BYTES
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!Object.prototype.hasOwnProperty.call(ALLOWED_WALLPAPER_MIME_EXT, file.mimetype)) {
+      callback(new Error('Unsupported image type. Allowed: JPG, PNG, WEBP, GIF'));
+      return;
+    }
+    callback(null, true);
+  }
+});
 
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') {
@@ -537,6 +564,69 @@ router.get('/subscription-branding', authorize('SUPER_ADMIN'), async (_req, res,
     return next(error);
   }
 });
+
+router.post(
+  '/subscription-branding/upload-wallpaper',
+  authorize('SUPER_ADMIN'),
+  (req, res, next) => {
+    wallpaperUpload.single('wallpaper')(req, res, (error) => {
+      if (!error) {
+        next();
+        return;
+      }
+
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json(
+            ApiResponse.error(
+              `Wallpaper image is too large. Max size is ${Math.floor(MAX_WALLPAPER_UPLOAD_BYTES / (1024 * 1024))} MB.`,
+              'VALIDATION_ERROR'
+            )
+          );
+        }
+      }
+
+      return res.status(400).json(ApiResponse.error(error.message || 'Wallpaper upload failed', 'VALIDATION_ERROR'));
+    });
+  },
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json(ApiResponse.error('No wallpaper file uploaded', 'VALIDATION_ERROR'));
+      }
+
+      await fs.promises.mkdir(WALLPAPER_UPLOAD_DIR, { recursive: true });
+
+      const extension = ALLOWED_WALLPAPER_MIME_EXT[req.file.mimetype] || 'jpg';
+      const filename = `wallpaper-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${extension}`;
+      const destinationPath = path.join(WALLPAPER_UPLOAD_DIR, filename);
+      await fs.promises.writeFile(destinationPath, req.file.buffer);
+
+      const apiSettingsSuffix = '/api/settings';
+      const rawPrefix = req.baseUrl.endsWith(apiSettingsSuffix)
+        ? req.baseUrl.slice(0, -apiSettingsSuffix.length)
+        : '';
+      const normalizedPrefix = rawPrefix ? rawPrefix.replace(/\/+$/, '') : '';
+      const wallpaperPath = `${normalizedPrefix}/uploads/branding/wallpapers/${filename}`.replace(/\/{2,}/g, '/');
+      const wallpaperUrl = `${req.protocol}://${req.get('host')}${wallpaperPath}`;
+
+      return res.json(
+        ApiResponse.success(
+          {
+            wallpaperUrl,
+            wallpaperPath,
+            fileName: filename,
+            size: req.file.size,
+            mimeType: req.file.mimetype
+          },
+          'Wallpaper uploaded successfully'
+        )
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 router.post(
   '/subscription-branding',

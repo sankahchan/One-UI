@@ -42,6 +42,9 @@ export interface SubscriptionBrandingMetadata {
   wallpaperUrl?: string;
   wallpaperOverlayOpacity?: number;
   wallpaperBlurPx?: number;
+  wallpaperGradientFrom?: string;
+  wallpaperGradientTo?: string;
+  wallpaperGradientOpacity?: number;
 }
 
 export interface ResolvedClientApp extends ClientAppDefinition {

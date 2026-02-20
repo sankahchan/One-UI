@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Edit, Palette, Sparkles, Trash2, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +38,9 @@ type BrandingMetadataDraft = {
   wallpaperUrl?: string;
   wallpaperOverlayOpacity?: number;
   wallpaperBlurPx?: number;
+  wallpaperGradientFrom?: string;
+  wallpaperGradientTo?: string;
+  wallpaperGradientOpacity?: number;
 };
 
 const BRANDING_PRESETS = [
@@ -46,6 +49,9 @@ const BRANDING_PRESETS = [
   { id: 'sunset', name: 'Sunset', primary: '#f97316', accent: '#ef4444' },
   { id: 'rose', name: 'Rose', primary: '#ec4899', accent: '#a855f7' }
 ] as const;
+
+const MAX_WALLPAPER_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_WALLPAPER_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 function normalizeHexColor(value: string | null | undefined, fallback: string): string {
   const input = String(value || '').trim();
@@ -56,6 +62,23 @@ function normalizeHexColor(value: string | null | undefined, fallback: string): 
     return `#${input}`;
   }
   return fallback;
+}
+
+function parseOptionalHexColor(value: string | null | undefined): string | null {
+  const input = String(value || '').trim();
+  if (!input) return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(input)) return input;
+  if (/^[0-9a-fA-F]{6}$/.test(input)) return `#${input}`;
+  return null;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = normalizeHexColor(hex, '#3b82f6').replace('#', '');
+  const intValue = Number.parseInt(normalized, 16);
+  const r = (intValue >> 16) & 255;
+  const g = (intValue >> 8) & 255;
+  const b = intValue & 255;
+  return `rgba(${r}, ${g}, ${b}, ${Math.min(Math.max(alpha, 0), 1)})`;
 }
 
 function parseNumberList(value: string): number[] {
@@ -98,6 +121,12 @@ const BrandingSettings: React.FC = () => {
   const [wallpaperUrl, setWallpaperUrl] = useState<string>('');
   const [wallpaperOverlayOpacity, setWallpaperOverlayOpacity] = useState<string>('62');
   const [wallpaperBlurPx, setWallpaperBlurPx] = useState<string>('0');
+  const [wallpaperGradientFrom, setWallpaperGradientFrom] = useState<string>('');
+  const [wallpaperGradientTo, setWallpaperGradientTo] = useState<string>('');
+  const [wallpaperGradientOpacity, setWallpaperGradientOpacity] = useState<string>('62');
+  const [wallpaperFile, setWallpaperFile] = useState<File | null>(null);
+  const [wallpaperFilePreviewUrl, setWallpaperFilePreviewUrl] = useState<string>('');
+  const [wallpaperFileError, setWallpaperFileError] = useState<string>('');
   const [customAppsJson, setCustomAppsJson] = useState<string>('[]');
 
   const brandingQuery = useQuery({
@@ -138,13 +167,36 @@ const BrandingSettings: React.FC = () => {
     const trimmed = wallpaperUrl.trim();
     return /^https?:\/\//i.test(trimmed) ? trimmed : '';
   }, [wallpaperUrl]);
+  const previewWallpaperImageUrl = wallpaperFilePreviewUrl || previewWallpaperUrl;
   const previewWallpaperOverlay = useMemo(() => {
     const value = Number(wallpaperOverlayOpacity);
     if (!Number.isFinite(value)) return 62;
     return Math.min(Math.max(value, 10), 90);
   }, [wallpaperOverlayOpacity]);
-  const previewHasWallpaper = Boolean(previewWallpaperUrl);
+  const previewGradientFrom = useMemo(
+    () => normalizeHexColor(wallpaperGradientFrom, previewPrimary),
+    [previewPrimary, wallpaperGradientFrom]
+  );
+  const previewGradientTo = useMemo(
+    () => normalizeHexColor(wallpaperGradientTo, previewAccent),
+    [previewAccent, wallpaperGradientTo]
+  );
+  const previewGradientOpacity = useMemo(() => {
+    const value = Number(wallpaperGradientOpacity);
+    if (!Number.isFinite(value)) return 62;
+    return Math.min(Math.max(value, 0), 100);
+  }, [wallpaperGradientOpacity]);
+  const previewHasWallpaper = Boolean(previewWallpaperImageUrl);
   const selectedAppsCount = enabledApps.length > 0 ? enabledApps.length : BUILTIN_CLIENT_APPS.length;
+
+  useEffect(() => {
+    if (!wallpaperFilePreviewUrl.startsWith('blob:')) {
+      return undefined;
+    }
+    return () => {
+      URL.revokeObjectURL(wallpaperFilePreviewUrl);
+    };
+  }, [wallpaperFilePreviewUrl]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -168,6 +220,12 @@ const BrandingSettings: React.FC = () => {
     setWallpaperUrl('');
     setWallpaperOverlayOpacity('62');
     setWallpaperBlurPx('0');
+    setWallpaperGradientFrom('');
+    setWallpaperGradientTo('');
+    setWallpaperGradientOpacity('62');
+    setWallpaperFile(null);
+    setWallpaperFilePreviewUrl('');
+    setWallpaperFileError('');
     setCustomAppsJson('[]');
   };
 
@@ -201,11 +259,101 @@ const BrandingSettings: React.FC = () => {
       metadata.wallpaperOverlayOpacity !== undefined ? String(metadata.wallpaperOverlayOpacity) : '62'
     );
     setWallpaperBlurPx(metadata.wallpaperBlurPx !== undefined ? String(metadata.wallpaperBlurPx) : '0');
+    setWallpaperGradientFrom(typeof metadata.wallpaperGradientFrom === 'string' ? metadata.wallpaperGradientFrom : '');
+    setWallpaperGradientTo(typeof metadata.wallpaperGradientTo === 'string' ? metadata.wallpaperGradientTo : '');
+    setWallpaperGradientOpacity(
+      metadata.wallpaperGradientOpacity !== undefined ? String(metadata.wallpaperGradientOpacity) : '62'
+    );
+    setWallpaperFile(null);
+    setWallpaperFilePreviewUrl('');
+    setWallpaperFileError('');
     setCustomAppsJson(stringifyJson(metadata.customApps || []));
+  };
+
+  const uploadWallpaper = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('wallpaper', file);
+      const response = await apiClient.post('/settings/subscription-branding/upload-wallpaper', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data as { wallpaperUrl?: string };
+    },
+    onSuccess: (payload) => {
+      if (!payload?.wallpaperUrl) {
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          t('brandingSettings.toast.uploadFailed', { defaultValue: 'Wallpaper upload failed.' })
+        );
+        return;
+      }
+      setWallpaperUrl(payload.wallpaperUrl);
+      setWallpaperFile(null);
+      setWallpaperFilePreviewUrl('');
+      setWallpaperFileError('');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('brandingSettings.toast.uploaded', { defaultValue: 'Wallpaper uploaded successfully.' })
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.uploadFailed', { defaultValue: 'Wallpaper upload failed.' })
+      );
+    }
+  });
+
+  const handleWallpaperFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+
+    if (!file) {
+      setWallpaperFile(null);
+      setWallpaperFilePreviewUrl('');
+      setWallpaperFileError('');
+      return;
+    }
+
+    if (!ALLOWED_WALLPAPER_MIME.includes(file.type)) {
+      setWallpaperFile(null);
+      setWallpaperFilePreviewUrl('');
+      setWallpaperFileError(
+        t('brandingSettings.toast.invalidWallpaperType', {
+          defaultValue: 'Invalid file type. Allowed: JPG, PNG, WEBP, GIF.'
+        })
+      );
+      return;
+    }
+
+    if (file.size > MAX_WALLPAPER_UPLOAD_BYTES) {
+      setWallpaperFile(null);
+      setWallpaperFilePreviewUrl('');
+      setWallpaperFileError(
+        t('brandingSettings.toast.invalidWallpaperSize', {
+          defaultValue: 'Wallpaper must be 5 MB or smaller.'
+        })
+      );
+      return;
+    }
+
+    setWallpaperFile(file);
+    setWallpaperFileError('');
+    setWallpaperFilePreviewUrl(URL.createObjectURL(file));
   };
 
   const saveBranding = useMutation({
     mutationFn: async () => {
+      if (wallpaperFile) {
+        throw new Error(
+          t('brandingSettings.toast.uploadWallpaperFirst', {
+            defaultValue: 'Please upload the selected wallpaper image before saving.'
+          })
+        );
+      }
+
       const payload: Record<string, unknown> = {
         name,
         scope,
@@ -264,6 +412,39 @@ const BrandingSettings: React.FC = () => {
       const blurPx = Number(wallpaperBlurPx);
       if (Number.isFinite(blurPx)) {
         metadataDraft.wallpaperBlurPx = Math.min(Math.max(blurPx, 0), 24);
+      }
+
+      const gradientFrom = parseOptionalHexColor(wallpaperGradientFrom);
+      if (wallpaperGradientFrom.trim() && !gradientFrom) {
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          t('brandingSettings.toast.invalidGradientColor', {
+            defaultValue: 'Gradient colors must be valid HEX values (example: #22d3ee).'
+          })
+        );
+        throw new Error('Invalid gradient start color');
+      }
+      if (gradientFrom) {
+        metadataDraft.wallpaperGradientFrom = gradientFrom;
+      }
+
+      const gradientTo = parseOptionalHexColor(wallpaperGradientTo);
+      if (wallpaperGradientTo.trim() && !gradientTo) {
+        toast.error(
+          t('common.error', { defaultValue: 'Error' }),
+          t('brandingSettings.toast.invalidGradientColor', {
+            defaultValue: 'Gradient colors must be valid HEX values (example: #22d3ee).'
+          })
+        );
+        throw new Error('Invalid gradient end color');
+      }
+      if (gradientTo) {
+        metadataDraft.wallpaperGradientTo = gradientTo;
+      }
+
+      const gradientOpacity = Number(wallpaperGradientOpacity);
+      if (Number.isFinite(gradientOpacity)) {
+        metadataDraft.wallpaperGradientOpacity = Math.min(Math.max(gradientOpacity, 0), 100);
       }
 
       try {
@@ -374,12 +555,20 @@ const BrandingSettings: React.FC = () => {
               className="relative overflow-hidden rounded-2xl border border-line/70 p-5 lg:col-span-2"
               style={{
                 backgroundImage: previewHasWallpaper
-                  ? `url(${previewWallpaperUrl})`
-                  : `linear-gradient(135deg, ${previewPrimary}26 0%, ${previewAccent}2f 100%)`,
+                  ? `url(${previewWallpaperImageUrl})`
+                  : `linear-gradient(135deg, ${hexToRgba(previewGradientFrom, 0.25)} 0%, ${hexToRgba(previewGradientTo, 0.35)} 100%)`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }}
             >
+              {previewHasWallpaper ? (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, ${hexToRgba(previewGradientFrom, previewGradientOpacity / 100)} 0%, ${hexToRgba(previewGradientTo, previewGradientOpacity / 100)} 100%)`
+                  }}
+                />
+              ) : null}
               {previewHasWallpaper ? (
                 <div
                   className="pointer-events-none absolute inset-0"
@@ -508,6 +697,63 @@ const BrandingSettings: React.FC = () => {
             <div className="space-y-3">
               <Input label="Logo URL" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://..." />
               <Input label="Support URL" value={supportUrl} onChange={(event) => setSupportUrl(event.target.value)} placeholder="https://your.domain/support" />
+
+              <div className="rounded-xl border border-line/70 bg-card/55 p-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Image className="h-4 w-4 text-brand-500" />
+                  Upload Wallpaper
+                </div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleWallpaperFileSelect}
+                  className="w-full rounded-lg border border-line/70 bg-panel/60 px-3 py-2 text-xs text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-100 hover:file:bg-brand-500/30"
+                />
+                <p className="mt-2 text-xs text-muted">
+                  JPG, PNG, WEBP, GIF up to 5 MB.
+                </p>
+                {wallpaperFileError ? (
+                  <p className="mt-2 text-xs text-rose-400">{wallpaperFileError}</p>
+                ) : null}
+                {wallpaperFile ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+                    <span className="rounded-full border border-line/70 bg-panel/55 px-2 py-1">
+                      {wallpaperFile.name}
+                    </span>
+                    <span>{(wallpaperFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (wallpaperFile) {
+                        uploadWallpaper.mutate(wallpaperFile);
+                      }
+                    }}
+                    loading={uploadWallpaper.isPending}
+                    disabled={!wallpaperFile}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload image
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setWallpaperFile(null);
+                      setWallpaperFilePreviewUrl('');
+                      setWallpaperFileError('');
+                    }}
+                    disabled={!wallpaperFile && !wallpaperFilePreviewUrl}
+                  >
+                    Clear selection
+                  </Button>
+                </div>
+              </div>
+
               <Input
                 label="Wallpaper URL"
                 value={wallpaperUrl}
@@ -531,6 +777,29 @@ const BrandingSettings: React.FC = () => {
                   placeholder="0"
                 />
               </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Gradient From"
+                  value={wallpaperGradientFrom}
+                  onChange={(event) => setWallpaperGradientFrom(event.target.value)}
+                  placeholder="#3b82f6"
+                />
+                <Input
+                  label="Gradient To"
+                  value={wallpaperGradientTo}
+                  onChange={(event) => setWallpaperGradientTo(event.target.value)}
+                  placeholder="#6366f1"
+                />
+              </div>
+
+              <Input
+                label="Gradient Opacity (%)"
+                type="number"
+                value={wallpaperGradientOpacity}
+                onChange={(event) => setWallpaperGradientOpacity(event.target.value)}
+                placeholder="62"
+              />
 
               <div className="space-y-1.5">
                 <label className="ml-1 block text-sm font-medium text-muted">Primary Color</label>
@@ -658,7 +927,11 @@ const BrandingSettings: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-2 border-t border-line/70 pt-4 sm:flex-row sm:items-center">
-          <Button onClick={() => saveBranding.mutate()} loading={saveBranding.isPending} disabled={!name.trim()}>
+          <Button
+            onClick={() => saveBranding.mutate()}
+            loading={saveBranding.isPending}
+            disabled={!name.trim() || uploadWallpaper.isPending || Boolean(wallpaperFile)}
+          >
             {isEditing ? 'Save Changes' : 'Create Branding'}
           </Button>
           <Button
@@ -667,6 +940,9 @@ const BrandingSettings: React.FC = () => {
             onClick={() => {
               setPrimaryColor('#3b82f6');
               setAccentColor('#6366f1');
+              setWallpaperGradientFrom('#3b82f6');
+              setWallpaperGradientTo('#6366f1');
+              setWallpaperGradientOpacity('62');
             }}
           >
             Reset Colors

@@ -17,6 +17,15 @@ function sanitizeHttpUrl(value, maxLength = 2048) {
   }
 }
 
+function sanitizeHexColor(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed;
+  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) return `#${trimmed}`;
+  return null;
+}
+
 function sanitizeBrandingMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
     return undefined;
@@ -58,6 +67,21 @@ function sanitizeBrandingMetadata(metadata) {
   const wallpaperBlurPx = Number(metadata.wallpaperBlurPx);
   if (Number.isFinite(wallpaperBlurPx)) {
     safe.wallpaperBlurPx = Math.min(Math.max(wallpaperBlurPx, 0), 24);
+  }
+
+  const wallpaperGradientFrom = sanitizeHexColor(metadata.wallpaperGradientFrom);
+  if (wallpaperGradientFrom) {
+    safe.wallpaperGradientFrom = wallpaperGradientFrom;
+  }
+
+  const wallpaperGradientTo = sanitizeHexColor(metadata.wallpaperGradientTo);
+  if (wallpaperGradientTo) {
+    safe.wallpaperGradientTo = wallpaperGradientTo;
+  }
+
+  const wallpaperGradientOpacity = Number(metadata.wallpaperGradientOpacity);
+  if (Number.isFinite(wallpaperGradientOpacity)) {
+    safe.wallpaperGradientOpacity = Math.min(Math.max(wallpaperGradientOpacity, 0), 100);
   }
 
   if (Array.isArray(metadata.customApps)) {

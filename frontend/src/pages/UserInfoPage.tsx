@@ -144,6 +144,19 @@ function sanitizeHexColor(value: string | null | undefined): string | null {
   return null;
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace('#', '');
+  const six = normalized.length === 3
+    ? normalized.split('').map((value) => `${value}${value}`).join('')
+    : normalized;
+  const parsed = Number.parseInt(six, 16);
+  const r = (parsed >> 16) & 255;
+  const g = (parsed >> 8) & 255;
+  const b = parsed & 255;
+  const safeAlpha = Math.min(Math.max(alpha, 0), 1);
+  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
+}
+
 function sanitizeHttpUrl(value: string | null | undefined): string | null {
   if (!value || typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -385,6 +398,18 @@ export const UserInfoPage = () => {
     () => clampNumber(brandingMetadata?.wallpaperBlurPx, 0, 24, 0),
     [brandingMetadata?.wallpaperBlurPx]
   );
+  const wallpaperGradientFrom = useMemo(
+    () => sanitizeHexColor((brandingMetadata as any)?.wallpaperGradientFrom as string | undefined) || primaryColor,
+    [brandingMetadata, primaryColor]
+  );
+  const wallpaperGradientTo = useMemo(
+    () => sanitizeHexColor((brandingMetadata as any)?.wallpaperGradientTo as string | undefined) || accentColor,
+    [accentColor, brandingMetadata]
+  );
+  const wallpaperGradientOpacity = useMemo(
+    () => clampNumber((brandingMetadata as any)?.wallpaperGradientOpacity, 0, 100, 62),
+    [brandingMetadata]
+  );
   const hasWallpaper = Boolean(wallpaperUrl);
 
   if (isLoading) {
@@ -518,9 +543,23 @@ export const UserInfoPage = () => {
           />
           <div
             className="pointer-events-none fixed inset-0 -z-10"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${hexToRgba(wallpaperGradientFrom, wallpaperGradientOpacity / 100)} 0%, ${hexToRgba(wallpaperGradientTo, wallpaperGradientOpacity / 100)} 100%)`
+            }}
+          />
+          <div
+            className="pointer-events-none fixed inset-0 -z-10"
             style={{ backgroundColor: `rgba(2, 6, 23, ${wallpaperOverlayOpacity / 100})` }}
           />
         </>
+      ) : null}
+      {!hasWallpaper ? (
+        <div
+          className="pointer-events-none fixed inset-0 -z-10"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${hexToRgba(wallpaperGradientFrom, Math.min(Math.max(wallpaperGradientOpacity / 150, 0.2), 0.6))} 0%, ${hexToRgba(wallpaperGradientTo, Math.min(Math.max(wallpaperGradientOpacity / 130, 0.25), 0.7))} 100%)`
+          }}
+        />
       ) : null}
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Brand header */}

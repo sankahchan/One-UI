@@ -44,6 +44,7 @@ const app = express();
 const inlineRuntime = new WorkerRuntime('api-inline');
 const serveFrontend = process.env.SERVE_FRONTEND === 'true';
 const publicDir = path.join(__dirname, '..', 'public');
+const uploadsDir = path.join(publicDir, 'uploads');
 const indexFile = path.join(publicDir, 'index.html');
 const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
 const panelPath = (process.env.PANEL_PATH || '').replace(/\/+$/, '') || '';
@@ -143,6 +144,10 @@ if (panelPath) {
 }
 
 // Public routes: mount at root and under panel path so they work from both locations.
+app.use('/uploads', express.static(uploadsDir));
+if (panelPath) {
+  app.use(`${panelPath}/uploads`, express.static(uploadsDir));
+}
 app.use('/sub', subscriptionRoutes);
 app.use('/user', userInfoRoutes);
 app.use('/dns-query', dohRoutes);
