@@ -1635,16 +1635,32 @@ class XrayUpdateService {
       return [];
     }
 
-    this.ensureScriptedUpdatesEnabled();
-
     const scriptPath = this.resolveScriptPath();
     if (!scriptPath) {
-      throw new ValidationError('Xray update script not found. Set XRAY_UPDATE_SCRIPT to the absolute script path.');
+      logger.warn('Xray backup listing skipped: update script not found', {
+        mode: this.updateMode
+      });
+      return [];
+    }
+
+    if (!this.isExecutable(scriptPath)) {
+      logger.warn('Xray backup listing skipped: update script is not executable', {
+        scriptPath
+      });
+      return [];
     }
 
     const result = await this.executeScript(scriptPath, ['--list-backups']);
     if (!result.ok) {
-      throw new ValidationError(result.stderr || result.stdout || 'Unable to list backup tags');
+      logger.warn('Xray backup listing failed; returning empty list', {
+        scriptPath,
+        stderr: result.stderr || null,
+        stdoutTail: String(result.stdout || '')
+          .split('\n')
+          .slice(-5)
+          .join('\n')
+      });
+      return [];
     }
 
     const backups = (result.stdout || '')
