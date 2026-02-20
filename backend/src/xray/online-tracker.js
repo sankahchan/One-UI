@@ -2,6 +2,7 @@ const prisma = require('../config/database');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const xrayStatsCollector = require('./stats-collector');
+const deviceTrackingService = require('../services/deviceTracking.service');
 
 class OnlineTracker {
   constructor() {
@@ -18,6 +19,17 @@ class OnlineTracker {
     return Math.max(1, Number(env.USER_ONLINE_REFRESH_INTERVAL_SECONDS || 5)) * 1000;
   }
 
+  get idleTtlMs() {
+    return Math.max(
+      this.ttlMs,
+      Math.max(60, Number(env.USER_ONLINE_IDLE_TTL_SECONDS || 600)) * 1000
+    );
+  }
+
+  get trafficTtlMs() {
+    return Math.max(this.ttlMs, Math.min(this.idleTtlMs, 5 * 60 * 1000));
+  }
+
   isEntryOnline(entry, now = Date.now()) {
     if (!entry || !entry.lastActivity || !entry.online) {
       return false;
@@ -28,7 +40,11 @@ class OnlineTracker {
       return false;
     }
 
-    return now - lastActivityMs <= this.ttlMs;
+    const onlineWindowMs = Number.isFinite(Number(entry.onlineWindowMs))
+      ? Number(entry.onlineWindowMs)
+      : this.ttlMs;
+
+    return now - lastActivityMs <= Math.max(this.ttlMs, onlineWindowMs);
   }
 
   async ensureFresh(force = false) {
@@ -73,7 +89,15 @@ class OnlineTracker {
               }
             },
             select: {
-              inboundId: true
+              inboundId: true,
+              inbound: {
+                select: {
+                  id: true,
+                  tag: true,
+                  protocol: true,
+                  port: true
+                }
+              }
             }
           }
         }
@@ -119,6 +143,8 @@ class OnlineTracker {
     ]);
 
     const latestConnectionByUserId = new Map();
+    const latestConnectByUserId = new Map();
+    const latestDisconnectByUserId = new Map();
     const activeInboundSetByUserId = new Map();
     const latestActiveConnectByUserId = new Map();
     const latestTrafficByUserId = new Map();
@@ -127,6 +153,14 @@ class OnlineTracker {
     for (const connection of recentConnections) {
       if (!latestConnectionByUserId.has(connection.userId)) {
         latestConnectionByUserId.set(connection.userId, connection);
+      }
+
+      const normalizedAction = String(connection.action || '').toLowerCase();
+      if (normalizedAction === 'connect' && !latestConnectByUserId.has(connection.userId)) {
+        latestConnectByUserId.set(connection.userId, connection);
+      }
+      if (normalizedAction === 'disconnect' && !latestDisconnectByUserId.has(connection.userId)) {
+        latestDisconnectByUserId.set(connection.userId, connection);
       }
 
       const ageMs = now - connection.timestamp.getTime();
@@ -140,7 +174,7 @@ class OnlineTracker {
       }
       dedupeByConnection.add(connectionKey);
 
-      if (String(connection.action).toLowerCase() !== 'connect') {
+      if (normalizedAction !== 'connect') {
         continue;
       }
 
@@ -203,23 +237,95 @@ class OnlineTracker {
 
     for (const user of users) {
       const latestConnection = latestConnectionByUserId.get(user.id) || null;
+      const latestConnect = latestConnectByUserId.get(user.id) || null;
+      const latestDisconnect = latestDisconnectByUserId.get(user.id) || null;
       const activeConnection = latestActiveConnectByUserId.get(user.id) || null;
       const activeInboundSet = activeInboundSetByUserId.get(user.id) || new Set();
       const latestTrafficLog = latestTrafficByUserId.get(user.id) || null;
       const trafficActive = latestTrafficLog
-        ? now - latestTrafficLog.timestamp.getTime() <= this.ttlMs
+        ? now - latestTrafficLog.timestamp.getTime() <= this.trafficTtlMs
         : false;
       const activeKeyCount = user.inbounds.length;
-      const onlineKeyCount = activeInboundSet.size;
-      const online = onlineKeyCount > 0 || trafficActive;
+      const inboundById = new Map(
+        (user.inbounds || [])
+          .filter((relation) => relation?.inbound && Number.isInteger(relation?.inboundId))
+          .map((relation) => [relation.inboundId, relation.inbound])
+      );
+      const activeDevices = deviceTrackingService
+        .getActiveDevices(user.id)
+        .filter((device) => device?.online);
+      const latestDevice = activeDevices.reduce((currentLatest, device) => {
+        if (!device?.lastSeenAt) {
+          return currentLatest;
+        }
 
-      const displayConnection = activeConnection || latestConnection;
-      const lastActivity = displayConnection?.timestamp
-        ? displayConnection.timestamp.toISOString()
-        : latestTrafficLog?.timestamp
-          ? latestTrafficLog.timestamp.toISOString()
-          : null;
+        if (!currentLatest?.lastSeenAt) {
+          return device;
+        }
+
+        return device.lastSeenAt > currentLatest.lastSeenAt ? device : currentLatest;
+      }, null);
+
+      const deviceInboundIds = new Set(
+        activeDevices
+          .map((device) => Number.parseInt(String(device.inboundId), 10))
+          .filter((value) => Number.isInteger(value) && value > 0)
+      );
+      const mergedOnlineInboundIds = new Set([
+        ...Array.from(activeInboundSet.values()),
+        ...Array.from(deviceInboundIds.values())
+      ]);
+
+      const latestConnectMs = latestConnect?.timestamp instanceof Date ? latestConnect.timestamp.getTime() : null;
+      const latestDisconnectMs =
+        latestDisconnect?.timestamp instanceof Date ? latestDisconnect.timestamp.getTime() : null;
+      const hasOpenConnect =
+        Number.isFinite(latestConnectMs) &&
+        now - latestConnectMs <= this.idleTtlMs &&
+        (!Number.isFinite(latestDisconnectMs) || latestConnectMs > latestDisconnectMs);
+
+      const online = mergedOnlineInboundIds.size > 0 || trafficActive || hasOpenConnect || activeDevices.length > 0;
+      const onlineKeyCount = mergedOnlineInboundIds.size > 0
+        ? mergedOnlineInboundIds.size
+        : online && activeKeyCount > 0
+          ? 1
+          : 0;
+
+      const displayConnection = activeConnection || latestConnect || latestConnection;
+      const candidateTimestamps = [
+        displayConnection?.timestamp instanceof Date ? displayConnection.timestamp.getTime() : null,
+        latestTrafficLog?.timestamp instanceof Date ? latestTrafficLog.timestamp.getTime() : null,
+        Number.isFinite(Number(latestDevice?.lastSeenAt)) ? Number(latestDevice.lastSeenAt) : null
+      ].filter((value) => Number.isFinite(value));
+      const newestActivityMs = candidateTimestamps.length > 0 ? Math.max(...candidateTimestamps) : null;
+      const lastActivity = Number.isFinite(newestActivityMs) ? new Date(newestActivityMs).toISOString() : null;
       const liveStat = statByUserId.get(user.id) || { upload: 0, download: 0 };
+      const deviceInbound = Number.isInteger(latestDevice?.inboundId)
+        ? inboundById.get(latestDevice.inboundId) || null
+        : null;
+      const currentInbound = displayConnection?.inbound
+        ? {
+            id: displayConnection.inbound.id,
+            tag: displayConnection.inbound.tag,
+            protocol: displayConnection.inbound.protocol,
+            port: displayConnection.inbound.port
+          }
+        : deviceInbound
+          ? {
+              id: deviceInbound.id,
+              tag: deviceInbound.tag,
+              protocol: deviceInbound.protocol,
+              port: deviceInbound.port
+            }
+          : null;
+      let onlineWindowMs = this.ttlMs;
+      if (activeInboundSet.size > 0) {
+        onlineWindowMs = this.ttlMs;
+      } else if (trafficActive) {
+        onlineWindowMs = this.trafficTtlMs;
+      } else if (hasOpenConnect || activeDevices.length > 0) {
+        onlineWindowMs = this.idleTtlMs;
+      }
 
       nextCache.set(user.uuid, {
         id: user.id,
@@ -230,21 +336,15 @@ class OnlineTracker {
         online,
         state: online ? 'online' : String(latestConnection?.action || '').toLowerCase() === 'connect' ? 'idle' : 'offline',
         lastActivity,
-        lastAction: latestConnection?.action || null,
-        currentIp: displayConnection?.clientIp || null,
-        currentInbound: displayConnection?.inbound
-          ? {
-              id: displayConnection.inbound.id,
-              tag: displayConnection.inbound.tag,
-              protocol: displayConnection.inbound.protocol,
-              port: displayConnection.inbound.port
-            }
-          : null,
-        protocol: displayConnection?.inbound?.protocol || null,
+        lastAction: displayConnection?.action || latestConnection?.action || null,
+        currentIp: latestDevice?.clientIp || displayConnection?.clientIp || null,
+        currentInbound,
+        protocol: currentInbound?.protocol || null,
         upload: liveStat.upload,
         download: liveStat.download,
         activeKeyCount,
-        onlineKeyCount
+        onlineKeyCount,
+        onlineWindowMs
       });
     }
 
