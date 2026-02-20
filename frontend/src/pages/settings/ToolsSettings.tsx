@@ -8,6 +8,7 @@ import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
 import { useToast } from '../../hooks/useToast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 
 const ToolsSettings: React.FC = () => {
   const toast = useToast();
@@ -174,11 +175,20 @@ const ToolsSettings: React.FC = () => {
                       <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(res.ip);
-                            toast.success(
-                              t('common.success', { defaultValue: 'Success' }),
-                              t('toolsSettings.toast.ipCopied', { defaultValue: 'IP copied to clipboard.' })
-                            );
+                            void copyTextToClipboard(res.ip).then((copiedOk) => {
+                              if (copiedOk) {
+                                toast.success(
+                                  t('common.success', { defaultValue: 'Success' }),
+                                  t('toolsSettings.toast.ipCopied', { defaultValue: 'IP copied to clipboard.' })
+                                );
+                                return;
+                              }
+
+                              toast.error(
+                                t('common.error', { defaultValue: 'Error' }),
+                                t('toolsSettings.toast.copyFailed', { defaultValue: 'Unable to copy IP.' })
+                              );
+                            });
                           }}
                           className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                         >

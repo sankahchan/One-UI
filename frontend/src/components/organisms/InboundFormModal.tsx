@@ -9,6 +9,7 @@ import { Input } from '../atoms/Input';
 import apiClient from '../../api/client';
 import { inboundTemplates } from '../../data/inboundTemplates';
 import { useToast } from '../../hooks/useToast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { RealitySettings } from './RealitySettings';
 import type { Inbound } from '../../types';
 
@@ -687,7 +688,14 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       return;
     }
 
-    await navigator.clipboard.writeText(realityLinkTemplate);
+    const copiedOk = await copyTextToClipboard(realityLinkTemplate);
+    if (!copiedOk) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('inbounds.toast.copyRealityTemplateFailed', { defaultValue: 'Failed to copy template' })
+      );
+      return;
+    }
     setRealityTemplateCopied(true);
     window.setTimeout(() => setRealityTemplateCopied(false), 1600);
   };

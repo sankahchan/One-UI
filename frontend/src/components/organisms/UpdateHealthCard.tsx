@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useRunXrayRuntimeDoctor, useRunXrayUpdateUnlock, useXrayUpdatePolicy, useXrayUpdatePreflight } from '../../hooks/useXray';
 import { useToast } from '../../hooks/useToast';
 import { useAuthStore } from '../../store/authStore';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { getPreflightFixCommands, getPreflightMetadataString } from '../../utils/xrayUpdatePreflight';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
@@ -60,7 +61,10 @@ export const UpdateHealthCard: React.FC = () => {
     ].join('\n');
 
     try {
-      await navigator.clipboard.writeText(content);
+      const copiedOk = await copyTextToClipboard(content);
+      if (!copiedOk) {
+        throw new Error('copy_failed');
+      }
       toast.success(
         t('updateHealth.toast.copiedTitle', { defaultValue: 'Copied to clipboard' }),
         t('updateHealth.toast.copiedBody', { defaultValue: 'Preflight fix commands copied.' })

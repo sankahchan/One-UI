@@ -24,6 +24,7 @@ import { QRCodeDisplay } from '../components/molecules/QRCodeDisplay';
 import { useToast } from '../hooks/useToast';
 import { changeLanguage, languages } from '../i18n';
 import type { SubscriptionLink } from '../types';
+import { copyTextToClipboard } from '../utils/clipboard';
 import {
   detectPlatform,
   resolveSubscriptionApps,
@@ -329,41 +330,21 @@ export const UserInfoPage = () => {
 
   const copyToClipboard = async (text: string, key: string) => {
     if (!text) return;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        setCopiedKey(key);
-        window.setTimeout(() => setCopiedKey(''), 1600);
-        toast.success(t('common.copied', { defaultValue: 'Copied' }), t('portal.linkCopied', { defaultValue: 'Link copied to clipboard.' }));
-        return;
-      }
-    } catch {
-      // fallthrough
+    const copied = await copyTextToClipboard(text);
+    if (copied) {
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(''), 1600);
+      toast.success(
+        t('common.copied', { defaultValue: 'Copied' }),
+        t('portal.linkCopied', { defaultValue: 'Link copied to clipboard.' })
+      );
+      return;
     }
 
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      textarea.style.top = '0';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (ok) {
-        setCopiedKey(key);
-        window.setTimeout(() => setCopiedKey(''), 1600);
-        toast.success(t('common.copied', { defaultValue: 'Copied' }), t('portal.linkCopied', { defaultValue: 'Link copied to clipboard.' }));
-        return;
-      }
-    } catch {
-      // fallthrough
-    }
-
-    toast.error(t('common.error', { defaultValue: 'Error' }), t('portal.copyFailed', { defaultValue: 'Please copy manually.' }));
+    toast.error(
+      t('common.error', { defaultValue: 'Error' }),
+      t('portal.copyFailed', { defaultValue: 'Please copy manually.' })
+    );
   };
 
   const toggleNodeQr = (inboundId: number) => {

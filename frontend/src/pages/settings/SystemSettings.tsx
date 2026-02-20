@@ -37,6 +37,7 @@ import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { getPreflightFixCommands, getPreflightMetadataString } from '../../utils/xrayUpdatePreflight';
 
 interface ApiResponse<T> {
@@ -485,7 +486,10 @@ const SystemSettings: React.FC = () => {
     }
 
     try {
-      await navigator.clipboard.writeText(JSON.stringify(xrayConfig, null, 2));
+      const copiedOk = await copyTextToClipboard(JSON.stringify(xrayConfig, null, 2));
+      if (!copiedOk) {
+        throw new Error('copy_failed');
+      }
       setCopiedConfig(true);
       window.setTimeout(() => setCopiedConfig(false), 1500);
     } catch {
@@ -507,7 +511,10 @@ const SystemSettings: React.FC = () => {
     ].join('\n');
 
     try {
-      await navigator.clipboard.writeText(content);
+      const copiedOk = await copyTextToClipboard(content);
+      if (!copiedOk) {
+        throw new Error('copy_failed');
+      }
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
         t('systemSettings.toast.copyPreflightFixesSuccess', { defaultValue: 'Preflight fix commands copied.' })

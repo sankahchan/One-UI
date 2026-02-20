@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { usersApi } from '../../api/users';
 import type { User } from '../../types';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
 
 type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard';
@@ -57,7 +58,10 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
     if (!selectedUrl) {
       return;
     }
-    await navigator.clipboard.writeText(selectedUrl);
+    const copiedOk = await copyTextToClipboard(selectedUrl);
+    if (!copiedOk) {
+      return;
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
   };

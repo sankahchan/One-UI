@@ -9,6 +9,7 @@ import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
 import { useToast } from '../../hooks/useToast';
 import { useAuthStore } from '../../store/authStore';
+import { copyTextToClipboard } from '../../utils/clipboard';
 
 interface ConnectionLog {
   id: number;
@@ -633,7 +634,10 @@ const XrayLiveLogsPanel: React.FC = () => {
 
   const copyLogs = async () => {
     try {
-      await navigator.clipboard.writeText(displayedLogs.join('\n'));
+      const copiedOk = await copyTextToClipboard(displayedLogs.join('\n'));
+      if (!copiedOk) {
+        throw new Error('copy_failed');
+      }
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {

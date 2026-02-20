@@ -9,6 +9,7 @@ import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 
 interface ApiKey {
   id: number;
@@ -84,7 +85,10 @@ const ApiKeysSettings: React.FC = () => {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      const copiedOk = await copyTextToClipboard(text);
+      if (!copiedOk) {
+        throw new Error('copy_failed');
+      }
       toast.success(t('common.copied', { defaultValue: 'Copied' }), t('apiKeys.copiedBody', { defaultValue: 'API key copied to clipboard.' }));
     } catch {
       toast.error(t('common.error', { defaultValue: 'Error' }), t('apiKeys.copyFailedBody', { defaultValue: 'Unable to copy to clipboard.' }));

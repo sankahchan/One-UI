@@ -8,6 +8,7 @@ import apiClient from '../../api/client';
 import { API_URL } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import type { Inbound } from '../../types';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   buildInboundClientTemplates,
   filterInboundTemplatesByPreset,
@@ -81,7 +82,10 @@ export const InboundClientProfileModal: React.FC<InboundClientProfileModalProps>
       return;
     }
 
-    await navigator.clipboard.writeText(selectedTemplate.content);
+    const copiedOk = await copyTextToClipboard(selectedTemplate.content);
+    if (!copiedOk) {
+      return;
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };
