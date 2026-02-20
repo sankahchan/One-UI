@@ -84,6 +84,16 @@ function sanitizeBrandingMetadata(metadata) {
     safe.wallpaperBlurPx = Math.min(Math.max(wallpaperBlurPx, 0), 24);
   }
 
+  const wallpaperPositionX = Number(metadata.wallpaperPositionX);
+  if (Number.isFinite(wallpaperPositionX)) {
+    safe.wallpaperPositionX = Math.min(Math.max(wallpaperPositionX, 0), 100);
+  }
+
+  const wallpaperPositionY = Number(metadata.wallpaperPositionY);
+  if (Number.isFinite(wallpaperPositionY)) {
+    safe.wallpaperPositionY = Math.min(Math.max(wallpaperPositionY, 0), 100);
+  }
+
   const wallpaperGradientFrom = sanitizeHexColor(metadata.wallpaperGradientFrom);
   if (wallpaperGradientFrom) {
     safe.wallpaperGradientFrom = wallpaperGradientFrom;

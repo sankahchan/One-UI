@@ -398,6 +398,14 @@ export const UserInfoPage = () => {
     () => clampNumber(brandingMetadata?.wallpaperBlurPx, 0, 24, 0),
     [brandingMetadata?.wallpaperBlurPx]
   );
+  const wallpaperPositionX = useMemo(
+    () => clampNumber((brandingMetadata as any)?.wallpaperPositionX, 0, 100, 50),
+    [brandingMetadata]
+  );
+  const wallpaperPositionY = useMemo(
+    () => clampNumber((brandingMetadata as any)?.wallpaperPositionY, 0, 100, 50),
+    [brandingMetadata]
+  );
   const wallpaperGradientFrom = useMemo(
     () => sanitizeHexColor((brandingMetadata as any)?.wallpaperGradientFrom as string | undefined) || primaryColor,
     [brandingMetadata, primaryColor]
@@ -537,6 +545,7 @@ export const UserInfoPage = () => {
             className="pointer-events-none fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat"
             style={{
               backgroundImage: `url(${wallpaperUrl})`,
+              backgroundPosition: `${wallpaperPositionX}% ${wallpaperPositionY}%`,
               filter: wallpaperBlurPx > 0 ? `blur(${wallpaperBlurPx}px)` : undefined,
               transform: wallpaperBlurPx > 0 ? 'scale(1.03)' : undefined
             }}

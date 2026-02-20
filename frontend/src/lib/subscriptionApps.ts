@@ -42,6 +42,8 @@ export interface SubscriptionBrandingMetadata {
   wallpaperUrl?: string;
   wallpaperOverlayOpacity?: number;
   wallpaperBlurPx?: number;
+  wallpaperPositionX?: number;
+  wallpaperPositionY?: number;
   wallpaperGradientFrom?: string;
   wallpaperGradientTo?: string;
   wallpaperGradientOpacity?: number;

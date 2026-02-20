@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -38,6 +38,8 @@ type BrandingMetadataDraft = {
   wallpaperUrl?: string;
   wallpaperOverlayOpacity?: number;
   wallpaperBlurPx?: number;
+  wallpaperPositionX?: number;
+  wallpaperPositionY?: number;
   wallpaperGradientFrom?: string;
   wallpaperGradientTo?: string;
   wallpaperGradientOpacity?: number;
@@ -121,13 +123,17 @@ const BrandingSettings: React.FC = () => {
   const [wallpaperUrl, setWallpaperUrl] = useState<string>('');
   const [wallpaperOverlayOpacity, setWallpaperOverlayOpacity] = useState<string>('62');
   const [wallpaperBlurPx, setWallpaperBlurPx] = useState<string>('0');
+  const [wallpaperPositionX, setWallpaperPositionX] = useState<string>('50');
+  const [wallpaperPositionY, setWallpaperPositionY] = useState<string>('50');
   const [wallpaperGradientFrom, setWallpaperGradientFrom] = useState<string>('');
   const [wallpaperGradientTo, setWallpaperGradientTo] = useState<string>('');
   const [wallpaperGradientOpacity, setWallpaperGradientOpacity] = useState<string>('62');
   const [wallpaperFile, setWallpaperFile] = useState<File | null>(null);
   const [wallpaperFilePreviewUrl, setWallpaperFilePreviewUrl] = useState<string>('');
   const [wallpaperFileError, setWallpaperFileError] = useState<string>('');
+  const [isFocalDragging, setIsFocalDragging] = useState(false);
   const [customAppsJson, setCustomAppsJson] = useState<string>('[]');
+  const previewFocalRef = useRef<HTMLDivElement | null>(null);
 
   const brandingQuery = useQuery({
     queryKey: ['subscription-branding'],
@@ -173,6 +179,16 @@ const BrandingSettings: React.FC = () => {
     if (!Number.isFinite(value)) return 62;
     return Math.min(Math.max(value, 10), 90);
   }, [wallpaperOverlayOpacity]);
+  const previewWallpaperPositionX = useMemo(() => {
+    const value = Number(wallpaperPositionX);
+    if (!Number.isFinite(value)) return 50;
+    return Math.min(Math.max(value, 0), 100);
+  }, [wallpaperPositionX]);
+  const previewWallpaperPositionY = useMemo(() => {
+    const value = Number(wallpaperPositionY);
+    if (!Number.isFinite(value)) return 50;
+    return Math.min(Math.max(value, 0), 100);
+  }, [wallpaperPositionY]);
   const previewGradientFrom = useMemo(
     () => normalizeHexColor(wallpaperGradientFrom, previewPrimary),
     [previewPrimary, wallpaperGradientFrom]
@@ -198,6 +214,21 @@ const BrandingSettings: React.FC = () => {
     };
   }, [wallpaperFilePreviewUrl]);
 
+  const updateWallpaperFocalFromPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    const element = previewFocalRef.current || event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const offsetX = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+    const offsetY = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+
+    const nextX = Math.round((offsetX / rect.width) * 100);
+    const nextY = Math.round((offsetY / rect.height) * 100);
+
+    setWallpaperPositionX(String(nextX));
+    setWallpaperPositionY(String(nextY));
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setName('');
@@ -220,6 +251,8 @@ const BrandingSettings: React.FC = () => {
     setWallpaperUrl('');
     setWallpaperOverlayOpacity('62');
     setWallpaperBlurPx('0');
+    setWallpaperPositionX('50');
+    setWallpaperPositionY('50');
     setWallpaperGradientFrom('');
     setWallpaperGradientTo('');
     setWallpaperGradientOpacity('62');
@@ -259,6 +292,8 @@ const BrandingSettings: React.FC = () => {
       metadata.wallpaperOverlayOpacity !== undefined ? String(metadata.wallpaperOverlayOpacity) : '62'
     );
     setWallpaperBlurPx(metadata.wallpaperBlurPx !== undefined ? String(metadata.wallpaperBlurPx) : '0');
+    setWallpaperPositionX(metadata.wallpaperPositionX !== undefined ? String(metadata.wallpaperPositionX) : '50');
+    setWallpaperPositionY(metadata.wallpaperPositionY !== undefined ? String(metadata.wallpaperPositionY) : '50');
     setWallpaperGradientFrom(typeof metadata.wallpaperGradientFrom === 'string' ? metadata.wallpaperGradientFrom : '');
     setWallpaperGradientTo(typeof metadata.wallpaperGradientTo === 'string' ? metadata.wallpaperGradientTo : '');
     setWallpaperGradientOpacity(
@@ -414,6 +449,16 @@ const BrandingSettings: React.FC = () => {
         metadataDraft.wallpaperBlurPx = Math.min(Math.max(blurPx, 0), 24);
       }
 
+      const positionX = Number(wallpaperPositionX);
+      if (Number.isFinite(positionX)) {
+        metadataDraft.wallpaperPositionX = Math.min(Math.max(positionX, 0), 100);
+      }
+
+      const positionY = Number(wallpaperPositionY);
+      if (Number.isFinite(positionY)) {
+        metadataDraft.wallpaperPositionY = Math.min(Math.max(positionY, 0), 100);
+      }
+
       const gradientFrom = parseOptionalHexColor(wallpaperGradientFrom);
       if (wallpaperGradientFrom.trim() && !gradientFrom) {
         toast.error(
@@ -558,9 +603,51 @@ const BrandingSettings: React.FC = () => {
                   ? `url(${previewWallpaperImageUrl})`
                   : `linear-gradient(135deg, ${hexToRgba(previewGradientFrom, 0.25)} 0%, ${hexToRgba(previewGradientTo, 0.35)} 100%)`,
                 backgroundSize: 'cover',
-                backgroundPosition: 'center'
+                backgroundPosition: `${previewWallpaperPositionX}% ${previewWallpaperPositionY}%`
               }}
             >
+              {previewHasWallpaper ? (
+                <div
+                  ref={previewFocalRef}
+                  className="absolute inset-0 z-20 cursor-crosshair touch-none"
+                  aria-label="Wallpaper focal position selector"
+                  onPointerDown={(event) => {
+                    setIsFocalDragging(true);
+                    updateWallpaperFocalFromPointer(event);
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    if (!isFocalDragging) return;
+                    updateWallpaperFocalFromPointer(event);
+                  }}
+                  onPointerUp={(event) => {
+                    setIsFocalDragging(false);
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    }
+                  }}
+                  onPointerCancel={(event) => {
+                    setIsFocalDragging(false);
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    }
+                  }}
+                />
+              ) : null}
+              {previewHasWallpaper ? (
+                <div
+                  className="pointer-events-none absolute z-20"
+                  style={{
+                    left: `${previewWallpaperPositionX}%`,
+                    top: `${previewWallpaperPositionY}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-black/35 text-[10px] font-semibold text-white shadow-lg">
+                    ✚
+                  </div>
+                </div>
+              ) : null}
               {previewHasWallpaper ? (
                 <div
                   className="pointer-events-none absolute inset-0"
@@ -777,6 +864,27 @@ const BrandingSettings: React.FC = () => {
                   placeholder="0"
                 />
               </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Focal Position X (%)"
+                  type="number"
+                  value={wallpaperPositionX}
+                  onChange={(event) => setWallpaperPositionX(event.target.value)}
+                  placeholder="50"
+                />
+                <Input
+                  label="Focal Position Y (%)"
+                  type="number"
+                  value={wallpaperPositionY}
+                  onChange={(event) => setWallpaperPositionY(event.target.value)}
+                  placeholder="50"
+                />
+              </div>
+
+              <p className="text-xs text-muted">
+                Tip: Drag directly on the preview image to set focal position quickly.
+              </p>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
