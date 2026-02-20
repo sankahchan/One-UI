@@ -29,3 +29,7 @@ frontend/playwright-report/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local debug artifacts
+scripts/_local_debug/
+backend/vps.env
