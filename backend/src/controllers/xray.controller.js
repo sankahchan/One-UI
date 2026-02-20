@@ -250,6 +250,22 @@ class XrayController {
     }
   }
 
+  async runRuntimeDoctor(req, res, next) {
+    try {
+      const result = await xrayUpdateService.runRuntimeDoctor(
+        {
+          repair: req.body?.repair,
+          source: req.body?.source || 'manual'
+        },
+        buildActorContext(req)
+      );
+
+      res.json(ApiResponse.success(result, result.ok ? 'Runtime doctor completed' : 'Runtime doctor found blocking issues'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async createConfigSnapshot(_req, res, next) {
     try {
       const snapshot = await xrayManager.createCurrentSnapshot('manual');

@@ -19,6 +19,7 @@ import {
   runXrayCanaryUpdate,
   runXrayFullUpdate,
   runXrayRollback,
+  runXrayRuntimeDoctor,
   runXrayUpdateUnlock,
   syncXrayConfDir,
   updateXrayGeodata,
@@ -37,7 +38,8 @@ import {
   type XrayUpdateRunResult,
   type XrayUpdateUnlockRequest,
   type XrayUpdateUnlockResult,
-  type XrayRollbackRequest
+  type XrayRollbackRequest,
+  type XrayRuntimeDoctorResult
 } from '../api/xray';
 
 interface UseOnlineUsersOptions {
@@ -195,6 +197,21 @@ export const useRunXrayUpdateUnlock = () => {
       void queryClient.invalidateQueries({ queryKey: ['xray-update-preflight'] });
       void queryClient.invalidateQueries({ queryKey: ['xray-update-policy'] });
       void queryClient.invalidateQueries({ queryKey: ['xray-update-history'] });
+    }
+  });
+};
+
+export const useRunXrayRuntimeDoctor = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<XrayRuntimeDoctorResult, Error, { repair?: boolean; source?: string }>({
+    mutationFn: runXrayRuntimeDoctor,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['xray-update-preflight'] });
+      void queryClient.invalidateQueries({ queryKey: ['xray-update-policy'] });
+      void queryClient.invalidateQueries({ queryKey: ['xray-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['xray-config'] });
+      void queryClient.invalidateQueries({ queryKey: ['online-users'] });
     }
   });
 };

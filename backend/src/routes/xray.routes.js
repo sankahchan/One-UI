@@ -174,6 +174,26 @@ router.post(
   xrayController.runRollbackUpdate
 );
 router.post(
+  '/update/runtime-doctor',
+  authorize('SUPER_ADMIN', 'ADMIN'),
+  xrayUpdateLimiter,
+  [
+    body('repair')
+      .optional()
+      .isBoolean()
+      .withMessage('repair must be boolean')
+      .toBoolean(),
+    body('source')
+      .optional()
+      .isString()
+      .isLength({ min: 1, max: 64 })
+      .withMessage('source must be 1-64 chars')
+  ],
+  validate,
+  xrayController.runRuntimeDoctor
+);
+
+router.post(
   '/update/unlock',
   authorize('SUPER_ADMIN'),
   xrayUpdateLimiter,

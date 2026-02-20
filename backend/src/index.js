@@ -36,6 +36,7 @@ const { initBot, stopTelegramBot } = require('./telegram/bot');
 const WorkerRuntime = require('./worker/runtime');
 const startupGates = require('./startup/gates');
 const webhookService = require('./services/webhook.service');
+const xrayUpdateService = require('./services/xrayUpdate.service');
 const xrayConfigGenerator = require('./xray/config-generator');
 const xrayManager = require('./xray/manager');
 
@@ -196,6 +197,9 @@ async function startServer() {
     await startupGates.runStartupMigrationGate();
     await prisma.$connect();
     await startupGates.runStartupHealthGate();
+    if (String(process.env.XRAY_STARTUP_SELF_HEAL || 'true').toLowerCase() !== 'false') {
+      void xrayUpdateService.runStartupSelfHeal();
+    }
     await webhookService.initialize();
     // Initialize Xray config
     logger.info('Initializing Xray configuration...');

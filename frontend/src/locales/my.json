@@ -976,6 +976,7 @@
         "openSettings": "ဆက်တင်ဖွင့်",
         "runPreflight": "Preflight စစ်",
         "copyFixes": "Fix များ ကူးရန်",
+        "runtimeDoctor": "Runtime Doctor",
         "forceUnlock": "အတင်းဖြုတ်",
         "openUpdates": "အပ်ဒိတ် ဖွင့်",
         "unlockTitle": "အပ်ဒိတ် လော့ခ် အတင်းဖြုတ်",
@@ -1000,7 +1001,11 @@
             "unlockReleasedBody": "Update lock ကို ဖြုတ်ပြီးပါပြီ။",
             "unlockNotReleasedBody": "Update lock ကို မဖြုတ်နိုင်ပါ။",
             "unlockFailedTitle": "လော့ခ်ဖြုတ်မရပါ",
-            "unlockFailedBody": "Update lock ကို ဖြုတ်၍မရပါ။"
+            "unlockFailedBody": "Update lock ကို ဖြုတ်၍မရပါ။",
+            "doctorCompleteTitle": "Runtime Doctor ပြီးပါပြီ",
+            "doctorCompleteBody": "ပြင်ဆင်မှု {{count}} ခု အလိုအလျောက် လုပ်ဆောင်ပြီးပါပြီ။",
+            "doctorFailedTitle": "Runtime Doctor မအောင်မြင်ပါ",
+            "doctorFailedBody": "Runtime Doctor ကို မလုပ်နိုင်ပါ။"
         }
     },
     "settings": {
@@ -1468,6 +1473,8 @@
             "manualModeRollbackDisabled": "Manual mode တွင် Rollback ကို ပိတ်ထားသည်။",
             "releaseIntelRefreshed": "Release intel ကို ပြန်လည်ဖော်ပြပြီးပါပြီ။",
             "releaseIntelRefreshFailed": "Release intel ကို ပြန်လည်ရယူမရပါ။",
+            "runtimeDoctorComplete": "Runtime Doctor ပြီးပါပြီ။ ပြင်ဆင်မှု {{count}} ခု လုပ်ဆောင်ပြီးပါပြီ။",
+            "runtimeDoctorFailed": "Runtime Doctor မအောင်မြင်ပါ။",
             "guidedPaused": "Guided update ကို ရပ်ထားသည်။",
             "guidedComplete": "Guided update ကို အောင်မြင်စွာ ပြီးဆုံးပါပြီ။",
             "canaryComplete": "Canary rollout ကို အောင်မြင်စွာ ပြီးဆုံးပါပြီ။",

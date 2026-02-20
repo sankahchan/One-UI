@@ -976,6 +976,7 @@
         "openSettings": "Open Settings",
         "runPreflight": "Run Preflight",
         "copyFixes": "Copy Fixes",
+        "runtimeDoctor": "Runtime Doctor",
         "forceUnlock": "Force Unlock",
         "openUpdates": "Open Updates",
         "unlockTitle": "Force Unlock Update Lock",
@@ -1000,7 +1001,11 @@
             "unlockReleasedBody": "Update lock released.",
             "unlockNotReleasedBody": "Update lock not released.",
             "unlockFailedTitle": "Unlock failed",
-            "unlockFailedBody": "Failed to unlock update lock."
+            "unlockFailedBody": "Failed to unlock update lock.",
+            "doctorCompleteTitle": "Runtime Doctor complete",
+            "doctorCompleteBody": "Applied {{count}} repair action(s).",
+            "doctorFailedTitle": "Runtime Doctor failed",
+            "doctorFailedBody": "Failed to run runtime doctor."
         }
     },
     "settings": {
@@ -1280,6 +1285,8 @@
             "manualModeRollbackDisabled": "Rollback is disabled in manual mode.",
             "releaseIntelRefreshed": "Release intel refreshed.",
             "releaseIntelRefreshFailed": "Failed to refresh release intel.",
+            "runtimeDoctorComplete": "Runtime doctor completed. Applied {{count}} repair action(s).",
+            "runtimeDoctorFailed": "Runtime doctor failed.",
             "guidedPaused": "Guided update paused.",
             "guidedComplete": "Guided update completed.",
             "canaryComplete": "Canary rollout completed.",

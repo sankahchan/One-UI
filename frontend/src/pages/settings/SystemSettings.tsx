@@ -13,6 +13,7 @@ import {
   useRestartXray,
   useRollbackXrayConfigSnapshot,
   useRunXrayRollback,
+  useRunXrayRuntimeDoctor,
   useRunXrayUpdateUnlock,
   useRunXrayCanaryUpdate,
   useRunXrayFullUpdate,
@@ -123,6 +124,7 @@ const SystemSettings: React.FC = () => {
   const runFullUpdateMutation = useRunXrayFullUpdate();
   const runRollbackMutation = useRunXrayRollback();
   const runUpdateUnlockMutation = useRunXrayUpdateUnlock();
+  const runRuntimeDoctorMutation = useRunXrayRuntimeDoctor();
 
   const stats = systemStats?.data;
   const xrayStatus = xrayStatusQuery.data;
@@ -167,7 +169,8 @@ const SystemSettings: React.FC = () => {
   const updateMutationsBusy = guidedRolloutRunning
     || runCanaryUpdateMutation.isPending
     || runFullUpdateMutation.isPending
-    || runRollbackMutation.isPending;
+    || runRollbackMutation.isPending
+    || runRuntimeDoctorMutation.isPending;
 
   useEffect(() => {
     if (!xrayConfigSnapshots.length) {
@@ -513,6 +516,32 @@ const SystemSettings: React.FC = () => {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         t('systemSettings.toast.copyPreflightFixesFailed', { defaultValue: 'Failed to copy preflight fix commands.' })
+      );
+    }
+  };
+
+  const handleRunRuntimeDoctor = async () => {
+    try {
+      const result = await runRuntimeDoctorMutation.mutateAsync({
+        repair: true,
+        source: 'system-settings'
+      });
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('systemSettings.toast.runtimeDoctorComplete', {
+          defaultValue: 'Runtime doctor completed. Applied {{count}} repair action(s).',
+          count: result.repairedCount || 0
+        })
+      );
+      await Promise.all([
+        xrayUpdatePreflightQuery.refetch(),
+        xrayUpdatePolicyQuery.refetch(),
+        xrayStatusQuery.refetch()
+      ]);
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.runtimeDoctorFailed', { defaultValue: 'Runtime doctor failed.' })
       );
     }
   };
@@ -894,6 +923,18 @@ const SystemSettings: React.FC = () => {
                 disabled={unresolvedFixCommands.length === 0}
               >
                 Copy Fixes
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  void handleRunRuntimeDoctor();
+                }}
+                loading={runRuntimeDoctorMutation.isPending}
+                disabled={updateMutationsBusy}
+              >
+                {t('updateHealth.runtimeDoctor', { defaultValue: 'Runtime Doctor' })}
               </Button>
               {isSuperAdmin ? (
                 <Button

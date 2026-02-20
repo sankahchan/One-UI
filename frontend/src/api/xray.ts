@@ -111,6 +111,29 @@ export interface XrayUpdateUnlockResult {
   message: string;
 }
 
+export interface XrayRuntimeDoctorCheck {
+  id: string;
+  label: string;
+  ok: boolean;
+  blocking: boolean;
+  repaired: boolean;
+  detail: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface XrayRuntimeDoctorResult {
+  ok: boolean;
+  mode: 'docker' | 'manual';
+  updatesEnabled: boolean;
+  source: string;
+  repair: boolean;
+  repairedCount: number;
+  generatedAt: string;
+  actions: string[];
+  checks: XrayRuntimeDoctorCheck[];
+  preflight: XrayUpdatePreflight;
+}
+
 export type XrayConfig = Record<string, unknown>;
 
 export interface XrayReleaseChannel {
@@ -227,6 +250,10 @@ export const xrayApi = {
 
   runUpdateUnlock: async (data: XrayUpdateUnlockRequest = {}): Promise<ApiResponse<XrayUpdateUnlockResult>> => {
     return apiClient.post('/xray/update/unlock', data);
+  },
+
+  runRuntimeDoctor: async (data: { repair?: boolean; source?: string } = {}): Promise<ApiResponse<XrayRuntimeDoctorResult>> => {
+    return apiClient.post('/xray/update/runtime-doctor', data);
   },
 
   getConfigSnapshots: async (params: { limit?: number } = {}): Promise<ApiResponse<XrayConfigSnapshotList>> => {
@@ -380,6 +407,14 @@ export const runXrayUpdateUnlock = async (data: XrayUpdateUnlockRequest = {}): P
   const response = await xrayApi.runUpdateUnlock(data);
   if (!response.data) {
     throw new Error(response.message || 'Unable to unlock Xray update lock');
+  }
+  return response.data;
+};
+
+export const runXrayRuntimeDoctor = async (data: { repair?: boolean; source?: string } = {}): Promise<XrayRuntimeDoctorResult> => {
+  const response = await xrayApi.runRuntimeDoctor(data);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to run runtime doctor');
   }
   return response.data;
 };

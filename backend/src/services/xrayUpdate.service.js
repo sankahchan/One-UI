@@ -13,6 +13,8 @@ const workerLockService = require('./workerLock.service');
 const xrayManager = require('../xray/manager');
 
 const UPDATE_LOG_PREFIX = 'XRAY_UPDATE';
+const ONE_UI_ROOT = '/opt/one-ui';
+const LEGACY_ROOT = '/opt/xray-panel';
 
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') {
@@ -229,6 +231,8 @@ class XrayUpdateService {
   resolveScriptPath() {
     const candidates = [
       process.env.XRAY_UPDATE_SCRIPT,
+      path.join(ONE_UI_ROOT, 'scripts/update-xray-core.sh'),
+      path.join(LEGACY_ROOT, 'scripts/update-xray-core.sh'),
       path.resolve(process.cwd(), '../scripts/update-xray-core.sh'),
       path.resolve(process.cwd(), 'scripts/update-xray-core.sh'),
       path.resolve(__dirname, '../../..', 'scripts/update-xray-core.sh')
@@ -441,6 +445,8 @@ class XrayUpdateService {
   resolveComposeFilePath() {
     const candidates = [
       process.env.COMPOSE_FILE,
+      path.join(ONE_UI_ROOT, 'docker-compose.yml'),
+      path.join(LEGACY_ROOT, 'docker-compose.yml'),
       path.resolve(process.cwd(), '../docker-compose.yml'),
       path.resolve(process.cwd(), 'docker-compose.yml'),
       path.resolve(__dirname, '../../..', 'docker-compose.yml')
@@ -458,6 +464,295 @@ class XrayUpdateService {
     }
 
     return null;
+  }
+
+  async runComposeCommand(composeFilePath, args = [], timeoutMs = this.updateTimeoutMs) {
+    const composeArgs = ['-f', composeFilePath, ...args];
+
+    let result = await this.executeCommand('docker', ['compose', ...composeArgs], timeoutMs);
+    const combined = `${result.stderr || ''}\n${result.stdout || ''}`.toLowerCase();
+    const composeUnavailable =
+      !result.ok
+      && (
+        result.code === 127
+        || combined.includes('is not a docker command')
+        || combined.includes('unknown command')
+        || combined.includes('not found')
+        || combined.includes('no such file or directory')
+      );
+
+    if (result.ok || !composeUnavailable) {
+      return result;
+    }
+
+    result = await this.executeCommand('docker-compose', composeArgs, timeoutMs);
+    return result;
+  }
+
+  async tryRepairScriptExecutable(scriptPath) {
+    if (!scriptPath) {
+      return {
+        repaired: false,
+        detail: 'Update script path is missing.'
+      };
+    }
+
+    if (this.isExecutable(scriptPath)) {
+      return {
+        repaired: false,
+        detail: 'Script is already executable.'
+      };
+    }
+
+    try {
+      fs.chmodSync(scriptPath, 0o755);
+      if (this.isExecutable(scriptPath)) {
+        return {
+          repaired: true,
+          detail: `Applied chmod +x to ${scriptPath}.`
+        };
+      }
+    } catch (_error) {
+      // Fall through to docker-based repair.
+    }
+
+    const dockerResult = await this.executeCommand('docker', ['version', '--format', '{{.Server.Version}}']);
+    if (!dockerResult.ok) {
+      return {
+        repaired: false,
+        detail: 'Script is not executable and Docker daemon is unavailable for auto-repair.'
+      };
+    }
+
+    let mountRoot = null;
+    if (scriptPath.startsWith(`${ONE_UI_ROOT}/`)) {
+      mountRoot = ONE_UI_ROOT;
+    } else if (scriptPath.startsWith(`${LEGACY_ROOT}/`)) {
+      mountRoot = LEGACY_ROOT;
+    } else {
+      return {
+        repaired: false,
+        detail: `Script is not executable and cannot auto-repair nonstandard path: ${scriptPath}`
+      };
+    }
+
+    const relativePath = path.relative(mountRoot, scriptPath);
+    if (relativePath.startsWith('..')) {
+      return {
+        repaired: false,
+        detail: 'Script path is outside the mount root and cannot be auto-repaired.'
+      };
+    }
+
+    const targetPath = `/workspace/${relativePath}`;
+    const repairResult = await this.executeCommand(
+      'docker',
+      ['run', '--rm', '-v', `${mountRoot}:/workspace`, 'alpine:3.20', 'chmod', '+x', targetPath],
+      this.preflightTimeoutMs
+    );
+
+    if (!repairResult.ok) {
+      return {
+        repaired: false,
+        detail: repairResult.stderr || repairResult.stdout || 'Failed to auto-repair script executable bit.'
+      };
+    }
+
+    return {
+      repaired: this.isExecutable(scriptPath),
+      detail: this.isExecutable(scriptPath)
+        ? `Applied chmod +x to ${scriptPath} via docker helper.`
+        : `Attempted chmod +x for ${scriptPath}, but executable bit is still missing.`
+    };
+  }
+
+  async runRuntimeDoctor(options = {}, actor = null) {
+    const repair = parseBoolean(options.repair, true);
+    const source = String(options.source || 'manual').trim() || 'manual';
+    const checks = [];
+    const actions = [];
+    const scriptPath = this.resolveScriptPath();
+    const composeFilePath = this.resolveComposeFilePath();
+    const dockerRequired = this.updatesEnabled;
+
+    checks.push({
+      id: 'update-runtime',
+      label: 'Update runtime mode',
+      ok: true,
+      blocking: true,
+      repaired: false,
+      detail: this.updatesEnabled
+        ? `Docker scripted updates are enabled (mode=${this.updateMode}).`
+        : `Manual mode detected (mode=${this.updateMode}); scripted updates are disabled.`,
+      metadata: {
+        mode: this.updateMode,
+        updatesEnabled: this.updatesEnabled
+      }
+    });
+
+    let scriptExists = Boolean(scriptPath);
+    checks.push({
+      id: 'update-script',
+      label: 'Update script',
+      ok: scriptExists,
+      blocking: dockerRequired,
+      repaired: false,
+      detail: scriptExists ? `Using ${scriptPath}` : 'Update script not found.',
+      metadata: {
+        scriptPath: scriptPath || null
+      }
+    });
+
+    let scriptExecutable = this.isExecutable(scriptPath);
+    let scriptExecutableRepaired = false;
+    let scriptExecutableDetail = scriptExecutable
+      ? 'Script is executable.'
+      : 'Script is not executable.';
+
+    if (repair && scriptPath && !scriptExecutable) {
+      const repairResult = await this.tryRepairScriptExecutable(scriptPath);
+      scriptExecutable = this.isExecutable(scriptPath);
+      scriptExecutableRepaired = scriptExecutable && repairResult.repaired;
+      scriptExecutableDetail = repairResult.detail;
+
+      if (scriptExecutableRepaired) {
+        actions.push(repairResult.detail);
+      }
+    }
+
+    checks.push({
+      id: 'update-script-executable',
+      label: 'Script executable',
+      ok: scriptExecutable,
+      blocking: dockerRequired,
+      repaired: scriptExecutableRepaired,
+      detail: scriptExecutableDetail,
+      metadata: {
+        scriptPath: scriptPath || null
+      }
+    });
+
+    checks.push({
+      id: 'compose-file',
+      label: 'Compose file',
+      ok: Boolean(composeFilePath),
+      blocking: dockerRequired,
+      repaired: false,
+      detail: composeFilePath ? `Using ${composeFilePath}` : 'docker-compose.yml not found.',
+      metadata: {
+        composeFilePath: composeFilePath || null
+      }
+    });
+
+    const dockerResult = await this.executeCommand('docker', ['version', '--format', '{{.Server.Version}}']);
+    checks.push({
+      id: 'docker-daemon',
+      label: 'Docker daemon',
+      ok: dockerResult.ok,
+      blocking: dockerRequired,
+      repaired: false,
+      detail: dockerResult.ok
+        ? `Docker server ${dockerResult.stdout || 'ready'}`
+        : (dockerResult.stderr || dockerResult.stdout || 'Unable to reach Docker daemon'),
+      metadata: {
+        command: 'docker version --format "{{.Server.Version}}"'
+      }
+    });
+
+    let xrayContainerRunning = false;
+    let xrayContainerRepaired = false;
+    let xrayContainerDetail = 'Skipped because Docker daemon is unavailable.';
+    if (dockerResult.ok) {
+      const runningCheck = await this.executeCommand('docker', ['ps', '--filter', `name=^/${this.xrayContainerName}$`, '--format', '{{.Names}}']);
+      xrayContainerRunning = runningCheck.ok && runningCheck.stdout.split('\n').some((line) => line.trim() === this.xrayContainerName);
+      xrayContainerDetail = xrayContainerRunning
+        ? `Container ${this.xrayContainerName} is running.`
+        : `Container ${this.xrayContainerName} is not running right now.`;
+
+      if (repair && !xrayContainerRunning && composeFilePath) {
+        const upResult = await this.runComposeCommand(composeFilePath, ['up', '-d', 'xray']);
+        if (upResult.ok) {
+          const verifyResult = await this.executeCommand('docker', ['ps', '--filter', `name=^/${this.xrayContainerName}$`, '--format', '{{.Names}}']);
+          xrayContainerRunning = verifyResult.ok && verifyResult.stdout.split('\n').some((line) => line.trim() === this.xrayContainerName);
+          if (xrayContainerRunning) {
+            xrayContainerRepaired = true;
+            xrayContainerDetail = `Container ${this.xrayContainerName} restarted via compose.`;
+            actions.push(`Restarted ${this.xrayContainerName} via docker compose.`);
+          } else {
+            xrayContainerDetail = 'Compose command executed, but xray container is still not running.';
+          }
+        } else {
+          xrayContainerDetail = upResult.stderr || upResult.stdout || 'Failed to start xray service via compose.';
+        }
+      }
+    }
+
+    checks.push({
+      id: 'xray-container',
+      label: 'Xray container',
+      ok: xrayContainerRunning,
+      blocking: false,
+      repaired: xrayContainerRepaired,
+      detail: xrayContainerDetail,
+      metadata: {
+        containerName: this.xrayContainerName
+      }
+    });
+
+    const preflight = await this.getPreflight();
+    const blockingChecks = checks.filter((check) => check.blocking);
+    const blockingFailures = blockingChecks.filter((check) => !check.ok).length;
+    const ok = preflight.ready && blockingFailures === 0;
+
+    await this.logEvent({
+      level: ok ? 'INFO' : 'WARNING',
+      message: `${UPDATE_LOG_PREFIX}: stage=doctor status=${ok ? 'success' : 'failed'} channel=n/a`,
+      metadata: {
+        source,
+        repair,
+        mode: this.updateMode,
+        updatesEnabled: this.updatesEnabled,
+        repairedCount: checks.filter((check) => check.repaired).length,
+        blockingFailures,
+        actorId: actor?.id || null,
+        actorUsername: actor?.username || null
+      }
+    });
+
+    return {
+      ok,
+      mode: this.updateMode,
+      updatesEnabled: this.updatesEnabled,
+      source,
+      repair,
+      repairedCount: checks.filter((check) => check.repaired).length,
+      generatedAt: new Date().toISOString(),
+      actions,
+      checks,
+      preflight
+    };
+  }
+
+  async runStartupSelfHeal() {
+    if (!parseBoolean(process.env.XRAY_STARTUP_SELF_HEAL, true)) {
+      return {
+        skipped: true,
+        reason: 'XRAY_STARTUP_SELF_HEAL disabled'
+      };
+    }
+
+    try {
+      return await this.runRuntimeDoctor({ repair: true, source: 'startup' });
+    } catch (error) {
+      logger.warn('Xray update startup self-heal failed', {
+        message: error.message
+      });
+      return {
+        skipped: false,
+        ok: false,
+        error: error.message
+      };
+    }
   }
 
   buildStuckLockSignature(lock) {

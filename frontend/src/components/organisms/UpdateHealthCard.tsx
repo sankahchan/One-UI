@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Copy, Lock, Settings, Unlock, Wrench } fro
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-import { useRunXrayUpdateUnlock, useXrayUpdatePolicy, useXrayUpdatePreflight } from '../../hooks/useXray';
+import { useRunXrayRuntimeDoctor, useRunXrayUpdateUnlock, useXrayUpdatePolicy, useXrayUpdatePreflight } from '../../hooks/useXray';
 import { useToast } from '../../hooks/useToast';
 import { useAuthStore } from '../../store/authStore';
 import { getPreflightFixCommands, getPreflightMetadataString } from '../../utils/xrayUpdatePreflight';
@@ -23,6 +23,7 @@ export const UpdateHealthCard: React.FC = () => {
   const preflightQuery = useXrayUpdatePreflight(canManageUpdates);
   const policy = policyQuery.data;
   const forceUnlockMutation = useRunXrayUpdateUnlock();
+  const runtimeDoctorMutation = useRunXrayRuntimeDoctor();
   const preflight = preflightQuery.data;
   const updateRuntimeMode = policy?.mode || preflight?.mode || 'docker';
   const scriptedUpdatesEnabled = policy?.updatesEnabled ?? preflight?.updatesEnabled ?? true;
@@ -96,6 +97,29 @@ export const UpdateHealthCard: React.FC = () => {
       toast.error(
         t('updateHealth.toast.unlockFailedTitle', { defaultValue: 'Unlock failed' }),
         error?.message || t('updateHealth.toast.unlockFailedBody', { defaultValue: 'Failed to unlock update lock.' })
+      );
+    }
+  };
+
+  const runRuntimeDoctor = async () => {
+    try {
+      const result = await runtimeDoctorMutation.mutateAsync({
+        repair: true,
+        source: 'dashboard'
+      });
+
+      toast.success(
+        t('updateHealth.toast.doctorCompleteTitle', { defaultValue: 'Runtime Doctor complete' }),
+        t('updateHealth.toast.doctorCompleteBody', {
+          defaultValue: 'Applied {{count}} repair action(s).',
+          count: result.repairedCount || 0
+        })
+      );
+      await preflightQuery.refetch();
+    } catch (error: any) {
+      toast.error(
+        t('updateHealth.toast.doctorFailedTitle', { defaultValue: 'Runtime Doctor failed' }),
+        error?.message || t('updateHealth.toast.doctorFailedBody', { defaultValue: 'Failed to run runtime doctor.' })
       );
     }
   };
@@ -203,10 +227,22 @@ export const UpdateHealthCard: React.FC = () => {
               onClick={() => {
                 void copyFixes();
               }}
-              disabled={unresolvedFixCommands.length === 0}
+              disabled={unresolvedFixCommands.length === 0 || runtimeDoctorMutation.isPending}
             >
               <Copy className="mr-2 h-4 w-4" />
               {t('updateHealth.copyFixes', { defaultValue: 'Copy Fixes' })}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void runRuntimeDoctor();
+              }}
+              loading={runtimeDoctorMutation.isPending}
+              disabled={forceUnlockMutation.isPending}
+            >
+              <Wrench className="mr-2 h-4 w-4" />
+              {t('updateHealth.runtimeDoctor', { defaultValue: 'Runtime Doctor' })}
             </Button>
             <Button
               type="button"

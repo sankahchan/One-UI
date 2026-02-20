@@ -253,6 +253,7 @@ jobs:
           ./scripts/bootstrap-local.sh
           ./scripts/smoke-core-api.sh
           ./scripts/smoke-myanmar-hardening.sh
+          ./scripts/smoke-xray-update-preflight.sh
 
   nightly-full-e2e:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_e2e == 'true')
