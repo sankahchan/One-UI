@@ -250,13 +250,49 @@ export const UserInfoPage = () => {
 
   const availableFormats = useMemo(() => {
     const entries: Array<{ key: FormatTab; label: string }> = [
-      { key: 'v2ray', label: 'V2Ray' },
-      { key: 'clash', label: 'Clash' },
-      { key: 'singbox', label: 'Sing-box' },
-      { key: 'wireguard', label: 'WireGuard' }
+      { key: 'v2ray', label: t('portal.formats.v2ray', { defaultValue: 'V2Ray' }) },
+      { key: 'clash', label: t('portal.formats.clash', { defaultValue: 'Clash' }) },
+      { key: 'singbox', label: t('portal.formats.singbox', { defaultValue: 'Sing-box' }) },
+      { key: 'wireguard', label: t('portal.formats.wireguard', { defaultValue: 'WireGuard' }) }
     ];
     return entries.filter((entry) => Boolean(urls[entry.key]));
-  }, [urls]);
+  }, [t, urls]);
+
+  const getResetPeriodLabel = (period: string) => {
+    const normalized = String(period || '').toUpperCase();
+    if (!normalized) return '';
+    if (normalized === 'NEVER') {
+      return t('portal.resetPeriods.never', { defaultValue: 'never' });
+    }
+    return t(`portal.resetPeriods.${normalized.toLowerCase()}`, {
+      defaultValue: normalized.toLowerCase()
+    });
+  };
+
+  const getUserStatusLabel = (status: string) => {
+    const normalized = String(status || '').toUpperCase();
+    const key = `status.${normalized.toLowerCase()}`;
+    return t(key, { defaultValue: normalized || status || '-' });
+  };
+
+  const getFormatBadgeLabel = (format: FormatTab) => {
+    if (format === 'clash') {
+      return t('portal.subscription.formatHint.clash', { defaultValue: 'Clash / Meta clients' });
+    }
+    if (format === 'v2ray') {
+      return t('portal.subscription.formatHint.v2ray', { defaultValue: 'V2Ray subscription' });
+    }
+    if (format === 'singbox') {
+      return t('portal.subscription.formatHint.singbox', { defaultValue: 'Sing-box subscription' });
+    }
+    return t('portal.subscription.formatHint.wireguard', { defaultValue: 'WireGuard subscription' });
+  };
+
+  const getPlatformLabel = (entry: Platform) => {
+    if (entry === 'android') return t('portal.addToApp.platform.android', { defaultValue: 'Android' });
+    if (entry === 'ios') return t('portal.addToApp.platform.ios', { defaultValue: 'iOS' });
+    return t('portal.addToApp.platform.desktop', { defaultValue: 'Desktop' });
+  };
 
   useEffect(() => {
     if (availableFormats.length === 0) return;
@@ -350,9 +386,13 @@ export const UserInfoPage = () => {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
             <Info className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold text-foreground">Subscription Not Found</h2>
+          <h2 className="text-xl font-bold text-foreground">
+            {t('portal.notFound.title', { defaultValue: 'Subscription Not Found' })}
+          </h2>
           <p className="mt-2 text-sm text-muted">
-            The subscription token is invalid, expired, or has been revoked.
+            {t('portal.notFound.body', {
+              defaultValue: 'The subscription token is invalid, expired, or has been revoked.'
+            })}
           </p>
         </Card>
       </div>
@@ -376,12 +416,30 @@ export const UserInfoPage = () => {
     if (!hit) return null;
 
     if (hit >= 95) {
-      return { label: `Almost out of data (${hit}%)`, tone: 'bg-rose-500/15 text-rose-200 border-rose-500/25' };
+      return {
+        label: t('portal.hero.usageAlert.almostOut', {
+          defaultValue: 'Almost out of data ({{percent}}%)',
+          percent: hit
+        }),
+        tone: 'bg-rose-500/15 text-rose-200 border-rose-500/25'
+      };
     }
     if (hit >= 90) {
-      return { label: `High usage (${hit}%)`, tone: 'bg-amber-500/15 text-amber-100 border-amber-500/25' };
+      return {
+        label: t('portal.hero.usageAlert.high', {
+          defaultValue: 'High usage ({{percent}}%)',
+          percent: hit
+        }),
+        tone: 'bg-amber-500/15 text-amber-100 border-amber-500/25'
+      };
     }
-    return { label: `Usage alert (${hit}%)`, tone: 'bg-sky-500/15 text-sky-100 border-sky-500/25' };
+    return {
+      label: t('portal.hero.usageAlert.normal', {
+        defaultValue: 'Usage alert ({{percent}}%)',
+        percent: hit
+      }),
+      tone: 'bg-sky-500/15 text-sky-100 border-sky-500/25'
+    };
   })();
 
   const qrLogoSizePercent = (() => {
@@ -439,7 +497,7 @@ export const UserInfoPage = () => {
             {branding?.logoUrl ? (
               <img
                 src={branding.logoUrl}
-                alt={branding.appName || 'Logo'}
+                alt={branding.appName || t('portal.header.logoAlt', { defaultValue: 'Logo' })}
                 className="h-12 w-12 rounded-2xl border border-line/70 bg-card object-contain p-2"
               />
             ) : (
@@ -452,10 +510,13 @@ export const UserInfoPage = () => {
                 {branding?.appName || 'One-UI'}
               </p>
               <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-                {branding?.profileTitle || 'Subscription Center'}
+                {branding?.profileTitle || t('portal.header.defaultTitle', { defaultValue: 'Subscription Center' })}
               </h1>
               <p className="mt-1 text-sm text-muted">
-                {branding?.profileDescription || 'Import your subscription and manage your access.'}
+                {branding?.profileDescription ||
+                  t('portal.header.defaultDescription', {
+                    defaultValue: 'Import your subscription and manage your access.'
+                  })}
               </p>
             </div>
           </div>
@@ -486,12 +547,12 @@ export const UserInfoPage = () => {
                 onClick={() => window.open(branding.supportUrl as string, '_blank', 'noopener,noreferrer')}
               >
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                Support
+                {t('portal.header.support', { defaultValue: 'Support' })}
               </Button>
             ) : null}
             <Button variant="secondary" onClick={() => void handleRefreshAll()}>
               <Clock className="mr-2 h-4 w-4" />
-              Refresh
+              {t('common.refresh', { defaultValue: 'Refresh' })}
             </Button>
           </div>
         </div>
@@ -501,7 +562,7 @@ export const UserInfoPage = () => {
           <div className="p-6 text-white sm:p-8" style={heroStyle}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-sm/5 opacity-90">Account</p>
+                <p className="text-sm/5 opacity-90">{t('portal.hero.account', { defaultValue: 'Account' })}</p>
                 <h2 className="mt-1 truncate text-xl font-semibold sm:text-2xl">{userInfo.email}</h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span
@@ -510,15 +571,18 @@ export const UserInfoPage = () => {
                         ? 'border-emerald-200/40 bg-emerald-100/20 text-emerald-50'
                         : userInfo.status === 'EXPIRED'
                           ? 'border-rose-200/35 bg-rose-100/20 text-rose-50'
-                          : 'border-amber-200/35 bg-amber-100/20 text-amber-50'
+                        : 'border-amber-200/35 bg-amber-100/20 text-amber-50'
                     }`}
                   >
-                    {userInfo.status}
+                    {getUserStatusLabel(userInfo.status)}
                   </span>
                   {userInfo.trafficResetPeriod !== 'NEVER' ? (
                     <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
                       <Clock className="mr-1 h-3 w-3" />
-                      Resets {userInfo.trafficResetPeriod.toLowerCase()}
+                      {t('portal.hero.resets', {
+                        defaultValue: 'Resets {{period}}',
+                        period: getResetPeriodLabel(userInfo.trafficResetPeriod)
+                      })}
                     </span>
                   ) : null}
                   {usageAlert ? (
@@ -531,13 +595,18 @@ export const UserInfoPage = () => {
               </div>
 
               <div className="rounded-2xl border border-white/25 bg-white/10 px-4 py-3">
-                <p className="text-xs uppercase tracking-wider text-white/80">Valid Until</p>
+                <p className="text-xs uppercase tracking-wider text-white/80">
+                  {t('portal.hero.validUntil', { defaultValue: 'Valid Until' })}
+                </p>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
                   <Calendar className="h-4 w-4" />
                   {new Date(userInfo.expiry.date).toLocaleDateString()}
                 </p>
                 <p className="mt-1 text-xs text-white/75">
-                  {userInfo.expiry.daysRemaining} days remaining
+                  {t('portal.hero.daysRemaining', {
+                    defaultValue: '{{days}} days remaining',
+                    days: userInfo.expiry.daysRemaining
+                  })}
                 </p>
               </div>
             </div>
@@ -545,7 +614,7 @@ export const UserInfoPage = () => {
 
           <div className="bg-white/10 px-6 py-5 text-white sm:px-8">
             <div className="mb-2 flex justify-between text-sm">
-              <span className="opacity-90">Data Usage</span>
+              <span className="opacity-90">{t('portal.hero.dataUsage', { defaultValue: 'Data Usage' })}</span>
               <span className="font-semibold">
                 {formatBytes(userInfo.usage.total)} / {userInfo.usage.limit > 0 ? formatBytes(userInfo.usage.limit) : '∞'}
               </span>
@@ -559,11 +628,11 @@ export const UserInfoPage = () => {
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div className="flex items-center gap-2 text-white/90">
                 <ArrowUp className="h-4 w-4" />
-                Upload: {formatBytes(userInfo.usage.upload)}
+                {t('portal.hero.upload', { defaultValue: 'Upload' })}: {formatBytes(userInfo.usage.upload)}
               </div>
               <div className="flex items-center gap-2 text-white/90 sm:justify-end">
                 <ArrowDown className="h-4 w-4" />
-                Download: {formatBytes(userInfo.usage.download)}
+                {t('portal.hero.download', { defaultValue: 'Download' })}: {formatBytes(userInfo.usage.download)}
               </div>
             </div>
           </div>
@@ -573,8 +642,14 @@ export const UserInfoPage = () => {
         <Card className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Subscription</h3>
-              <p className="mt-1 text-sm text-muted">Copy the URL, scan the QR code, or use one-click import.</p>
+              <h3 className="text-lg font-semibold text-foreground">
+                {t('portal.subscription.title', { defaultValue: 'Subscription' })}
+              </h3>
+              <p className="mt-1 text-sm text-muted">
+                {t('portal.subscription.description', {
+                  defaultValue: 'Copy the URL, scan the QR code, or use one-click import.'
+                })}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {availableFormats.map((format) => (
@@ -604,10 +679,7 @@ export const UserInfoPage = () => {
                 />
               </div>
               <div className="mt-4 text-center text-sm text-muted">
-                {activeFormat === 'clash' ? 'Clash / Meta clients' : null}
-                {activeFormat === 'v2ray' ? 'V2Ray subscription' : null}
-                {activeFormat === 'singbox' ? 'Sing-box subscription' : null}
-                {activeFormat === 'wireguard' ? 'WireGuard subscription' : null}
+                {getFormatBadgeLabel(activeFormat)}
               </div>
               <Button
                 variant="ghost"
@@ -615,13 +687,17 @@ export const UserInfoPage = () => {
                 onClick={() => setExpandedQr((prev) => !prev)}
               >
                 <QrCode className="mr-2 h-4 w-4" />
-                {expandedQr ? 'Hide Large QR' : 'Show Large QR'}
+                {expandedQr
+                  ? t('portal.subscription.hideLargeQr', { defaultValue: 'Hide Large QR' })
+                  : t('portal.subscription.showLargeQr', { defaultValue: 'Show Large QR' })}
               </Button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted">Subscription URL</label>
+                <label className="mb-2 block text-sm font-medium text-muted">
+                  {t('portal.subscription.urlLabel', { defaultValue: 'Subscription URL' })}
+                </label>
                 <div className="flex gap-2">
                   <input
                     readOnly
@@ -645,7 +721,7 @@ export const UserInfoPage = () => {
                   onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download Clash YAML
+                  {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
                 </Button>
 
                 {shareUrl ? (
@@ -655,15 +731,20 @@ export const UserInfoPage = () => {
                     onClick={() => void copyToClipboard(shareUrl, 'share')}
                   >
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Copy Share Page
+                    {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
                   </Button>
                 ) : null}
               </div>
 
               <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 text-sm text-muted">
-                <p className="font-semibold text-foreground">Quick tip</p>
+                <p className="font-semibold text-foreground">
+                  {t('portal.subscription.quickTipTitle', { defaultValue: 'Quick tip' })}
+                </p>
                 <p className="mt-1">
-                  If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.
+                  {t('portal.subscription.quickTipBody', {
+                    defaultValue:
+                      'If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.'
+                  })}
                 </p>
               </div>
             </div>
@@ -687,8 +768,12 @@ export const UserInfoPage = () => {
         <Card className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Add To App</h3>
-              <p className="mt-1 text-sm text-muted">Choose your device and import with one tap.</p>
+              <h3 className="text-lg font-semibold text-foreground">
+                {t('portal.addToApp.title', { defaultValue: 'Add To App' })}
+              </h3>
+              <p className="mt-1 text-sm text-muted">
+                {t('portal.addToApp.description', { defaultValue: 'Choose your device and import with one tap.' })}
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -702,9 +787,7 @@ export const UserInfoPage = () => {
                       : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
                   }`}
                 >
-                  {entry === 'android' ? 'Android' : null}
-                  {entry === 'ios' ? 'iOS' : null}
-                  {entry === 'windows' ? 'Desktop' : null}
+                  {getPlatformLabel(entry)}
                 </button>
               ))}
             </div>
@@ -726,7 +809,9 @@ export const UserInfoPage = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="text-base font-semibold text-foreground">{app.name}</p>
-                        <p className="mt-1 text-sm text-muted">{app.description}</p>
+                        <p className="mt-1 text-sm text-muted">
+                          {t(`portal.apps.${app.id}.description`, { defaultValue: app.description })}
+                        </p>
                       </div>
                     </div>
                     <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-xs font-semibold text-muted">
@@ -744,7 +829,7 @@ export const UserInfoPage = () => {
                         }}
                       >
                         <Smartphone className="mr-2 h-4 w-4" />
-                        One-Click Import
+                        {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
                       </Button>
                     ) : (
                       <Button
@@ -753,7 +838,7 @@ export const UserInfoPage = () => {
                         onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
                       >
                         <Copy className="mr-2 h-4 w-4" />
-                        Copy URL
+                        {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
                       </Button>
                     )}
 
@@ -767,13 +852,13 @@ export const UserInfoPage = () => {
                         >
                           <Button variant="secondary" className="w-full">
                             <ExternalLink className="mr-2 h-4 w-4" />
-                            Get App
+                            {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
                           </Button>
                         </a>
                       ) : (
                         <Button variant="secondary" className="w-full flex-1" disabled>
                           <ExternalLink className="mr-2 h-4 w-4" />
-                          Get App
+                          {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
                         </Button>
                       )}
 
@@ -781,7 +866,7 @@ export const UserInfoPage = () => {
                         variant="ghost"
                         className="px-4"
                         onClick={() => void copyToClipboard(urls[usedFormat] || selectedUrl, `app-${app.id}`)}
-                        aria-label="Copy URL"
+                        aria-label={t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
                       >
                         {copiedKey === `app-${app.id}` ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                       </Button>
@@ -797,22 +882,26 @@ export const UserInfoPage = () => {
         <Card className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Individual Nodes</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                {t('portal.nodes.title', { defaultValue: 'Individual Nodes' })}
+              </h3>
               <p className="mt-1 text-sm text-muted">
-                Advanced: copy a single node link or scan its QR code.
+                {t('portal.nodes.description', {
+                  defaultValue: 'Advanced: copy a single node link or scan its QR code.'
+                })}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={downloadNodeLinks} disabled={nodeLinks.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
-                Download All
+                {t('portal.nodes.downloadAll', { defaultValue: 'Download All' })}
               </Button>
             </div>
           </div>
 
           {nodeLinks.length === 0 ? (
             <div className="rounded-2xl border border-line/70 bg-panel/55 p-5 text-sm text-muted">
-              No node links available for this subscription.
+              {t('portal.nodes.none', { defaultValue: 'No node links available for this subscription.' })}
             </div>
           ) : (
             <div className="space-y-3">
@@ -838,12 +927,16 @@ export const UserInfoPage = () => {
                         onClick={() => void copyToClipboard(link.url, copyKey)}
                       >
                         {copiedKey === copyKey ? <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-500" /> : <Copy className="mr-1.5 h-4 w-4" />}
-                        {copiedKey === copyKey ? 'Copied' : 'Copy'}
+                        {copiedKey === copyKey
+                          ? t('common.copied', { defaultValue: 'Copied' })
+                          : t('portal.nodes.copy', { defaultValue: 'Copy' })}
                       </Button>
 
                       <Button size="sm" variant="ghost" onClick={() => toggleNodeQr(link.inboundId)}>
                         <QrCode className="mr-1.5 h-4 w-4" />
-                        {isExpanded ? 'Hide QR' : 'QR'}
+                        {isExpanded
+                          ? t('portal.nodes.hideQr', { defaultValue: 'Hide QR' })
+                          : t('portal.nodes.showQr', { defaultValue: 'QR' })}
                       </Button>
 
                       <Button
@@ -852,7 +945,7 @@ export const UserInfoPage = () => {
                         onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
                       >
                         <ExternalLink className="mr-1.5 h-4 w-4" />
-                        Open
+                        {t('common.open', { defaultValue: 'Open' })}
                       </Button>
                     </div>
 
@@ -876,20 +969,48 @@ export const UserInfoPage = () => {
 
           <details className="rounded-2xl border border-line/70 bg-panel/55 p-4">
             <summary className="cursor-pointer text-sm font-semibold text-foreground">
-              Import instructions
+              {t('portal.nodes.instructions.title', { defaultValue: 'Import instructions' })}
             </summary>
             <div className="mt-3 space-y-2 text-sm text-muted">
-              <p className="text-foreground/90 font-semibold">General</p>
+              <p className="text-foreground/90 font-semibold">
+                {t('portal.nodes.instructions.generalTitle', { defaultValue: 'General' })}
+              </p>
               <ol className="list-decimal space-y-1 pl-5">
-                <li>Copy your subscription URL from the Subscription section above.</li>
-                <li>Open your client app and choose “Import from URL / Subscription”.</li>
-                <li>Paste the URL and refresh/update the profile.</li>
+                <li>
+                  {t('portal.nodes.instructions.generalStep1', {
+                    defaultValue: 'Copy your subscription URL from the Subscription section above.'
+                  })}
+                </li>
+                <li>
+                  {t('portal.nodes.instructions.generalStep2', {
+                    defaultValue: 'Open your client app and choose “Import from URL / Subscription”.'
+                  })}
+                </li>
+                <li>
+                  {t('portal.nodes.instructions.generalStep3', {
+                    defaultValue: 'Paste the URL and refresh/update the profile.'
+                  })}
+                </li>
               </ol>
-              <p className="mt-3 text-foreground/90 font-semibold">If import fails</p>
+              <p className="mt-3 text-foreground/90 font-semibold">
+                {t('portal.nodes.instructions.failTitle', { defaultValue: 'If import fails' })}
+              </p>
               <ul className="list-disc space-y-1 pl-5">
-                <li>Try a different format tab (Clash vs V2Ray vs Sing-box).</li>
-                <li>Switch network/Wi-Fi and try again.</li>
-                <li>Use Individual Nodes to add a single server manually.</li>
+                <li>
+                  {t('portal.nodes.instructions.failTip1', {
+                    defaultValue: 'Try a different format tab (Clash vs V2Ray vs Sing-box).'
+                  })}
+                </li>
+                <li>
+                  {t('portal.nodes.instructions.failTip2', {
+                    defaultValue: 'Switch network/Wi-Fi and try again.'
+                  })}
+                </li>
+                <li>
+                  {t('portal.nodes.instructions.failTip3', {
+                    defaultValue: 'Use Individual Nodes to add a single server manually.'
+                  })}
+                </li>
               </ul>
             </div>
           </details>
@@ -996,7 +1117,12 @@ export const UserInfoPage = () => {
         </Card>
 
         <div className="py-4 text-center text-xs text-muted">
-          {branding?.customFooter ? branding.customFooter : `Powered by ${branding?.appName || 'One-UI'}`}
+          {branding?.customFooter
+            ? branding.customFooter
+            : t('portal.footer.poweredBy', {
+                defaultValue: 'Powered by {{appName}}',
+                appName: branding?.appName || 'One-UI'
+              })}
         </div>
       </div>
     </div>

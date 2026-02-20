@@ -1086,6 +1086,114 @@
         "revoke": "ပယ်ဖျက်ရန်",
         "devicesRevoked": "စက်ကို ပယ်ဖျက်ပြီးပါပြီ။",
         "showingFirst": "ပထမဆုံး",
+        "notFound": {
+            "title": "Subscription မတွေ့ပါ",
+            "body": "Subscription token မှားနေခြင်း၊ သက်တမ်းကုန်ခြင်း၊ သို့မဟုတ် ပယ်ဖျက်ထားခြင်း ဖြစ်နိုင်သည်။"
+        },
+        "header": {
+            "logoAlt": "လိုဂို",
+            "defaultTitle": "Subscription စင်တာ",
+            "defaultDescription": "Subscription ကို import လုပ်ပြီး သင့်အသုံးပြုခွင့်ကို စီမံနိုင်ပါသည်။",
+            "support": "အကူအညီ"
+        },
+        "resetPeriods": {
+            "never": "မလုပ်ဖူး",
+            "daily": "နေ့စဉ်",
+            "weekly": "အပတ်စဉ်",
+            "monthly": "လစဉ်"
+        },
+        "hero": {
+            "account": "အကောင့်",
+            "validUntil": "သက်တမ်းကုန်မည့်နေ့",
+            "daysRemaining": "{{days}} ရက် ကျန်",
+            "dataUsage": "ဒေတာ အသုံးပြုမှု",
+            "upload": "Upload",
+            "download": "Download",
+            "resets": "{{period}} ပြန်သတ်မှတ်",
+            "usageAlert": {
+                "almostOut": "ဒေတာ ပြတ်မည့်အနီး ({{percent}}%)",
+                "high": "အသုံးပြုမှု မြင့်နေသည် ({{percent}}%)",
+                "normal": "အသုံးပြုမှု သတိပေးချက် ({{percent}}%)"
+            }
+        },
+        "formats": {
+            "v2ray": "V2Ray",
+            "clash": "Clash",
+            "singbox": "Sing-box",
+            "wireguard": "WireGuard"
+        },
+        "subscription": {
+            "title": "Subscription",
+            "description": "URL ကို ကူးယူရန်၊ QR ကို scan လုပ်ရန်၊ သို့မဟုတ် one-click import ကို သုံးနိုင်ပါသည်။",
+            "formatHint": {
+                "clash": "Clash / Meta client များ",
+                "v2ray": "V2Ray subscription",
+                "singbox": "Sing-box subscription",
+                "wireguard": "WireGuard subscription"
+            },
+            "showLargeQr": "QR အကြီး ပြရန်",
+            "hideLargeQr": "QR အကြီး ဖျောက်ရန်",
+            "urlLabel": "Subscription URL",
+            "downloadClashYaml": "Clash YAML ဒေါင်းလုဒ်",
+            "copySharePage": "Share စာမျက်နှာ ကူးရန်",
+            "quickTipTitle": "အမြန် အကြံပြုချက်",
+            "quickTipBody": "Deep link နည်းဖြင့် import မရပါက subscription URL ကို ကူးယူပြီး app ထဲက “Import from URL” ကို အသုံးပြုပါ။"
+        },
+        "addToApp": {
+            "title": "App ထဲသို့ ထည့်ရန်",
+            "description": "သင့်စက်အမျိုးအစားကို ရွေးပြီး တစ်ချက်နှိပ်၍ import လုပ်နိုင်ပါသည်။",
+            "platform": {
+                "android": "Android",
+                "ios": "iOS",
+                "desktop": "Desktop"
+            },
+            "oneClickImport": "တစ်ချက်နှိပ် Import",
+            "copyUrl": "URL ကူးရန်",
+            "getApp": "App ရယူရန်"
+        },
+        "nodes": {
+            "title": "Node တစ်ခုချင်း",
+            "description": "အဆင့်မြင့်: node link တစ်ခုချင်း ကူးယူနိုင်ပြီး QR ကိုလည်း scan လုပ်နိုင်သည်။",
+            "downloadAll": "အားလုံး ဒေါင်းလုဒ်",
+            "none": "ဒီ subscription အတွက် node link မရှိပါ။",
+            "copy": "ကူးရန်",
+            "showQr": "QR",
+            "hideQr": "QR ဖျောက်ရန်",
+            "instructions": {
+                "title": "Import လုပ်နည်း",
+                "generalTitle": "အထွေထွေ",
+                "generalStep1": "အပေါ်က Subscription အပိုင်းမှ URL ကို ကူးယူပါ။",
+                "generalStep2": "Client app ကို ဖွင့်ပြီး “Import from URL / Subscription” ကို ရွေးပါ။",
+                "generalStep3": "URL ကို paste လုပ်ပြီး profile ကို refresh/update လုပ်ပါ။",
+                "failTitle": "Import မရပါက",
+                "failTip1": "Format tab ပြောင်းစမ်းပါ (Clash / V2Ray / Sing-box)။",
+                "failTip2": "Network/Wi-Fi ပြောင်းပြီး ထပ်စမ်းပါ။",
+                "failTip3": "Individual Nodes မှ node တစ်ခုချင်းကို လက်ဖြင့် ထည့်ပါ။"
+            }
+        },
+        "apps": {
+            "v2rayng": {
+                "description": "Android အတွက် မြန်ဆန်သော V2Ray client။"
+            },
+            "hiddify": {
+                "description": "အသုံးပြုရန် လွယ်ကူပြီး anti-DPI အားကောင်းသော client။"
+            },
+            "clash": {
+                "description": "Profiles အခြေပြု client (Clash/Meta ecosystem)။"
+            },
+            "shadowrocket": {
+                "description": "iOS တွင် လူကြိုက်များသော client။"
+            },
+            "v2box": {
+                "description": "Subscription အထောက်အပံ့ပါဝင်သော iOS client ခေတ်မီ။"
+            },
+            "v2rayn": {
+                "description": "Windows client (app ထဲတွင် URL ကို import လုပ်ပါ)။"
+            }
+        },
+        "footer": {
+            "poweredBy": "{{appName}} ဖြင့် စွမ်းဆောင်ထားသည်"
+        },
         "toast": {
             "refreshed": "Portal ဒေတာကို ပြန်လည်ရယူပြီးပါပြီ။",
             "refreshFailed": "Portal ဒေတာကို ပြန်လည်ရယူမရပါ။",

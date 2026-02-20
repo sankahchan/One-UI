@@ -1348,6 +1348,114 @@
         "revoke": "Revoke",
         "devicesRevoked": "Device revoked.",
         "showingFirst": "Showing first",
+        "notFound": {
+            "title": "Subscription Not Found",
+            "body": "The subscription token is invalid, expired, or has been revoked."
+        },
+        "header": {
+            "logoAlt": "Logo",
+            "defaultTitle": "Subscription Center",
+            "defaultDescription": "Import your subscription and manage your access.",
+            "support": "Support"
+        },
+        "resetPeriods": {
+            "never": "never",
+            "daily": "daily",
+            "weekly": "weekly",
+            "monthly": "monthly"
+        },
+        "hero": {
+            "account": "Account",
+            "validUntil": "Valid Until",
+            "daysRemaining": "{{days}} days remaining",
+            "dataUsage": "Data Usage",
+            "upload": "Upload",
+            "download": "Download",
+            "resets": "Resets {{period}}",
+            "usageAlert": {
+                "almostOut": "Almost out of data ({{percent}}%)",
+                "high": "High usage ({{percent}}%)",
+                "normal": "Usage alert ({{percent}}%)"
+            }
+        },
+        "formats": {
+            "v2ray": "V2Ray",
+            "clash": "Clash",
+            "singbox": "Sing-box",
+            "wireguard": "WireGuard"
+        },
+        "subscription": {
+            "title": "Subscription",
+            "description": "Copy the URL, scan the QR code, or use one-click import.",
+            "formatHint": {
+                "clash": "Clash / Meta clients",
+                "v2ray": "V2Ray subscription",
+                "singbox": "Sing-box subscription",
+                "wireguard": "WireGuard subscription"
+            },
+            "showLargeQr": "Show Large QR",
+            "hideLargeQr": "Hide Large QR",
+            "urlLabel": "Subscription URL",
+            "downloadClashYaml": "Download Clash YAML",
+            "copySharePage": "Copy Share Page",
+            "quickTipTitle": "Quick tip",
+            "quickTipBody": "If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app."
+        },
+        "addToApp": {
+            "title": "Add To App",
+            "description": "Choose your device and import with one tap.",
+            "platform": {
+                "android": "Android",
+                "ios": "iOS",
+                "desktop": "Desktop"
+            },
+            "oneClickImport": "One-Click Import",
+            "copyUrl": "Copy URL",
+            "getApp": "Get App"
+        },
+        "nodes": {
+            "title": "Individual Nodes",
+            "description": "Advanced: copy a single node link or scan its QR code.",
+            "downloadAll": "Download All",
+            "none": "No node links available for this subscription.",
+            "copy": "Copy",
+            "showQr": "QR",
+            "hideQr": "Hide QR",
+            "instructions": {
+                "title": "Import instructions",
+                "generalTitle": "General",
+                "generalStep1": "Copy your subscription URL from the Subscription section above.",
+                "generalStep2": "Open your client app and choose “Import from URL / Subscription”.",
+                "generalStep3": "Paste the URL and refresh/update the profile.",
+                "failTitle": "If import fails",
+                "failTip1": "Try a different format tab (Clash vs V2Ray vs Sing-box).",
+                "failTip2": "Switch network/Wi-Fi and try again.",
+                "failTip3": "Use Individual Nodes to add a single server manually."
+            }
+        },
+        "apps": {
+            "v2rayng": {
+                "description": "Fast V2Ray client for Android."
+            },
+            "hiddify": {
+                "description": "User-friendly client with strong anti-DPI support."
+            },
+            "clash": {
+                "description": "Profiles-based client (Clash/Meta ecosystem)."
+            },
+            "shadowrocket": {
+                "description": "Popular iOS client."
+            },
+            "v2box": {
+                "description": "Modern iOS client with subscription support."
+            },
+            "v2rayn": {
+                "description": "Windows client (import the URL inside the app)."
+            }
+        },
+        "footer": {
+            "poweredBy": "Powered by {{appName}}"
+        },
         "toast": {
             "refreshed": "Portal data refreshed.",
             "refreshFailed": "Failed to refresh portal data.",
