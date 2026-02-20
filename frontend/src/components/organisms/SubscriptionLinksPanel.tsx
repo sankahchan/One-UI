@@ -14,6 +14,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 
 import apiClient from '../../api/client';
+import { useToast } from '../../hooks/useToast';
 import type { SubscriptionLinksData, SubscriptionLink } from '../../types';
 import {
   detectPlatform,
@@ -21,6 +22,7 @@ import {
   type Platform,
   type SubscriptionBrandingMetadata
 } from '../../lib/subscriptionApps';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
 
@@ -72,6 +74,7 @@ const getSubscriptionUrl = (
 };
 
 export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ userId }) => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<ClientTab>('v2ray');
   const [copied, setCopied] = useState<string>('');
   const [expandedQr, setExpandedQr] = useState<Set<number>>(new Set());
@@ -107,10 +110,15 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
     }
   }, [availableTabs, activeTab, data]);
 
-  const copyToClipboard = (text: string, key: string) => {
-    void navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string, key: string) => {
+    const copiedOk = await copyTextToClipboard(text);
+    if (!copiedOk) {
+      toast.error('Error', 'Copy failed. Please copy manually.');
+      return;
+    }
     setCopied(key);
     setTimeout(() => setCopied(''), 1600);
+    toast.success('Copied', 'Link copied to clipboard.');
   };
 
   const toggleQr = (inboundId: number) => {
@@ -214,10 +222,10 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                   type="text"
                   readOnly
                   value={selectedUrl}
-                  onClick={(e) => { (e.target as HTMLInputElement).select(); copyToClipboard(selectedUrl, `sub-${activeTab}`); }}
+                  onClick={(e) => { (e.target as HTMLInputElement).select(); void copyToClipboard(selectedUrl, `sub-${activeTab}`); }}
                   className="flex-1 cursor-pointer select-all rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
                 />
-                <Button variant="secondary" onClick={() => copyToClipboard(selectedUrl, `sub-${activeTab}`)}>
+                <Button variant="secondary" onClick={() => { void copyToClipboard(selectedUrl, `sub-${activeTab}`); }}>
                   {copied === `sub-${activeTab}` ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
@@ -282,7 +290,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                             <Button
                               variant="secondary"
                               className="w-full"
-                              onClick={() => copyToClipboard(app.manualUrl, `manual-${app.id}`)}
+                              onClick={() => { void copyToClipboard(app.manualUrl, `manual-${app.id}`); }}
                             >
                               <Copy className="mr-2 h-4 w-4" />
                               Copy URL
@@ -293,7 +301,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                             <Button
                               variant="ghost"
                               className="flex-1 justify-center"
-                              onClick={() => copyToClipboard(app.manualUrl, copyKey)}
+                              onClick={() => { void copyToClipboard(app.manualUrl, copyKey); }}
                             >
                               {copied === copyKey ? <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> : <Copy className="mr-2 h-4 w-4" />}
                               {copied === copyKey ? 'Copied' : 'Copy'}
@@ -332,7 +340,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
               expanded={expandedQr.has(link.inboundId)}
               copied={copied}
               onToggleQr={() => toggleQr(link.inboundId)}
-              onCopy={(text, key) => copyToClipboard(text, key)}
+              onCopy={(text, key) => { void copyToClipboard(text, key); }}
             />
           ))}
         </div>
@@ -349,7 +357,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
           <Button
             variant="secondary"
             onClick={() => {
-              copyToClipboard(data.shareUrl, 'share');
+              void copyToClipboard(data.shareUrl, 'share');
               setShowShareQr((prev) => !prev);
             }}
           >

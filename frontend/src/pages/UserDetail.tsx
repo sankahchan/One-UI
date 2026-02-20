@@ -50,6 +50,7 @@ import {
 } from '../hooks/useUsers';
 import { usersApi, type UserInboundPatternPreviewEntry, type UserInboundQualityPreviewEntry } from '../api/users';
 import type { Inbound, UserDiagnosticsResult, UserInbound } from '../types';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { formatBytes, formatDate } from '../utils/formatters';
 
 const TrafficChart = React.lazy(() =>
@@ -625,9 +626,18 @@ export const UserDetail: React.FC = () => {
   };
 
   const copyToClipboard = async (field: string, text: string) => {
-    await navigator.clipboard.writeText(text);
+    const copied = await copyTextToClipboard(text);
+    if (!copied) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('users.detail.toast.copyFailed', { defaultValue: 'Copy failed. Please copy manually.' })
+      );
+      return false;
+    }
+
     setCopiedField(field);
     window.setTimeout(() => setCopiedField(''), 1800);
+    return true;
   };
 
   const getFirstTemplateUrl = (templates: TemplateShape[]) => {
@@ -680,7 +690,10 @@ export const UserDetail: React.FC = () => {
         throw new Error(t('users.detail.toast.noKeyUrl', { defaultValue: 'No key URL available for this inbound' }));
       }
 
-      await copyToClipboard(`key-${row.inboundId}`, keyUrl);
+      const copied = await copyToClipboard(`key-${row.inboundId}`, keyUrl);
+      if (!copied) {
+        throw new Error(t('users.detail.toast.copyKeyFailed', { defaultValue: 'Failed to copy key' }));
+      }
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),

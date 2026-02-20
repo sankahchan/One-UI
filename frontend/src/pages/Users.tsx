@@ -43,6 +43,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import type { Group, PaginationMeta, User, UserStatus } from '../types';
 import { Skeleton } from '../components/atoms/Skeleton';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { prefetchRoute } from '../utils/routePrefetch';
 
 function getPagination(payload: unknown): PaginationMeta | undefined {
@@ -1499,15 +1500,7 @@ export function Users() {
       const payload = await regenerateSubscriptionMutation.mutateAsync(user.id);
       const nextLink = `${window.location.origin}/sub/${payload.subscriptionToken}?target=v2ray`;
 
-      let copied = false;
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(nextLink);
-          copied = true;
-        }
-      } catch {
-        copied = false;
-      }
+      const copied = await copyTextToClipboard(nextLink);
 
       if (copied) {
         toast.success(
@@ -1642,13 +1635,13 @@ export function Users() {
 
   const handleCopySubscriptionLink = async (user: User) => {
     const link = `${window.location.origin}/sub/${user.subscriptionToken}?target=v2ray`;
-    try {
-      await navigator.clipboard.writeText(link);
+    const copied = await copyTextToClipboard(link);
+    if (copied) {
       toast.success(
         t('common.copied', { defaultValue: 'Copied' }),
         t('users.toast.subscriptionCopied', { defaultValue: 'Subscription link copied to clipboard.' })
       );
-    } catch {
+    } else {
       toast.warning(
         t('users.toast.clipboardUnavailableTitle', { defaultValue: 'Clipboard unavailable' }),
         t('users.toast.clipboardUnavailableBody', {
@@ -2239,23 +2232,23 @@ export function Users() {
             void refreshUsersAndSessions();
             if (createdUser?.subscriptionToken) {
               const link = `${window.location.origin}/sub/${createdUser.subscriptionToken}?target=v2ray`;
-              try {
-                void navigator.clipboard.writeText(link).then(() => {
+              void copyTextToClipboard(link).then((copied) => {
+                if (copied) {
                   toast.success(
                     t('common.success', { defaultValue: 'Success' }),
                     t('users.toast.userCreatedCopied', {
                       defaultValue: 'User created. Subscription link copied to clipboard.',
                     })
                   );
-                });
-              } catch {
+                } else {
                 toast.success(
                   t('common.success', { defaultValue: 'Success' }),
                   t('users.toast.userCreated', {
                     defaultValue: 'User created successfully.',
                   })
                 );
-              }
+                }
+              });
               setQuickQrUser(createdUser);
             }
           }}

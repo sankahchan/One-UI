@@ -5,6 +5,7 @@ import { QRCodeSVG as QRCodeReact } from 'qrcode.react';
 
 import apiClient from '../../api/client';
 import type { SubscriptionLink } from '../../types';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
 
@@ -98,8 +99,11 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
 
   const selectedUrl = subscriptionData.urls[selectedFormat] || '';
 
-  const copyToClipboard = (text: string, key: string) => {
-    void navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string, key: string) => {
+    const copiedOk = await copyTextToClipboard(text);
+    if (!copiedOk) {
+      return;
+    }
     setCopied(key);
     setTimeout(() => setCopied(''), 1600);
   };
@@ -175,10 +179,10 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
                 type="text"
                 readOnly
                 value={selectedUrl}
-                onClick={(e) => { (e.target as HTMLInputElement).select(); copyToClipboard(selectedUrl, selectedFormat); }}
+                onClick={(e) => { (e.target as HTMLInputElement).select(); void copyToClipboard(selectedUrl, selectedFormat); }}
                 className="flex-1 cursor-pointer select-all rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
               />
-              <Button variant="secondary" onClick={() => copyToClipboard(selectedUrl, selectedFormat)} disabled={!selectedUrl}>
+              <Button variant="secondary" onClick={() => { void copyToClipboard(selectedUrl, selectedFormat); }} disabled={!selectedUrl}>
                 {copied === selectedFormat ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
@@ -247,7 +251,7 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => copyToClipboard(link.url, linkCopyKey)}>
+                    <Button size="sm" variant="secondary" onClick={() => { void copyToClipboard(link.url, linkCopyKey); }}>
                       {copied === linkCopyKey ? (
                         <CheckCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
                       ) : (
@@ -284,7 +288,7 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
           <Button
             variant="secondary"
             onClick={() => {
-              copyToClipboard(subscriptionData.shareUrl!, 'share');
+              void copyToClipboard(subscriptionData.shareUrl!, 'share');
               setShowShareQr((prev) => !prev);
             }}
           >
