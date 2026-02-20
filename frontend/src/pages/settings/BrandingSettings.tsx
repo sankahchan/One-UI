@@ -35,6 +35,9 @@ type BrandingMetadataDraft = {
   customApps?: unknown[];
   qrLogoSizePercent?: number;
   usageAlertThresholds?: number[];
+  wallpaperUrl?: string;
+  wallpaperOverlayOpacity?: number;
+  wallpaperBlurPx?: number;
 };
 
 const BRANDING_PRESETS = [
@@ -92,6 +95,9 @@ const BrandingSettings: React.FC = () => {
   const [enabledApps, setEnabledApps] = useState<string[]>([]);
   const [qrLogoSizePercent, setQrLogoSizePercent] = useState<string>('');
   const [usageAlertThresholds, setUsageAlertThresholds] = useState<string>('80,90,95');
+  const [wallpaperUrl, setWallpaperUrl] = useState<string>('');
+  const [wallpaperOverlayOpacity, setWallpaperOverlayOpacity] = useState<string>('62');
+  const [wallpaperBlurPx, setWallpaperBlurPx] = useState<string>('0');
   const [customAppsJson, setCustomAppsJson] = useState<string>('[]');
 
   const brandingQuery = useQuery({
@@ -128,6 +134,16 @@ const BrandingSettings: React.FC = () => {
     () => normalizeHexColor(accentColor, '#6366f1'),
     [accentColor]
   );
+  const previewWallpaperUrl = useMemo(() => {
+    const trimmed = wallpaperUrl.trim();
+    return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+  }, [wallpaperUrl]);
+  const previewWallpaperOverlay = useMemo(() => {
+    const value = Number(wallpaperOverlayOpacity);
+    if (!Number.isFinite(value)) return 62;
+    return Math.min(Math.max(value, 10), 90);
+  }, [wallpaperOverlayOpacity]);
+  const previewHasWallpaper = Boolean(previewWallpaperUrl);
   const selectedAppsCount = enabledApps.length > 0 ? enabledApps.length : BUILTIN_CLIENT_APPS.length;
 
   const resetForm = () => {
@@ -149,6 +165,9 @@ const BrandingSettings: React.FC = () => {
     setEnabledApps([]);
     setQrLogoSizePercent('');
     setUsageAlertThresholds('80,90,95');
+    setWallpaperUrl('');
+    setWallpaperOverlayOpacity('62');
+    setWallpaperBlurPx('0');
     setCustomAppsJson('[]');
   };
 
@@ -177,6 +196,11 @@ const BrandingSettings: React.FC = () => {
         ? metadata.usageAlertThresholds.map((v: any) => String(v)).join(',')
         : '80,90,95'
     );
+    setWallpaperUrl(typeof metadata.wallpaperUrl === 'string' ? metadata.wallpaperUrl : '');
+    setWallpaperOverlayOpacity(
+      metadata.wallpaperOverlayOpacity !== undefined ? String(metadata.wallpaperOverlayOpacity) : '62'
+    );
+    setWallpaperBlurPx(metadata.wallpaperBlurPx !== undefined ? String(metadata.wallpaperBlurPx) : '0');
     setCustomAppsJson(stringifyJson(metadata.customApps || []));
   };
 
@@ -216,6 +240,30 @@ const BrandingSettings: React.FC = () => {
       const thresholds = parseNumberList(usageAlertThresholds).map((value) => Math.min(Math.max(value, 1), 100));
       if (thresholds.length > 0) {
         metadataDraft.usageAlertThresholds = thresholds;
+      }
+
+      const trimmedWallpaperUrl = wallpaperUrl.trim();
+      if (trimmedWallpaperUrl) {
+        if (!/^https?:\/\//i.test(trimmedWallpaperUrl)) {
+          toast.error(
+            t('common.error', { defaultValue: 'Error' }),
+            t('brandingSettings.toast.invalidWallpaperUrl', {
+              defaultValue: 'Wallpaper URL must start with http:// or https://'
+            })
+          );
+          throw new Error('Invalid wallpaper URL');
+        }
+        metadataDraft.wallpaperUrl = trimmedWallpaperUrl;
+      }
+
+      const overlayOpacity = Number(wallpaperOverlayOpacity);
+      if (Number.isFinite(overlayOpacity)) {
+        metadataDraft.wallpaperOverlayOpacity = Math.min(Math.max(overlayOpacity, 10), 90);
+      }
+
+      const blurPx = Number(wallpaperBlurPx);
+      if (Number.isFinite(blurPx)) {
+        metadataDraft.wallpaperBlurPx = Math.min(Math.max(blurPx, 0), 24);
       }
 
       try {
@@ -325,29 +373,39 @@ const BrandingSettings: React.FC = () => {
             <div
               className="relative overflow-hidden rounded-2xl border border-line/70 p-5 lg:col-span-2"
               style={{
-                backgroundImage: `linear-gradient(135deg, ${previewPrimary}26 0%, ${previewAccent}2f 100%)`
+                backgroundImage: previewHasWallpaper
+                  ? `url(${previewWallpaperUrl})`
+                  : `linear-gradient(135deg, ${previewPrimary}26 0%, ${previewAccent}2f 100%)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
               }}
             >
-              <div className="mb-2 inline-flex items-center rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-xs font-medium text-muted">
-                Preview
+              {previewHasWallpaper ? (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{ backgroundColor: `rgba(2, 6, 23, ${previewWallpaperOverlay / 100})` }}
+                />
+              ) : null}
+              <div className="relative z-10 mb-2 inline-flex items-center rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-xs font-medium text-muted">
+                Preview {previewHasWallpaper ? '- Wallpaper' : ''}
               </div>
-              <h4 className="text-xl font-semibold text-foreground">
+              <h4 className={`relative z-10 text-xl font-semibold ${previewHasWallpaper ? 'text-white' : 'text-foreground'}`}>
                 {profileTitle?.trim() || `${appName?.trim() || 'One-UI'} Subscription`}
               </h4>
-              <p className="mt-2 max-w-2xl text-sm text-muted">
+              <p className={`relative z-10 mt-2 max-w-2xl text-sm ${previewHasWallpaper ? 'text-slate-100/90' : 'text-muted'}`}>
                 {profileDescription?.trim() || 'Managed by One-UI'}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-foreground">
+              <div className="relative z-10 mt-4 flex flex-wrap gap-2 text-xs">
+                <span className={`rounded-full border border-line/70 bg-card/70 px-2.5 py-1 ${previewHasWallpaper ? 'text-white' : 'text-foreground'}`}>
                   {appName?.trim() || 'One-UI'}
                 </span>
                 {supportUrl?.trim() ? (
-                  <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-muted">
+                  <span className={`rounded-full border border-line/70 bg-card/70 px-2.5 py-1 ${previewHasWallpaper ? 'text-slate-100/80' : 'text-muted'}`}>
                     Support: {supportUrl.trim()}
                   </span>
                 ) : null}
                 {customFooter?.trim() ? (
-                  <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-muted">
+                  <span className={`rounded-full border border-line/70 bg-card/70 px-2.5 py-1 ${previewHasWallpaper ? 'text-slate-100/80' : 'text-muted'}`}>
                     {customFooter.trim()}
                   </span>
                 ) : null}
@@ -450,6 +508,29 @@ const BrandingSettings: React.FC = () => {
             <div className="space-y-3">
               <Input label="Logo URL" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://..." />
               <Input label="Support URL" value={supportUrl} onChange={(event) => setSupportUrl(event.target.value)} placeholder="https://your.domain/support" />
+              <Input
+                label="Wallpaper URL"
+                value={wallpaperUrl}
+                onChange={(event) => setWallpaperUrl(event.target.value)}
+                placeholder="https://images.unsplash.com/..."
+              />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Wallpaper Overlay (%)"
+                  type="number"
+                  value={wallpaperOverlayOpacity}
+                  onChange={(event) => setWallpaperOverlayOpacity(event.target.value)}
+                  placeholder="62"
+                />
+                <Input
+                  label="Wallpaper Blur (px)"
+                  type="number"
+                  value={wallpaperBlurPx}
+                  onChange={(event) => setWallpaperBlurPx(event.target.value)}
+                  placeholder="0"
+                />
+              </div>
 
               <div className="space-y-1.5">
                 <label className="ml-1 block text-sm font-medium text-muted">Primary Color</label>

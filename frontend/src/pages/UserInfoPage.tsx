@@ -143,6 +143,27 @@ function sanitizeHexColor(value: string | null | undefined): string | null {
   return null;
 }
 
+function sanitizeHttpUrl(value: string | null | undefined): string | null {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
 export const UserInfoPage = () => {
   const { token } = useParams<{ token: string }>();
   const toast = useToast();
@@ -371,6 +392,20 @@ export const UserInfoPage = () => {
     } as const;
   }, [accentColor, primaryColor]);
 
+  const wallpaperUrl = useMemo(
+    () => sanitizeHttpUrl(brandingMetadata?.wallpaperUrl as string | undefined),
+    [brandingMetadata?.wallpaperUrl]
+  );
+  const wallpaperOverlayOpacity = useMemo(
+    () => clampNumber(brandingMetadata?.wallpaperOverlayOpacity, 10, 90, 62),
+    [brandingMetadata?.wallpaperOverlayOpacity]
+  );
+  const wallpaperBlurPx = useMemo(
+    () => clampNumber(brandingMetadata?.wallpaperBlurPx, 0, 24, 0),
+    [brandingMetadata?.wallpaperBlurPx]
+  );
+  const hasWallpaper = Boolean(wallpaperUrl);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -489,7 +524,23 @@ export const UserInfoPage = () => {
   };
 
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+      {hasWallpaper ? (
+        <>
+          <div
+            className="pointer-events-none fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${wallpaperUrl})`,
+              filter: wallpaperBlurPx > 0 ? `blur(${wallpaperBlurPx}px)` : undefined,
+              transform: wallpaperBlurPx > 0 ? 'scale(1.03)' : undefined
+            }}
+          />
+          <div
+            className="pointer-events-none fixed inset-0 -z-10"
+            style={{ backgroundColor: `rgba(2, 6, 23, ${wallpaperOverlayOpacity / 100})` }}
+          />
+        </>
+      ) : null}
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Brand header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

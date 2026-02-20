@@ -16,6 +16,22 @@ function isValidToken(token) {
   return /^[a-f0-9]{64}$/i.test(String(token || ''));
 }
 
+function sanitizeHttpUrl(value, maxLength = 2048) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeBrandingMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') {
     return null;
@@ -44,6 +60,21 @@ function sanitizeBrandingMetadata(metadata) {
       .slice(0, 12);
   }
 
+  const wallpaperUrl = sanitizeHttpUrl(metadata.wallpaperUrl);
+  if (wallpaperUrl) {
+    safe.wallpaperUrl = wallpaperUrl;
+  }
+
+  const wallpaperOverlayOpacity = Number(metadata.wallpaperOverlayOpacity);
+  if (Number.isFinite(wallpaperOverlayOpacity)) {
+    safe.wallpaperOverlayOpacity = Math.min(Math.max(wallpaperOverlayOpacity, 10), 90);
+  }
+
+  const wallpaperBlurPx = Number(metadata.wallpaperBlurPx);
+  if (Number.isFinite(wallpaperBlurPx)) {
+    safe.wallpaperBlurPx = Math.min(Math.max(wallpaperBlurPx, 0), 24);
+  }
+
   if (Array.isArray(metadata.customApps)) {
     safe.customApps = metadata.customApps
       .filter((entry) => entry && typeof entry === 'object')
@@ -58,9 +89,9 @@ function sanitizeBrandingMetadata(metadata) {
 
         const storeUrl = entry.storeUrl && typeof entry.storeUrl === 'object'
           ? {
-              android: typeof entry.storeUrl.android === 'string' ? entry.storeUrl.android : undefined,
-              ios: typeof entry.storeUrl.ios === 'string' ? entry.storeUrl.ios : undefined,
-              windows: typeof entry.storeUrl.windows === 'string' ? entry.storeUrl.windows : undefined
+              android: sanitizeHttpUrl(entry.storeUrl.android, 1024) || undefined,
+              ios: sanitizeHttpUrl(entry.storeUrl.ios, 1024) || undefined,
+              windows: sanitizeHttpUrl(entry.storeUrl.windows, 1024) || undefined
             }
           : undefined;
 

@@ -39,6 +39,9 @@ export interface SubscriptionBrandingMetadata {
   customApps?: CustomClientApp[];
   qrLogoSizePercent?: number;
   usageAlertThresholds?: number[];
+  wallpaperUrl?: string;
+  wallpaperOverlayOpacity?: number;
+  wallpaperBlurPx?: number;
 }
 
 export interface ResolvedClientApp extends ClientAppDefinition {
@@ -184,4 +187,3 @@ export function resolveSubscriptionApps(options: {
     };
   });
 }
-

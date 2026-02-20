@@ -1,6 +1,111 @@
 const prisma = require('../config/database');
 const env = require('../config/env');
 
+function sanitizeHttpUrl(value, maxLength = 2048) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeBrandingMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+
+  const safe = {};
+
+  if (Array.isArray(metadata.enabledApps)) {
+    safe.enabledApps = metadata.enabledApps
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0 && value.length <= 64)
+      .slice(0, 64);
+  }
+
+  const qrLogoSizePercent = Number(metadata.qrLogoSizePercent);
+  if (Number.isFinite(qrLogoSizePercent)) {
+    safe.qrLogoSizePercent = Math.min(Math.max(qrLogoSizePercent, 10), 40);
+  }
+
+  if (Array.isArray(metadata.usageAlertThresholds)) {
+    safe.usageAlertThresholds = metadata.usageAlertThresholds
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+      .map((value) => Math.min(Math.max(value, 1), 100))
+      .slice(0, 12);
+  }
+
+  const wallpaperUrl = sanitizeHttpUrl(metadata.wallpaperUrl);
+  if (wallpaperUrl) {
+    safe.wallpaperUrl = wallpaperUrl;
+  }
+
+  const wallpaperOverlayOpacity = Number(metadata.wallpaperOverlayOpacity);
+  if (Number.isFinite(wallpaperOverlayOpacity)) {
+    safe.wallpaperOverlayOpacity = Math.min(Math.max(wallpaperOverlayOpacity, 10), 90);
+  }
+
+  const wallpaperBlurPx = Number(metadata.wallpaperBlurPx);
+  if (Number.isFinite(wallpaperBlurPx)) {
+    safe.wallpaperBlurPx = Math.min(Math.max(wallpaperBlurPx, 0), 24);
+  }
+
+  if (Array.isArray(metadata.customApps)) {
+    safe.customApps = metadata.customApps
+      .filter((entry) => entry && typeof entry === 'object')
+      .slice(0, 32)
+      .map((entry) => {
+        const platformsRaw = Array.isArray(entry.platforms) ? entry.platforms : [];
+        const platforms = platformsRaw
+          .filter((value) => typeof value === 'string')
+          .map((value) => value.trim().toLowerCase())
+          .filter((value) => ['android', 'ios', 'windows'].includes(value))
+          .slice(0, 3);
+
+        const storeUrl = entry.storeUrl && typeof entry.storeUrl === 'object'
+          ? {
+              android: sanitizeHttpUrl(entry.storeUrl.android, 1024) || undefined,
+              ios: sanitizeHttpUrl(entry.storeUrl.ios, 1024) || undefined,
+              windows: sanitizeHttpUrl(entry.storeUrl.windows, 1024) || undefined
+            }
+          : undefined;
+
+        const usesFormatRaw = typeof entry.usesFormat === 'string' ? entry.usesFormat.trim().toLowerCase() : '';
+        const usesFormat = ['v2ray', 'clash', 'singbox', 'wireguard'].includes(usesFormatRaw)
+          ? usesFormatRaw
+          : undefined;
+
+        const urlScheme = typeof entry.urlScheme === 'string'
+          ? entry.urlScheme
+          : (typeof entry.importScheme === 'string' ? entry.importScheme : '');
+
+        return {
+          id: typeof entry.id === 'string' ? entry.id.slice(0, 64) : '',
+          name: typeof entry.name === 'string' ? entry.name.slice(0, 64) : '',
+          icon: typeof entry.icon === 'string' ? entry.icon.slice(0, 8) : '🔗',
+          description: typeof entry.description === 'string' ? entry.description.slice(0, 160) : undefined,
+          platforms,
+          usesFormat,
+          urlScheme: urlScheme.slice(0, 512),
+          storeUrl
+        };
+      })
+      .filter((entry) => entry.id && entry.name && entry.platforms.length > 0 && entry.urlScheme);
+  }
+
+  return Object.keys(safe).length > 0 ? safe : {};
+}
+
 function normalizeBrandingInput(payload = {}) {
   return {
     scope: String(payload.scope || 'GLOBAL').toUpperCase(),
@@ -16,7 +121,7 @@ function normalizeBrandingInput(payload = {}) {
     profileDescription: payload.profileDescription ? String(payload.profileDescription).trim() : null,
     customFooter: payload.customFooter ? String(payload.customFooter).trim() : null,
     clashProfileName: payload.clashProfileName ? String(payload.clashProfileName).trim() : null,
-    metadata: payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : undefined,
+    metadata: sanitizeBrandingMetadata(payload.metadata),
     userId: payload.userId ? Number(payload.userId) : null,
     groupId: payload.groupId ? Number(payload.groupId) : null
   };
@@ -51,10 +156,29 @@ function validateBrandingInput(input) {
 }
 
 function mergeBranding(base = {}, override = {}) {
-  return {
+  const filteredOverride = Object.fromEntries(
+    Object.entries(override).filter(([, value]) => value !== null && value !== undefined)
+  );
+  const merged = {
     ...base,
-    ...Object.fromEntries(Object.entries(override).filter(([, value]) => value !== null && value !== undefined))
+    ...filteredOverride
   };
+
+  const baseMetadata = base.metadata && typeof base.metadata === 'object' && !Array.isArray(base.metadata)
+    ? base.metadata
+    : null;
+  const overrideMetadata = override.metadata && typeof override.metadata === 'object' && !Array.isArray(override.metadata)
+    ? override.metadata
+    : null;
+
+  if (baseMetadata || overrideMetadata) {
+    merged.metadata = {
+      ...(baseMetadata || {}),
+      ...(overrideMetadata || {})
+    };
+  }
+
+  return merged;
 }
 
 class SubscriptionBrandingService {
