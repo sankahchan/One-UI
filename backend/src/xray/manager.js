@@ -543,6 +543,23 @@ class XrayManager {
 
       const apply = await this.applyRuntimeChange(applyMethod);
 
+      // Trigger automatic firewall sync securely within xray-core's NET_ADMIN footprint
+      try {
+        const runtime = await this.resolveRuntimeStatus();
+        if (runtime.mode === 'docker') {
+          logger.info('Syncing host firewall rules via xray-core container...');
+          await execPromise('docker exec xray-core sh /usr/local/bin/sync-firewall.sh');
+          logger.info('Host firewall synchronized successfully.');
+        } else {
+          logger.info('Executing firewall sync script directly on local host...');
+          await execPromise('sh /opt/one-ui/scripts/sync-firewall.sh || sh ../scripts/sync-firewall.sh || true');
+        }
+      } catch (fwError) {
+        logger.warn('Failed to sync iptables firewall rules (this is safe to ignore if running locally without root)', {
+          message: fwError.message
+        });
+      }
+
       return {
         config: generatedConfig,
         apply,

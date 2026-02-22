@@ -3,6 +3,10 @@ FROM ${XRAY_BASE_IMAGE}
 
 # Copy default config
 COPY xray/config.json /etc/xray/config.json
+COPY scripts/sync-firewall.sh /usr/local/bin/sync-firewall.sh
+
+# Install iptables, iproute2, and jq for dynamic host firewall manipulation
+RUN apk add --no-cache iptables iproute2 jq
 
 EXPOSE 443 80 10085
 
