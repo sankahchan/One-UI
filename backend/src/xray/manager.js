@@ -681,14 +681,58 @@ class XrayManager {
           return 'unknown';
         }
 
-        const { stdout } = await execPromise(`docker exec xray-core ${this.xrayBinary} version`);
-        const match = stdout.match(/Xray\s+([\d.]+)/);
-        return match ? match[1] : 'unknown';
+        const dockerCommands = [
+          `${this.xrayBinary} version`,
+          'xray version',
+          '/usr/local/bin/xray version',
+          '/xray version'
+        ];
+
+        for (const command of dockerCommands) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            const { stdout, stderr } = await execPromise(`docker exec xray-core ${command}`);
+            const match = `${stdout || ''}\n${stderr || ''}`.match(/Xray\s+v?([\d.]+)/i);
+            if (match?.[1]) {
+              return match[1];
+            }
+          } catch (_error) {
+            // Try next command fallback.
+          }
+        }
+
+        try {
+          const { stdout } = await execPromise('docker logs --tail=30 xray-core');
+          const match = String(stdout || '').match(/Xray\s+v?([\d.]+)/i);
+          if (match?.[1]) {
+            return match[1];
+          }
+        } catch (_error) {
+          // Ignore log-read fallback errors.
+        }
+
+        return 'unknown';
       }
 
-      const { stdout } = await execPromise(`${this.xrayBinary} version`);
-      const match = stdout.match(/Xray\s+([\d.]+)/);
-      return match ? match[1] : 'unknown';
+      const localCommands = [
+        `${this.xrayBinary} version`,
+        'xray version'
+      ];
+
+      for (const command of localCommands) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const { stdout, stderr } = await execPromise(command);
+          const match = `${stdout || ''}\n${stderr || ''}`.match(/Xray\s+v?([\d.]+)/i);
+          if (match?.[1]) {
+            return match[1];
+          }
+        } catch (_error) {
+          // Try next command fallback.
+        }
+      }
+
+      return 'unknown';
     } catch (_error) {
       return 'unknown';
     }
