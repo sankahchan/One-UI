@@ -1,13 +1,22 @@
 ARG XRAY_BASE_IMAGE=ghcr.io/xtls/xray-core:latest
-FROM ${XRAY_BASE_IMAGE}
 
-# Copy default config
+# Stage 1: Extract the official Xray binary from the scratch image
+FROM ${XRAY_BASE_IMAGE} AS xray_base
+
+# Stage 2: Build our actual Alpine runner image with iptables support
+FROM alpine:latest
+
+# Install dependencies needed for host firewall manipulation
+RUN apk add --no-cache tzdata ca-certificates iptables iproute2 jq
+
+# Copy the Xray binary from the official image
+COPY --from=xray_base /usr/bin/xray /usr/bin/xray
+COPY --from=xray_base /usr/share/xray/ /usr/share/xray/
+
+# Copy default config and our firewall sync script
 COPY xray/config.json /etc/xray/config.json
 COPY scripts/sync-firewall.sh /usr/local/bin/sync-firewall.sh
 
-# Install iptables, iproute2, and jq for dynamic host firewall manipulation
-RUN apk add --no-cache iptables iproute2 jq
-
 EXPOSE 443 80 10085
 
-CMD ["run", "-config", "/etc/xray/config.json"]
+CMD ["xray", "run", "-config", "/etc/xray/config.json"]
