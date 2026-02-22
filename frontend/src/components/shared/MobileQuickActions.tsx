@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { Plus, Radio, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const MobileQuickActions: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+
+  if (location.pathname.startsWith('/settings')) {
+    return null;
+  }
 
   const refreshAll = async () => {
     if (refreshing) {
@@ -54,4 +59,3 @@ export const MobileQuickActions: React.FC = () => {
     </div>
   );
 };
-

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
+  ArrowUp,
   CheckCircle2,
   Layers3,
   LayoutDashboard,
@@ -46,6 +47,8 @@ export const DashboardLayout: React.FC = () => {
     xrayUpdatePreflight?.checks?.find((check) => check.blocking && !check.ok)
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [mainScrollEl, setMainScrollEl] = useState<HTMLElement | null>(null);
   const handleNavigate = useCallback((path: string) => {
     navigate(path);
     setSidebarOpen(false);
@@ -115,6 +118,22 @@ export const DashboardLayout: React.FC = () => {
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
 
+  useEffect(() => {
+    if (!mainScrollEl) {
+      return;
+    }
+
+    const handleScroll = () => {
+      setShowScrollTop(mainScrollEl.scrollTop > 420);
+    };
+
+    handleScroll();
+    mainScrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      mainScrollEl.removeEventListener('scroll', handleScroll);
+    };
+  }, [mainScrollEl]);
+
   const handleLogout = () => {
     void authApi.logout(refreshToken);
     logout();
@@ -144,6 +163,7 @@ export const DashboardLayout: React.FC = () => {
 
           <div className="flex items-center gap-2">
             {updateHealthBadge}
+            <LanguageSwitcher compact />
             <ThemeToggle />
           </div>
         </div>
@@ -217,7 +237,10 @@ export const DashboardLayout: React.FC = () => {
           />
         ) : null}
 
-        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent">
+        <main
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent"
+          ref={setMainScrollEl}
+        >
           <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-line/70 bg-card/75 px-6 py-4 backdrop-blur-xl lg:flex xl:px-8">
             <SearchBar />
             <div className="flex items-center gap-3">
@@ -258,6 +281,18 @@ export const DashboardLayout: React.FC = () => {
           })}
         </ul>
       </nav>
+
+      {showScrollTop ? (
+        <button
+          type="button"
+          onClick={() => mainScrollEl?.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.9rem)] left-3 z-40 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line/70 bg-card/90 text-foreground shadow-soft backdrop-blur-xl transition hover:bg-card"
+          aria-label={t('common.scrollToTop', { defaultValue: 'Scroll to top' })}
+          title={t('common.scrollToTop', { defaultValue: 'Scroll to top' })}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </button>
+      ) : null}
 
       <MobileQuickActions />
     </div>

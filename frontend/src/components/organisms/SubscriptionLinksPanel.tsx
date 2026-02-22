@@ -17,12 +17,14 @@ import apiClient from '../../api/client';
 import { useToast } from '../../hooks/useToast';
 import type { SubscriptionLinksData, SubscriptionLink } from '../../types';
 import {
+  buildImportLaunchUrls,
   detectPlatform,
   resolveSubscriptionApps,
   type Platform,
   type SubscriptionBrandingMetadata
 } from '../../lib/subscriptionApps';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { openDeepLinksWithFallback } from '../../utils/deepLink';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
 
@@ -268,6 +270,11 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {appsForPlatform.map((app) => {
                     const copyKey = `app-${app.id}`;
+                    const launchUrls = buildImportLaunchUrls({
+                      appId: app.id,
+                      importUrl: app.importUrl,
+                      manualUrl: app.manualUrl
+                    });
                     return (
                       <div key={app.id} className="rounded-2xl border border-line/70 bg-card/65 p-4">
                         <div className="flex items-start gap-3">
@@ -282,7 +289,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
 
                         <div className="mt-3 grid grid-cols-1 gap-2">
                           {app.importUrl ? (
-                            <Button className="w-full" onClick={() => { window.location.href = app.importUrl as string; }}>
+                            <Button className="w-full" onClick={() => { openDeepLinksWithFallback(launchUrls); }}>
                               <Smartphone className="mr-2 h-4 w-4" />
                               One-Click
                             </Button>

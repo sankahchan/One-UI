@@ -973,7 +973,7 @@ const SystemSettings: React.FC = () => {
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                         {check.label}
                       </p>
-                      <p className="truncate text-sm text-gray-800 dark:text-gray-200">
+                      <p className="break-words whitespace-normal text-sm text-gray-800 dark:text-gray-200">
                         {check.detail || (check.ok ? 'OK' : 'Failed')}
                       </p>
                     </div>

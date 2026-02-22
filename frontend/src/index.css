@@ -70,6 +70,21 @@ body::before {
   z-index: -1;
 }
 
+@media (max-width: 1023px), (pointer: coarse) {
+  body {
+    background-attachment: scroll;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  [class*='backdrop-blur'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 a {
   color: hsl(221 83% 53%);
   transition: color 0.2s ease;
@@ -93,7 +108,7 @@ a:hover {
   }
 
   .mobile-shell {
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
   }
 }
 

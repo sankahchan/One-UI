@@ -157,10 +157,17 @@ export function Users() {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [bulkStatus, setBulkStatus] = useState<UserStatus>('DISABLED');
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
+  });
   const debouncedSearch = useDebouncedValue(search, 320);
   const quickAction = searchParams.get('quick');
   const confirmResolverRef = useRef<((accepted: boolean) => void) | null>(null);
   const promptResolverRef = useRef<((value: string | null) => void) | null>(null);
+  const liveRefreshIntervalMs = isMobileViewport ? 15_000 : 5_000;
 
   const usersQuery = useUsers({ page, limit: 50, search: debouncedSearch, status: status || undefined });
   const groupsQuery = useGroups({ page: 1, limit: 100, includeDisabled: false });
@@ -175,8 +182,8 @@ export function Users() {
   const bulkRotateKeysMutation = useBulkRotateUserKeys();
   const bulkRevokeKeysMutation = useBulkRevokeUserKeys();
   const telemetrySyncQuery = useTelemetrySyncStatus({
-    refetchInterval: 5_000,
-    staleTime: 5_000
+    refetchInterval: liveRefreshIntervalMs,
+    staleTime: liveRefreshIntervalMs
   });
   const runFallbackAutotuneMutation = useRunFallbackAutotune();
   const runUserDiagnosticsMutation = useRunUserDiagnostics();
@@ -295,8 +302,9 @@ export function Users() {
   const pageUserIds = useMemo(() => users.map((user) => user.id), [users]);
   const userSessionsQuery = useUserSessions(pageUserIds, {
     includeOffline: true,
-    refetchInterval: 5_000,
-    staleTime: 5_000
+    live: !isMobileViewport,
+    refetchInterval: liveRefreshIntervalMs,
+    staleTime: liveRefreshIntervalMs
   });
   const sessionsByUserId = useMemo(
     () =>
@@ -400,6 +408,26 @@ export function Users() {
       seconds: Math.max(0, Math.round(telemetrySync.lagMs / 1000))
     });
   }, [t, telemetrySync]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const media = window.matchMedia('(max-width: 1023px), (pointer: coarse)');
+    const update = (event?: MediaQueryListEvent) => {
+      setIsMobileViewport(event ? event.matches : media.matches);
+    };
+    update();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -605,10 +633,24 @@ export function Users() {
   const autoRefresh = useSmartAutoRefresh(
     () => refreshUsersAndSessions(),
     {
-      enabled: true,
-      intervalMs: 5_000
+      enabled: !isMobileViewport,
+      intervalMs: liveRefreshIntervalMs
     }
   );
+
+  const autoRefreshLineLabel = useMemo(() => {
+    if (!autoRefresh.enabled) {
+      return t('autoRefresh.mobileOff', {
+        defaultValue: 'Auto refresh: Off on mobile (smooth scrolling mode)'
+      });
+    }
+
+    return t('autoRefresh.line', {
+      defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
+      status: autoRefresh.statusLabel,
+      seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
+    });
+  }, [autoRefresh.enabled, autoRefresh.nextRunInMs, autoRefresh.statusLabel, t]);
 
   const handleSaveCurrentView = async () => {
     const name = await requestPrompt({
@@ -1781,11 +1823,7 @@ export function Users() {
                 <div className="min-w-0">
                   <p className="truncate">{t('common.advancedControls', { defaultValue: 'Advanced controls' })}</p>
                   <p className="mt-0.5 text-xs font-normal text-muted">
-                    {t('autoRefresh.line', {
-                      defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
-                      status: autoRefresh.statusLabel,
-                      seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
-                    })}
+                    {autoRefreshLineLabel}
                   </p>
                 </div>
                 <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -1894,11 +1932,7 @@ export function Users() {
                     : t('autoRefresh.pause', { defaultValue: 'Pause Auto' })}
                 </Button>
                 <span className="text-xs text-muted">
-                  {t('autoRefresh.line', {
-                    defaultValue: 'Auto refresh: {{status}} ({{seconds}}s)',
-                    status: autoRefresh.statusLabel,
-                    seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
-                  })}
+                  {autoRefreshLineLabel}
                 </span>
               </div>
             </div>

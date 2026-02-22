@@ -22,12 +22,19 @@ class OnlineTracker {
   get idleTtlMs() {
     return Math.max(
       this.ttlMs,
-      Math.max(60, Number(env.USER_ONLINE_IDLE_TTL_SECONDS || 600)) * 1000
+      Math.max(30, Number(env.USER_ONLINE_IDLE_TTL_SECONDS || 180)) * 1000
     );
   }
 
   get trafficTtlMs() {
     return Math.max(this.ttlMs, Math.min(this.idleTtlMs, 5 * 60 * 1000));
+  }
+
+  get deviceOnlineTtlMs() {
+    return Math.max(
+      this.ttlMs,
+      Math.min(this.idleTtlMs, Math.max(30, Number(env.USER_ONLINE_DEVICE_TTL_SECONDS || 120)) * 1000)
+    );
   }
 
   isEntryOnline(entry, now = Date.now()) {
@@ -251,9 +258,13 @@ class OnlineTracker {
           .filter((relation) => relation?.inbound && Number.isInteger(relation?.inboundId))
           .map((relation) => [relation.inboundId, relation.inbound])
       );
-      const activeDevices = deviceTrackingService
-        .getActiveDevices(user.id)
-        .filter((device) => device?.online);
+      const activeDevices = deviceTrackingService.getActiveDevices(user.id).filter((device) => {
+        const lastSeenAtMs = Number(device?.lastSeenAt || 0);
+        if (!Number.isFinite(lastSeenAtMs) || lastSeenAtMs <= 0) {
+          return false;
+        }
+        return now - lastSeenAtMs <= this.deviceOnlineTtlMs;
+      });
       const latestDevice = activeDevices.reduce((currentLatest, device) => {
         if (!device?.lastSeenAt) {
           return currentLatest;

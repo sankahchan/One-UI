@@ -16,7 +16,9 @@ export interface ClientAppDefinition {
   description: string;
   usesFormat?: FormatTab;
   /**
-   * Deep-link/import scheme containing `{url}` placeholder (will be URL-encoded).
+   * Deep-link/import scheme containing one of:
+   * - `{url}`: URL-encoded subscription URL
+   * - `{rawUrl}`: raw/unencoded subscription URL
    * If omitted, the app is considered "manual import" only.
    */
   urlScheme?: string;
@@ -55,6 +57,10 @@ export interface ResolvedClientApp extends ClientAppDefinition {
   storeLink: string;
 }
 
+function uniqueNonEmpty(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)));
+}
+
 export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
   {
     id: 'v2rayng',
@@ -75,7 +81,9 @@ export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
     platforms: ['android', 'ios', 'windows'],
     description: 'User-friendly client with strong anti-DPI support.',
     usesFormat: 'v2ray',
-    urlScheme: 'hiddify://import/{url}',
+    // Hiddify import scheme expects the raw URL in path form.
+    // Example: hiddify://import/https://example.com/sub/<token>
+    urlScheme: 'hiddify://import/{rawUrl}',
     storeUrl: {
       android: 'https://play.google.com/store/apps/details?id=app.hiddify.com',
       ios: 'https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532',
@@ -142,7 +150,39 @@ export function detectPlatform(): Platform {
 
 export function buildImportUrl(urlScheme: string | undefined, subscriptionUrl: string): string | null {
   if (!urlScheme || !subscriptionUrl) return null;
-  return urlScheme.replace('{url}', encodeURIComponent(subscriptionUrl));
+  const trimmedUrl = String(subscriptionUrl).trim();
+  const encodedUrl = encodeURIComponent(trimmedUrl);
+
+  if (urlScheme.includes('{rawUrl}')) {
+    return urlScheme.replace('{rawUrl}', trimmedUrl);
+  }
+
+  return urlScheme.replace('{url}', encodedUrl);
+}
+
+export function buildImportLaunchUrls(options: {
+  appId: string;
+  importUrl: string | null;
+  manualUrl: string;
+}): string[] {
+  const appId = String(options.appId || '').toLowerCase();
+  const importUrl = String(options.importUrl || '').trim();
+  const manualUrl = String(options.manualUrl || '').trim();
+  const launchUrls: string[] = [];
+
+  if (importUrl) {
+    launchUrls.push(importUrl);
+  }
+
+  // Hiddify URL scheme changed across versions.
+  // Keep backward-compatible fallbacks if primary deep link does not launch.
+  if (appId === 'hiddify' && manualUrl) {
+    const encoded = encodeURIComponent(manualUrl);
+    launchUrls.push(`hiddify://install-config?url=${encoded}`);
+    launchUrls.push(`hiddify://install-sub?url=${encoded}`);
+  }
+
+  return uniqueNonEmpty(launchUrls);
 }
 
 export function resolveSubscriptionApps(options: {

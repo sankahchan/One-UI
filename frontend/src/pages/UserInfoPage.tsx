@@ -25,7 +25,9 @@ import { useToast } from '../hooks/useToast';
 import { changeLanguage, languages } from '../i18n';
 import type { SubscriptionLink } from '../types';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { openDeepLinksWithFallback } from '../utils/deepLink';
 import {
+  buildImportLaunchUrls,
   detectPlatform,
   resolveSubscriptionApps,
   type FormatTab,
@@ -879,6 +881,11 @@ export const UserInfoPage = () => {
               const importUrl = app.importUrl;
               const storeLink = app.storeLink;
               const manualUrl = app.manualUrl || urls[usedFormat] || selectedUrl;
+              const launchUrls = buildImportLaunchUrls({
+                appId: app.id,
+                importUrl,
+                manualUrl
+              });
 
               return (
                 <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/55 p-5">
@@ -903,10 +910,7 @@ export const UserInfoPage = () => {
                     {importUrl ? (
                       <Button
                         className="w-full"
-                        onClick={() => {
-                          // Prefer direct navigation so mobile OS can hand over to app.
-                          window.location.href = importUrl;
-                        }}
+                        onClick={() => openDeepLinksWithFallback(launchUrls)}
                       >
                         <Smartphone className="mr-2 h-4 w-4" />
                         {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
