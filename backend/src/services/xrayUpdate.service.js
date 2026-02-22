@@ -122,6 +122,7 @@ class XrayUpdateService {
     );
     this.preflightTimeoutMs = parsePositiveInt(process.env.XRAY_UPDATE_PREFLIGHT_TIMEOUT_MS, 8_000, 1_000, 5 * 60 * 1000);
     this.xrayContainerName = String(process.env.XRAY_UPDATE_CONTAINER_NAME || process.env.CONTAINER_NAME || 'xray-core').trim() || 'xray-core';
+    this.xrayComposeServiceName = String(process.env.XRAY_UPDATE_SERVICE_NAME || 'xray').trim() || 'xray';
     this.defaultChannel = String(process.env.XRAY_UPDATE_DEFAULT_CHANNEL || 'stable').trim().toLowerCase() === 'latest'
       ? 'latest'
       : 'stable';
@@ -431,6 +432,19 @@ class XrayUpdateService {
     });
   }
 
+  sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  isTransientContainerRestartError(result) {
+    const combined = `${result?.stderr || ''}\n${result?.stdout || ''}`.toLowerCase();
+    return combined.includes('is restarting')
+      || (combined.includes('container') && combined.includes('restarting'))
+      || combined.includes('try again later');
+  }
+
   buildPreflightCheck({ id, label, ok, blocking = true, detail = '', metadata = null }) {
     return {
       id,
@@ -670,7 +684,7 @@ class XrayUpdateService {
         : `Container ${this.xrayContainerName} is not running right now.`;
 
       if (repair && !xrayContainerRunning && composeFilePath) {
-        const upResult = await this.runComposeCommand(composeFilePath, ['up', '-d', 'xray']);
+        const upResult = await this.runComposeCommand(composeFilePath, ['up', '-d', this.xrayComposeServiceName]);
         if (upResult.ok) {
           const verifyResult = await this.executeCommand('docker', ['ps', '--filter', `name=^/${this.xrayContainerName}$`, '--format', '{{.Names}}']);
           xrayContainerRunning = verifyResult.ok && verifyResult.stdout.split('\n').some((line) => line.trim() === this.xrayContainerName);
@@ -695,7 +709,8 @@ class XrayUpdateService {
       repaired: xrayContainerRepaired,
       detail: xrayContainerDetail,
       metadata: {
-        containerName: this.xrayContainerName
+        containerName: this.xrayContainerName,
+        serviceName: this.xrayComposeServiceName
       }
     });
 
@@ -924,7 +939,8 @@ class XrayUpdateService {
           detail: 'Skipped in manual mode.',
           metadata: {
             skipped: true,
-            containerName: this.xrayContainerName
+            containerName: this.xrayContainerName,
+            serviceName: this.xrayComposeServiceName
           }
         }),
         this.buildPreflightCheck({
@@ -1018,25 +1034,50 @@ class XrayUpdateService {
               ? `Container ${this.xrayContainerName} is running.`
               : `Container ${this.xrayContainerName} is not running right now.`,
             metadata: {
-              containerName: this.xrayContainerName
+              containerName: this.xrayContainerName,
+              serviceName: this.xrayComposeServiceName
             }
           })
         );
 
         if (xrayContainerRunning) {
-          const versionResult = await this.executeCommand('docker', ['exec', this.xrayContainerName, 'xray', 'version']);
+          const maxVersionAttempts = 3;
+          let versionAttempt = 0;
+          let versionResult = null;
+          let transientRestart = false;
+
+          while (versionAttempt < maxVersionAttempts) {
+            versionAttempt += 1;
+            versionResult = await this.executeCommand('docker', ['exec', this.xrayContainerName, 'xray', 'version']);
+            transientRestart = this.isTransientContainerRestartError(versionResult);
+
+            if (versionResult.ok || !transientRestart || versionAttempt >= maxVersionAttempts) {
+              break;
+            }
+
+            await this.sleep(600 * versionAttempt);
+          }
+
+          const versionCheckOk = Boolean(versionResult?.ok || transientRestart);
+          const versionCheckDetail = versionResult?.ok
+            ? (versionResult.stdout.split('\n')[0] || 'Xray version read success.')
+            : transientRestart
+              ? `Container ${this.xrayContainerName} is restarting. Version check deferred; retry after a short delay.`
+              : (versionResult?.stderr || versionResult?.stdout || 'Unable to read Xray version from container.');
+
           checks.push(
             this.buildPreflightCheck({
               id: 'xray-version-read',
               label: 'Xray version read',
-              ok: versionResult.ok,
+              ok: versionCheckOk,
               blocking: false,
-              detail: versionResult.ok
-                ? (versionResult.stdout.split('\n')[0] || 'Xray version read success.')
-                : (versionResult.stderr || versionResult.stdout || 'Unable to read Xray version from container.'),
+              detail: versionCheckDetail,
               metadata: {
                 containerName: this.xrayContainerName,
-                command: `docker exec ${this.xrayContainerName} xray version`
+                serviceName: this.xrayComposeServiceName,
+                command: `docker exec ${this.xrayContainerName} xray version`,
+                attempts: versionAttempt,
+                transientRestart
               }
             })
           );
@@ -1050,7 +1091,8 @@ class XrayUpdateService {
             blocking: false,
             detail: 'Skipped because Docker daemon is unavailable.',
             metadata: {
-              containerName: this.xrayContainerName
+              containerName: this.xrayContainerName,
+              serviceName: this.xrayComposeServiceName
             }
           })
         );

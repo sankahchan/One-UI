@@ -538,6 +538,10 @@ prepare_directories() {
   mkdir -p "${DATA_DIR}/certs"
   mkdir -p "${BACKUP_DIR}"
   mkdir -p /var/log/xray
+  touch /var/log/xray/access.log /var/log/xray/error.log /var/log/xray/output.log 2>/dev/null || true
+  chown -R 65532:65532 /var/log/xray 2>/dev/null || true
+  chmod 755 /var/log/xray 2>/dev/null || true
+  chmod 664 /var/log/xray/*.log 2>/dev/null || true
 }
 
 download_project() {

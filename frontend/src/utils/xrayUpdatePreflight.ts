@@ -14,6 +14,7 @@ export function getPreflightFixCommands(check: XrayUpdatePreflightCheck): string
   const composeFilePath =
     getMetadataString(check.metadata, 'composeFilePath') || '/opt/one-ui/docker-compose.yml';
   const containerName = getMetadataString(check.metadata, 'containerName') || 'xray-core';
+  const serviceName = getMetadataString(check.metadata, 'serviceName') || 'xray';
   const command = getMetadataString(check.metadata, 'command');
   const lockName = getMetadataString(check.metadata, 'lockName') || 'one-ui-xray-update';
   const ownerId = getMetadataString(check.metadata, 'ownerId');
@@ -40,10 +41,16 @@ export function getPreflightFixCommands(check: XrayUpdatePreflightCheck): string
     case 'xray-container':
       return [
         `docker ps --filter "name=^/${containerName}$"`,
-        `docker compose up -d ${containerName === 'xray-core' ? 'xray' : containerName}`
+        `docker compose up -d ${serviceName}`
       ];
     case 'xray-version-read':
-      return [`docker exec ${containerName} xray version`];
+      return [
+        `docker logs --tail=120 ${containerName}`,
+        'sudo mkdir -p /var/log/xray && sudo touch /var/log/xray/access.log /var/log/xray/error.log /var/log/xray/output.log',
+        'sudo chown -R 65532:65532 /var/log/xray && sudo chmod 755 /var/log/xray && sudo chmod 664 /var/log/xray/*.log',
+        `docker compose restart ${serviceName}`,
+        `docker exec ${containerName} xray version`
+      ];
     case 'update-script-dry-run':
       return [command || `${scriptPath} --stable --canary --no-restart --dry-run --yes`];
     case 'update-lock':
