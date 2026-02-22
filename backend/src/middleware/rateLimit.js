@@ -10,12 +10,21 @@ const LOCALHOST_IPS = new Set([
 // File extensions that indicate static frontend assets (not API calls).
 const STATIC_ASSET_RE = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|map|webp|avif)(\?|$)/i;
 
+// High-frequency, read-only status endpoints used by dashboard auto-refresh.
+// These are authenticated where needed and should not trigger global API throttling.
+const REALTIME_STATUS_ENDPOINT_RE =
+  /\/api\/(?:system\/health|system\/metrics|xray\/status|xray\/update\/preflight|xray\/update\/policy)(?:$|[/?#])/i;
+
 function shouldBypassRateLimit(req) {
   // Only rate-limit API requests. Frontend pages, static assets, and public routes
   // (/sub, /user, /dns-query) should never be rate-limited.
   const url = req.originalUrl || '';
   const isApiRequest = url.includes('/api/');
   if (!isApiRequest) {
+    return true;
+  }
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && REALTIME_STATUS_ENDPOINT_RE.test(url)) {
     return true;
   }
 
