@@ -215,6 +215,29 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
   const wgAllowedIPs = watch('wgAllowedIPs');
   const wgMtu = watch('wgMtu');
   const wgAddress = watch('wgAddress');
+  const detectedPanelHost = React.useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    const host = String(window.location.hostname || '').trim().replace(/^\[|\]$/g, '');
+    return host;
+  }, []);
+
+  React.useEffect(() => {
+    if (isEdit || !detectedPanelHost) {
+      return;
+    }
+
+    const currentServerAddress = String(getValues('serverAddress') || '').trim();
+    if (!currentServerAddress || currentServerAddress === 'your.domain.com') {
+      setValue('serverAddress', detectedPanelHost, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: true
+      });
+    }
+  }, [detectedPanelHost, getValues, isEdit, setValue]);
 
   React.useEffect(() => {
     setFallbackRows(toFallbackRows(inboundFallbacks));
