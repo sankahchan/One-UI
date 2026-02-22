@@ -899,7 +899,7 @@ const SystemSettings: React.FC = () => {
                 Validate script, Docker connectivity, and update lock before rollout.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                   xrayUpdatePreflight?.ready
@@ -973,7 +973,7 @@ const SystemSettings: React.FC = () => {
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                         {check.label}
                       </p>
-                      <p className="break-words whitespace-normal text-sm text-gray-800 dark:text-gray-200">
+                      <p className="break-all whitespace-normal text-sm text-gray-800 dark:text-gray-200">
                         {check.detail || (check.ok ? 'OK' : 'Failed')}
                       </p>
                     </div>

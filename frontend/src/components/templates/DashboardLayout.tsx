@@ -144,7 +144,7 @@ export const DashboardLayout: React.FC = () => {
     <div className="min-h-screen text-foreground transition-colors">
       <header className="sticky top-0 z-40 border-b border-line/70 bg-card/80 backdrop-blur-xl lg:hidden">
         <div className="flex w-full items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setSidebarOpen((prev) => !prev)}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line/70 bg-card/80 text-muted transition hover:text-foreground"
@@ -154,14 +154,16 @@ export const DashboardLayout: React.FC = () => {
             </button>
             <button
               onClick={() => handleNavigate('/dashboard')}
-              className="rounded-lg px-1 text-left"
+              className="min-w-0 rounded-lg px-1 text-left"
             >
               <p className="text-sm font-semibold tracking-wide text-muted">ONE-UI</p>
-              <p className="text-base font-bold text-foreground">Control Center</p>
+              <p className="max-w-[9.5rem] truncate text-sm font-bold text-foreground sm:max-w-none sm:text-base">
+                Control Center
+              </p>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-2 flex shrink-0 items-center gap-1">
             {updateHealthBadge}
             <LanguageSwitcher compact />
             <ThemeToggle />
