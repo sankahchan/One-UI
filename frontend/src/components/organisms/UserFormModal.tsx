@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -32,6 +33,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
   const [submitError, setSubmitError] = useState('');
   const [identityMode, setIdentityMode] = useState<'name' | 'email'>('name');
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const generatedDomain = 'one-ui.local';
 
   const { data: inboundsData } = useInbounds();
@@ -168,6 +170,13 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
         identityMode === 'name'
           ? t('users.form.validation.nameRequired', { defaultValue: 'Name is required' })
           : t('users.form.validation.emailRequired', { defaultValue: 'Email is required' })
+      );
+      return;
+    }
+
+    if (inboundIds.length === 0) {
+      setSubmitError(
+        t('users.form.validation.inboundRequired', { defaultValue: 'Select at least one inbound' })
       );
       return;
     }
@@ -420,9 +429,22 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
             </label>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-line/80 bg-panel/55 p-3">
               {inbounds.length === 0 ? (
-                <p className="text-sm text-muted">
-                  {t('users.form.noInboundsHint', { defaultValue: 'No inbounds available. Create one first.' })}
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted">
+                    {t('users.form.noInboundsHint', { defaultValue: 'No inbounds available. Create one first.' })}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      onClose();
+                      navigate('/inbounds');
+                    }}
+                  >
+                    {t('inbounds.addInbound', { defaultValue: 'Add Inbound' })}
+                  </Button>
+                </div>
               ) : (
                 inbounds.map((inbound) => (
                   <label
@@ -455,7 +477,12 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
           />
 
           <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line/70 bg-card/95 pt-4 sm:flex-row">
-            <Button type="submit" className="flex-1" loading={createUser.isPending || updateUser.isPending}>
+            <Button
+              type="submit"
+              className="flex-1"
+              loading={createUser.isPending || updateUser.isPending}
+              disabled={inbounds.length === 0}
+            >
               {isEdit
                 ? t('users.form.updateUser', { defaultValue: 'Update User' })
                 : t('users.form.createUser', { defaultValue: 'Create User' })}
