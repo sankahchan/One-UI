@@ -28,15 +28,13 @@ async function health(_req, res, next) {
 
 async function stats(_req, res, next) {
   try {
-    const [admins, users, inbounds, userInbounds, trafficLogs, systemLogs, workerLock] = await Promise.all([
-      prisma.admin.count(),
-      prisma.user.count(),
-      prisma.inbound.count(),
-      prisma.userInbound.count(),
-      prisma.trafficLog.count(),
-      prisma.systemLog.count(),
-      workerLockService.get(env.WORKER_LOCK_NAME)
-    ]);
+    const admins = await prisma.admin.count();
+    const users = await prisma.user.count();
+    const inbounds = await prisma.inbound.count();
+    const userInbounds = await prisma.userInbound.count();
+    const trafficLogs = await prisma.trafficLog.count();
+    const systemLogs = await prisma.systemLog.count();
+    const workerLock = await workerLockService.get(env.WORKER_LOCK_NAME);
 
     return sendSuccess(res, {
       statusCode: 200,
@@ -50,11 +48,11 @@ async function stats(_req, res, next) {
         systemLogs,
         workerLock: workerLock
           ? {
-              name: workerLock.name,
-              ownerId: workerLock.ownerId,
-              heartbeatAt: workerLock.heartbeatAt,
-              expiresAt: workerLock.expiresAt
-            }
+            name: workerLock.name,
+            ownerId: workerLock.ownerId,
+            heartbeatAt: workerLock.heartbeatAt,
+            expiresAt: workerLock.expiresAt
+          }
           : null,
         uptimeSeconds: Math.floor(process.uptime()),
         timestamp: new Date().toISOString()
