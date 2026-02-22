@@ -12,13 +12,9 @@ RUN apk add --no-cache tzdata ca-certificates iptables iproute2 jq
 # Intelligently extract Xray binaries and geodata regardless of upstream's folder structure
 COPY --from=xray_base / /tmp/xray_base/
 RUN mkdir -p /usr/share/xray && \
-    if [ -f /tmp/xray_base/xray ]; then \
-    cp /tmp/xray_base/xray /usr/bin/xray; \
-    cp /tmp/xray_base/*.dat /usr/share/xray/ 2>/dev/null || true; \
-    elif [ -f /tmp/xray_base/usr/bin/xray ]; then \
-    cp /tmp/xray_base/usr/bin/xray /usr/bin/xray; \
-    cp -r /tmp/xray_base/usr/share/xray/* /usr/share/xray/ 2>/dev/null || true; \
-    fi && \
+    find /tmp/xray_base -type f -name "xray" -exec cp {} /usr/bin/xray \; && \
+    find /tmp/xray_base -type f -name "*.dat" -exec cp {} /usr/share/xray/ \; && \
+    if [ ! -f /usr/bin/xray ]; then echo "Xray binary not found!" && exit 1; fi && \
     chmod +x /usr/bin/xray && \
     rm -rf /tmp/xray_base
 
