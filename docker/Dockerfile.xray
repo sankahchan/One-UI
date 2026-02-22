@@ -18,10 +18,12 @@ RUN mkdir -p /usr/share/xray && \
     chmod +x /usr/bin/xray && \
     rm -rf /tmp/xray_base
 
-# Copy default config and our firewall sync script
+# Copy default config and our scripts
 COPY xray/config.json /etc/xray/config.json
 COPY scripts/sync-firewall.sh /usr/local/bin/sync-firewall.sh
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 EXPOSE 443 80 10085
 
-CMD ["xray", "run", "-config", "/etc/xray/config.json"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/etc/xray/config.json"]
