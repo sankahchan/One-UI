@@ -147,14 +147,15 @@ class URLBuilder {
     return `trojan://${user.password}@${inbound.serverAddress}:${inbound.port}?${params.toString()}#${remark}`;
   }
 
-  // Shadowsocks URL: ss://base64(method:password)@host:port#remark
+  // Shadowsocks URL: ss://base64(method:password@host:port)#remark
   static buildShadowsocksURL(user, inbound) {
     const cipher = inbound.cipher || 'chacha20-ietf-poly1305';
-    const userInfo = `${cipher}:${user.password}`;
-    const base64 = Buffer.from(userInfo).toString('base64');
+    // Format: method:password@hostname:port
+    const payload = `${cipher}:${user.password}@${inbound.serverAddress}:${inbound.port}`;
+    const base64 = Buffer.from(payload).toString('base64');
     const remark = encodeURIComponent(inbound.remark || `${user.email}-SS`);
 
-    return `ss://${base64}@${inbound.serverAddress}:${inbound.port}#${remark}`;
+    return `ss://${base64}#${remark}`;
   }
 
   // SOCKS URL: socks://user:pass@host:port#remark
