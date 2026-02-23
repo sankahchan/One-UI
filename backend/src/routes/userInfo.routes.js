@@ -10,7 +10,33 @@ const userService = require('../services/user.service');
 const prisma = require('../config/database');
 const validate = require('../middleware/validator');
 
+const clientDetector = require('../subscription/utils/client-detector');
+
 const router = express.Router();
+
+/**
+ * Catch proxy clients (Hiddify, Clash, etc.) that hit /user/:token
+ * and redirect them to /sub/:token so they get a proper subscription config.
+ */
+router.get('/:token', (req, res, next) => {
+  const { token } = req.params;
+  if (!isValidToken(token)) {
+    return next();
+  }
+
+  const userAgent = req.headers['user-agent'] || '';
+  const detectedFormat = clientDetector.detect(userAgent);
+  const isProxyClient = detectedFormat !== 'v2ray' || /(?:clash|singbox|sing-box|sfa|sfi|hiddify|shadowrocket|v2ray|v2rayn|v2rayng|quantumult|surge|stash|wireguard)/i.test(userAgent);
+
+  if (isProxyClient) {
+    // Rewrite the path from /user/:token to /sub/:token
+    const basePath = req.baseUrl.replace(/\/user$/, '/sub');
+    const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    return res.redirect(307, `${basePath}/${token}${query}`);
+  }
+
+  return next();
+});
 
 function isValidToken(token) {
   return /^[a-f0-9]{64}$/i.test(String(token || ''));
