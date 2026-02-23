@@ -92,7 +92,7 @@ function emitSecurityNotification(req, eventName, data = {}) {
   );
 }
 
-router.post('/cdn-scan', authenticate, authorize('SUPER_ADMIN'), async (req, res, next) => {
+router.post('/cdn-scan', requireBearerAuth, authenticate, authorize('SUPER_ADMIN'), async (req, res, next) => {
   try {
     const results = await cdnFinderService.scan();
     return res.json(ApiResponse.success(results));
@@ -106,7 +106,7 @@ router.post('/cdn-scan', authenticate, authorize('SUPER_ADMIN'), async (req, res
 
 const cloudflareService = require('../services/cloudflare.service');
 
-router.post('/cloudflare/dns', authenticate, authorize('SUPER_ADMIN'), async (req, res, next) => {
+router.post('/cloudflare/dns', requireBearerAuth, authenticate, authorize('SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { domain, type, content, proxied } = req.body;
     if (!domain || !type || !content) {
@@ -122,6 +122,7 @@ router.post('/cloudflare/dns', authenticate, authorize('SUPER_ADMIN'), async (re
 
 router.post(
   '/cloudflare/websockets',
+  requireBearerAuth,
   authenticate,
   authorize('SUPER_ADMIN'),
   [
@@ -154,6 +155,7 @@ router.post(
 
 router.post(
   '/cloudflare/ssl-mode',
+  requireBearerAuth,
   authenticate,
   authorize('SUPER_ADMIN'),
   [

@@ -66,7 +66,26 @@ router.get(
   validator,
   userController.getSessionSnapshots
 );
-router.get('/', paginationValidators, validator, userController.listUsers);
+router.get(
+  '/',
+  [
+    ...paginationValidators,
+    query('status')
+      .optional()
+      .isString()
+      .trim()
+      .isIn(['ACTIVE', 'EXPIRED', 'DISABLED', 'LIMITED'])
+      .withMessage('status must be one of ACTIVE, EXPIRED, DISABLED, LIMITED'),
+    query('search')
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('search must be at most 200 characters')
+  ],
+  validator,
+  userController.listUsers
+);
 
 // Bulk operations
 router.post('/bulk/create', bulkValidators.createUsers, validator, userController.bulkCreate);

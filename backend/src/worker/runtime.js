@@ -3,6 +3,7 @@ const logger = require('../config/logger');
 
 const expiryChecker = require('../jobs/expiry-checker');
 const trafficMonitor = require('../jobs/traffic-monitor');
+const trafficResetJob = require('../jobs/trafficReset.job');
 const certificateMonitor = require('../jobs/certificate-monitor');
 const fallbackAutotuneJob = require('../jobs/fallback-autotune');
 const groupPolicyScheduler = require('../jobs/group-policy-scheduler');
@@ -31,6 +32,11 @@ class WorkerRuntime {
       const trafficTask = trafficMonitor.start(env.TRAFFIC_MONITOR_CRON);
       const certTask = certificateMonitor.start(env.SSL_RENEW_CRON);
       this.scheduledTasks.push(expiryTask, trafficTask, certTask);
+
+      // Start the periodic traffic reset scheduler (resets user traffic
+      // based on their trafficResetPeriod: DAILY / WEEKLY / MONTHLY).
+      trafficResetJob.start();
+      this.scheduledTasks.push(trafficResetJob);
       if (env.SMART_FALLBACK_ENABLED) {
         const fallbackTask = fallbackAutotuneJob.start(env.SMART_FALLBACK_CRON);
         this.scheduledTasks.push(fallbackTask);

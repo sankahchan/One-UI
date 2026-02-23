@@ -432,8 +432,11 @@ class XrayManager {
       return;
     }
 
-    const pid = await fs.readFile(this.pidFile, 'utf8');
-    await execPromise(`kill -HUP ${pid.trim()}`);
+    const pid = (await fs.readFile(this.pidFile, 'utf8')).trim();
+    if (!/^\d+$/.test(pid)) {
+      throw new Error(`Invalid PID value in pid file: ${pid}`);
+    }
+    await execPromise(`kill -HUP ${pid}`);
   }
 
   async verifyRunning(retries = 6, delayMs = 1000) {
@@ -609,7 +612,11 @@ class XrayManager {
 
   async start() {
     try {
-      await execPromise(`${this.xrayBinary} -config ${this.configPath} > /var/log/xray/output.log 2>&1 &`);
+      // Start xray in the background and capture its PID into the pid file so
+      // that stop() and hotReloadProcess() can track the running process.
+      await execPromise(
+        `${this.xrayBinary} -config ${this.configPath} > /var/log/xray/output.log 2>&1 & echo $! > ${this.pidFile}`
+      );
       logger.info('Xray started');
       return { success: true, message: 'Xray started' };
     } catch (error) {
@@ -631,8 +638,11 @@ class XrayManager {
         await execPromise('docker stop xray-core');
       } else {
         // Kill process by PID
-        const pid = await fs.readFile(this.pidFile, 'utf8');
-        await execPromise(`kill ${pid.trim()}`);
+        const pid = (await fs.readFile(this.pidFile, 'utf8')).trim();
+        if (!/^\d+$/.test(pid)) {
+          throw new Error(`Invalid PID value in pid file: ${pid}`);
+        }
+        await execPromise(`kill ${pid}`);
       }
       logger.info('Xray stopped');
       return { success: true, message: 'Xray stopped' };

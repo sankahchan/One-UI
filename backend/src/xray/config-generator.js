@@ -50,6 +50,7 @@ class XrayConfigGenerator {
     this.templatePath = path.resolve(__dirname, 'templates', 'base-config.json');
     this.confDirPath = process.env.XRAY_CONF_DIR || '/etc/xray/conf.d';
     this.wireguardOutbounds = []; // Store WG outbounds separately
+    this._generateLock = null; // Mutex for concurrent generateConfig() calls
   }
 
   resolveApiServices(existingServices = []) {
@@ -242,6 +243,26 @@ class XrayConfigGenerator {
   }
 
   async generateConfig() {
+    // Serialize concurrent calls to prevent corruption of the shared
+    // wireguardOutbounds instance variable.
+    while (this._generateLock) {
+      await this._generateLock;
+    }
+
+    let releaseLock;
+    this._generateLock = new Promise((resolve) => {
+      releaseLock = resolve;
+    });
+
+    try {
+      return await this._generateConfigInternal();
+    } finally {
+      this._generateLock = null;
+      releaseLock();
+    }
+  }
+
+  async _generateConfigInternal() {
     const inbounds = await prisma.inbound.findMany({
       where: { enabled: true },
       include: {
@@ -505,10 +526,11 @@ class XrayConfigGenerator {
         error: error?.message
       });
 
-      this.configPath = fallbackPath;
-      await fs.mkdir(path.dirname(this.configPath), { recursive: true });
-      await fs.writeFile(this.configPath, configJson, 'utf8');
-      return this.configPath;
+      // Write to fallback without permanently mutating the primary configPath.
+      // This allows recovery if the original path becomes writable again.
+      await fs.mkdir(path.dirname(fallbackPath), { recursive: true });
+      await fs.writeFile(fallbackPath, configJson, 'utf8');
+      return fallbackPath;
     }
   }
 
