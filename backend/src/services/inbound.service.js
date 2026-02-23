@@ -282,6 +282,11 @@ function safeBase64(value) {
   return Buffer.from(String(value), 'utf8').toString('base64');
 }
 
+function safeBase64url(value) {
+  return Buffer.from(String(value), 'utf8').toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 function buildVlessUrl(inbound, user) {
   const params = new URLSearchParams();
   const network = String(inbound.network || 'TCP').toLowerCase();
@@ -382,7 +387,7 @@ function buildTrojanUrl(inbound, user) {
 
 function buildShadowsocksUrl(inbound, user) {
   const cipher = inbound.cipher || 'chacha20-ietf-poly1305';
-  const userInfo = safeBase64(`${cipher}:${user.password}`);
+  const userInfo = safeBase64url(`${cipher}:${user.password}`);
   const remark = encodeURIComponent(inbound.remark || inbound.tag || `${user.email}-ss`);
   return `ss://${userInfo}@${inbound.serverAddress}:${inbound.port}#${remark}`;
 }

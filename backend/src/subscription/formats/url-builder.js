@@ -147,15 +147,16 @@ class URLBuilder {
     return `trojan://${user.password}@${inbound.serverAddress}:${inbound.port}?${params.toString()}#${remark}`;
   }
 
-  // Shadowsocks URL: ss://base64(method:password@host:port)#remark
+  // Shadowsocks URL (SIP002): ss://base64(method:password)@host:port#remark
   static buildShadowsocksURL(user, inbound) {
     const cipher = inbound.cipher || 'chacha20-ietf-poly1305';
-    // Format: method:password@hostname:port
-    const payload = `${cipher}:${user.password}@${inbound.serverAddress}:${inbound.port}`;
-    const base64 = Buffer.from(payload).toString('base64');
+    // SIP002 format: only method:password is base64url-encoded; host:port stays outside.
+    // This is the standard format expected by modern clients (Hiddify, Shadowrocket, Clash, etc.).
+    const userinfo = Buffer.from(`${cipher}:${user.password}`).toString('base64')
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const remark = encodeURIComponent(inbound.remark || `${user.email}-SS`);
 
-    return `ss://${base64}#${remark}`;
+    return `ss://${userinfo}@${inbound.serverAddress}:${inbound.port}#${remark}`;
   }
 
   // SOCKS URL: socks://user:pass@host:port#remark
