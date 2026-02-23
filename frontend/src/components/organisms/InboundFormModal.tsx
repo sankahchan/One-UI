@@ -11,6 +11,7 @@ import { inboundTemplates } from '../../data/inboundTemplates';
 import { useToast } from '../../hooks/useToast';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { RealitySettings } from './RealitySettings';
+import { getPublicIp } from '../../api/system';
 import type { Inbound } from '../../types';
 
 interface InboundFormModalProps {
@@ -215,29 +216,35 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
   const wgAllowedIPs = watch('wgAllowedIPs');
   const wgMtu = watch('wgMtu');
   const wgAddress = watch('wgAddress');
-  const detectedPanelHost = React.useMemo(() => {
-    if (typeof window === 'undefined') {
-      return '';
-    }
-
-    const host = String(window.location.hostname || '').trim().replace(/^\[|\]$/g, '');
-    return host;
-  }, []);
-
   React.useEffect(() => {
-    if (isEdit || !detectedPanelHost) {
+    if (isEdit) {
       return;
     }
 
     const currentServerAddress = String(getValues('serverAddress') || '').trim();
     if (!currentServerAddress || currentServerAddress === 'your.domain.com') {
-      setValue('serverAddress', detectedPanelHost, {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: true
-      });
+      getPublicIp()
+        .then((data) => {
+          const defaultIp = data.ip || (typeof window !== 'undefined' ? window.location.hostname : '');
+          if (defaultIp) {
+            setValue('serverAddress', defaultIp, {
+              shouldDirty: false,
+              shouldTouch: false,
+              shouldValidate: true
+            });
+          }
+        })
+        .catch(() => {
+          if (typeof window !== 'undefined' && window.location.hostname) {
+            setValue('serverAddress', window.location.hostname, {
+              shouldDirty: false,
+              shouldTouch: false,
+              shouldValidate: true
+            });
+          }
+        });
     }
-  }, [detectedPanelHost, getValues, isEdit, setValue]);
+  }, [getValues, isEdit, setValue]);
 
   React.useEffect(() => {
     setFallbackRows(toFallbackRows(inboundFallbacks));

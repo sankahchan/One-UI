@@ -186,37 +186,37 @@ async function alertWebhook(req, res, next) {
       });
     }
 
-    const alertNames = alerts
-      .map((alert) => toSafeText(alert?.labels?.alertname, ''))
-      .filter((name) => Boolean(name))
-      .slice(0, 25);
-
-    await prisma.systemLog.create({
-      data: {
-        level: alerts.some((alert) => toSafeText(alert?.status, '').toLowerCase() === 'firing')
-          ? 'WARNING'
-          : 'INFO',
-        message: `Alertmanager webhook (${alerts.length} alerts)`,
-        metadata: {
-          receiver: toSafeText(payload.receiver, ''),
-          status: toSafeText(payload.status, ''),
-          groupKey: toSafeText(payload.groupKey, ''),
-          alertNames,
-          forwardedToTelegram
-        }
-      }
-    });
-
     return sendSuccess(res, {
-      statusCode: 202,
-      message: 'Alerts received',
-      data: {
-        received: alerts.length,
-        forwardedToTelegram
-      }
+      statusCode: 200,
+      message: 'Alert processed',
+      data: { queued: true }
     });
   } catch (error) {
     return next(error);
+  }
+}
+
+async function getPublicIp(_req, res, next) {
+  try {
+    let ip = process.env.CLOUDFLARE_TARGET_IP || '';
+    if (!ip) {
+      const resp = await fetch('https://api.ipify.org?format=json');
+      const data = await resp.json();
+      ip = data.ip;
+    }
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Public IP retrieved',
+      data: { ip }
+    });
+  } catch (error) {
+    logger.warn('Failed to resolve public IP', { error: error.message });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Fallback to empty IP',
+      data: { ip: '' }
+    });
   }
 }
 
@@ -225,5 +225,6 @@ module.exports = {
   stats,
   analyticsSnapshots,
   metrics,
-  alertWebhook
+  alertWebhook,
+  getPublicIp
 };

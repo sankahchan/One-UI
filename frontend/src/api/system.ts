@@ -14,6 +14,16 @@ export async function getHealth(): Promise<HealthData> {
   return response.data;
 }
 
+export async function getPublicIp(): Promise<{ ip: string }> {
+  try {
+    const response = await apiClient.get<any, ApiResponse<{ ip: string }>>('/system/public-ip');
+    return response.data || { ip: '' };
+  } catch (error) {
+    console.error('Failed to get public IP', error);
+    return { ip: '' };
+  }
+}
+
 interface RawSystemStats {
   users?: number | { total: number; active: number; expired: number; disabled: number };
   active?: number;
@@ -37,11 +47,11 @@ export async function getStats(): Promise<SystemStats> {
     typeof raw.users === 'object' && raw.users !== null
       ? raw.users
       : {
-          total: typeof raw.users === 'number' ? raw.users : 0,
-          active: raw.active ?? 0,
-          expired: raw.expired ?? 0,
-          disabled: raw.disabled ?? 0
-        };
+        total: typeof raw.users === 'number' ? raw.users : 0,
+        active: raw.active ?? 0,
+        expired: raw.expired ?? 0,
+        disabled: raw.disabled ?? 0
+      };
 
   const traffic = raw.traffic || {
     totalUpload: raw.totalUpload ?? 0,

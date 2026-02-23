@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/health', systemController.health);
 router.get('/metrics', systemController.metrics);
+router.get('/public-ip', authenticate, systemController.getPublicIp);
 router.post('/alerts/webhook', systemController.alertWebhook);
 router.get('/stats', authenticate, systemController.stats);
 router.get('/analytics/snapshots', authenticate, systemController.analyticsSnapshots);
