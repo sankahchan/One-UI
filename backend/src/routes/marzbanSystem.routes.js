@@ -2,8 +2,14 @@ const { Router } = require('express');
 const { authenticate, authorize } = require('../middleware/auth');
 const marzbanService = require('../services/marzban.service');
 const marzbanErrorHandler = require('../middleware/marzbanErrorHandler');
+const systemController = require('../controllers/system.controller');
 
 const router = Router();
+
+// Pass-through standard unauthenticated Xray routes 
+router.get('/health', systemController.health);
+router.get('/metrics', systemController.metrics);
+router.post('/alerts/webhook', systemController.alertWebhook);
 
 router.use(authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 

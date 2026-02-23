@@ -8,12 +8,23 @@ import { useAuthStore } from './store/authStore';
 import { ToastProvider } from './components/shared/ToastProvider';
 import { queryClient } from './lib/queryClient';
 
+const isMarzban = import.meta.env.VITE_MARZBAN_INTEGRATION === 'true';
+
 const DashboardLayout = lazy(() =>
   import('./components/templates/DashboardLayout').then((module) => ({ default: module.DashboardLayout }))
 );
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
-const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })));
-const Users = lazy(() => import('./pages/Users').then((module) => ({ default: module.Users })));
+
+const Dashboard = lazy(() =>
+  isMarzban
+    ? import('./pages/MarzbanDashboard').then((module) => ({ default: module.DashboardPage }))
+    : import('./pages/Dashboard').then((module) => ({ default: module.DashboardPage }))
+);
+const Users = lazy(() =>
+  isMarzban
+    ? import('./pages/MarzbanUsers').then((module) => ({ default: module.UsersPage }))
+    : import('./pages/Users').then((module) => ({ default: module.UsersPage }))
+);
 const Groups = lazy(() => import('./pages/Groups').then((module) => ({ default: module.Groups })));
 const UserDetail = lazy(() => import('./pages/UserDetail').then((module) => ({ default: module.UserDetail })));
 const Inbounds = lazy(() => import('./pages/Inbounds').then((module) => ({ default: module.Inbounds })));
