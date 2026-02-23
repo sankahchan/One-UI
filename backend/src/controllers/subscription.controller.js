@@ -42,13 +42,21 @@ class SubscriptionController {
         return res.status(400).send('Invalid subscription token');
       }
 
-      if (req.accepts('html') && !dl && !target) {
+      // Only redirect to the user portal when the request comes from a real
+      // web browser.  Proxy clients like Hiddify, Clash, Shadowrocket, etc.
+      // often send Accept headers that include text/html (or */*), so
+      // req.accepts('html') alone is not reliable.  We therefore also check
+      // that the User-Agent does NOT match any known proxy client before
+      // redirecting.
+      const detectedFormat = clientDetector.detect(userAgent);
+      const isProxyClient = detectedFormat !== 'v2ray' || /(?:clash|singbox|sing-box|sfa|sfi|hiddify|shadowrocket|v2ray|v2rayn|v2rayng|quantumult|surge|stash|wireguard)/i.test(userAgent);
+      if (req.accepts('html') && !dl && !target && !isProxyClient) {
         const protocol = req.secure ? 'https' : 'http';
         const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
         return res.redirect(`${baseUrl}/user/${token}`);
       }
 
-      const format = String(target || clientDetector.detect(userAgent)).toLowerCase();
+      const format = String(target || detectedFormat).toLowerCase();
       const { content, user, fileName, branding, format: resolvedFormat } = await subscriptionGenerator.generate(
         token,
         format,
