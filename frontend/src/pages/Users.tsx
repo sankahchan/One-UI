@@ -31,6 +31,7 @@ import {
   useBulkRotateUserKeys,
   useBulkUpdateStatus,
   useDeleteUser,
+  useKillUser,
   useRunFallbackAutotune,
   useRunUserDiagnostics,
   useRegenerateSubscriptionToken,
@@ -172,6 +173,7 @@ export function Users() {
   const usersQuery = useUsers({ page, limit: 50, search: debouncedSearch, status: status || undefined });
   const groupsQuery = useGroups({ page: 1, limit: 100, includeDisabled: false });
   const deleteUserMutation = useDeleteUser();
+  const killUserMutation = useKillUser();
   const rotateKeysMutation = useRotateUserKeys();
   const revokeKeysMutation = useRevokeUserKeys();
   const regenerateSubscriptionMutation = useRegenerateSubscriptionToken();
@@ -526,6 +528,31 @@ export function Users() {
     setPromptDialog(null);
     if (resolver) {
       resolver(value);
+    }
+  };
+
+  const handleKillUser = async (user: User) => {
+    if (!(await requestConfirm({
+      title: 'Kill Connection',
+      description: 'Are you sure you want to instantly drop all active socket connections for this user?',
+      confirmLabel: 'Kill Connection',
+      tone: 'danger'
+    }))) {
+      return;
+    }
+
+    try {
+      await killUserMutation.mutateAsync(user.id);
+      await refreshUsersAndSessions();
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        'User connection killed successfully'
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || 'Failed to kill connection'
+      );
     }
   };
 
@@ -1865,8 +1892,8 @@ export function Users() {
                         type="button"
                         onClick={() => setViewMode(mode)}
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
-                            ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
-                            : 'text-muted hover:text-foreground'
+                          ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                          : 'text-muted hover:text-foreground'
                           }`}
                       >
                         {mode.toUpperCase()}
@@ -1918,8 +1945,8 @@ export function Users() {
                       type="button"
                       onClick={() => setViewMode(mode)}
                       className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
-                          ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
-                          : 'text-muted hover:text-foreground'
+                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
+                        : 'text-muted hover:text-foreground'
                         }`}
                     >
                       {mode.toUpperCase()}
@@ -2190,6 +2217,9 @@ export function Users() {
                 void handleRevokeUserKeys(user);
               }
               : undefined}
+            onKillUser={(user) => {
+              void handleKillUser(user);
+            }}
             onDisconnectSessions={(user) => {
               void handleQuickDisconnectSessions(user);
             }}
@@ -2275,12 +2305,12 @@ export function Users() {
                     })
                   );
                 } else {
-                toast.success(
-                  t('common.success', { defaultValue: 'Success' }),
-                  t('users.toast.userCreated', {
-                    defaultValue: 'User created successfully.',
-                  })
-                );
+                  toast.success(
+                    t('common.success', { defaultValue: 'Success' }),
+                    t('users.toast.userCreated', {
+                      defaultValue: 'User created successfully.',
+                    })
+                  );
                 }
               });
               setQuickQrUser(createdUser);

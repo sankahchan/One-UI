@@ -9,6 +9,7 @@ const onlineTracker = require('../xray/online-tracker');
 const ipTrackingService = require('./ipTracking.service');
 const deviceTrackingService = require('./deviceTracking.service');
 const connectionLogsService = require('./connectionLogs.service');
+const cloudflareService = require('./cloudflare.service');
 const { shortFingerprint } = require('../utils/deviceFingerprint');
 const { normalizeClientIp } = require('../utils/network');
 const { NotFoundError, ValidationError } = require('../utils/errors');
@@ -639,6 +640,17 @@ class UserService {
         }
       }
     });
+
+    if (env.CLOUDFLARE_API_TOKEN && env.CLOUDFLARE_DOMAIN && env.CLOUDFLARE_TARGET_IP) {
+      try {
+        const username = email.split('@')[0].replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+        const subdomain = `${username}.${env.CLOUDFLARE_DOMAIN}`;
+        await cloudflareService.ensureRecord(subdomain, 'A', env.CLOUDFLARE_TARGET_IP, true);
+        logger.info(`Automated Cloudflare domain routing configured for ${email} at ${subdomain}`);
+      } catch (err) {
+        logger.warn(`Failed to configure automated Cloudflare routing for ${email}: ${err.message}`);
+      }
+    }
 
     await reloadXrayIfEnabled('createUser');
 

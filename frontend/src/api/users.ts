@@ -294,6 +294,10 @@ export const usersApi = {
     return apiClient.delete(`/users/${id}`);
   },
 
+  killUser: async (id: number): Promise<ApiResponse<User>> => {
+    return apiClient.post(`/users/${id}/kill`);
+  },
+
   resetTraffic: async (id: number): Promise<ApiResponse<User>> => {
     return apiClient.post(`/users/${id}/reset-traffic`);
   },
@@ -468,6 +472,14 @@ export const updateUser = async (id: number, payload: UpdateUserData): Promise<U
 
 export const deleteUser = async (id: number): Promise<void> => {
   await usersApi.deleteUser(id);
+};
+
+export const killUser = async (id: number): Promise<User> => {
+  const response = await usersApi.killUser(id);
+  if (!response.data) {
+    throw new Error(response.message || 'Failed to kill user connection');
+  }
+  return response.data;
 };
 
 export const getSubscriptionInfo = async (id: number): Promise<SubscriptionInfo> => {

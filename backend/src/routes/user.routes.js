@@ -200,6 +200,7 @@ router.post(
   validator,
   userController.revokeUserKeys
 );
+router.post('/:id/kill', authorize('SUPER_ADMIN', 'ADMIN'), idParamValidator, validator, userController.killUser);
 router.post('/:id/subscription/regenerate', idParamValidator, validator, userController.regenerateSubscriptionToken);
 router.get('/:id/subscription', idParamValidator, validator, userController.getSubscriptionInfo);
 router.get(

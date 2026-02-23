@@ -9,6 +9,7 @@ const logger = require('../config/logger');
 const prisma = require('../config/database');
 const xrayManager = require('../xray/manager');
 const userService = require('../services/user.service');
+const { buildProtocolUrl } = require('../subscription/formats/url-builder');
 
 const execPromise = util.promisify(exec);
 
@@ -151,6 +152,47 @@ class VPNTelegramBot {
         await this.bot.sendMessage(chatId, `Error: ${error.message}`);
       }
     });
+
+    this.bot.onText(/\/newuser (.+)/, async (msg, match) => {
+      const chatId = msg?.chat?.id;
+      const userId = msg?.from?.id;
+
+      if (!chatId || !this.isAdmin(userId)) {
+        return;
+      }
+
+      const args = (match?.[1] || '').trim().split(/\s+/);
+      const email = args[0];
+      if (!email) {
+        await this.bot.sendMessage(chatId, 'Usage: /newuser <email> [dataLimitGB] [expireDays]\nExample: /newuser john 50 30');
+        return;
+      }
+
+      const dataLimit = args[1] ? Number.parseFloat(args[1]) : 0;
+      const expiryDays = args[2] ? Number.parseInt(args[2], 10) : 30;
+
+      try {
+        await this.bot.sendMessage(chatId, `Creating user ${email}...`);
+
+        const activeInbounds = await prisma.inbound.findMany({
+          where: { enabled: true },
+          select: { id: true }
+        });
+        const inboundIds = activeInbounds.map(i => i.id);
+
+        const user = await userService.createUser({
+          email,
+          dataLimit,
+          expiryDays,
+          inboundIds,
+          note: 'Created via Telegram Bot'
+        });
+
+        await this.sendUserLinks(chatId, user.id);
+      } catch (error) {
+        await this.bot.sendMessage(chatId, `Error creating user: ${error.message}`);
+      }
+    });
   }
 
   setupCallbacks() {
@@ -235,6 +277,16 @@ class VPNTelegramBot {
         await this.sendSystemStatus(chatId);
         await this.bot.answerCallbackQuery(query.id);
         break;
+      case 'get_link': {
+        const linkUserId = Number.parseInt(params[0] || '', 10);
+        if (!Number.isInteger(linkUserId)) {
+          await this.bot.answerCallbackQuery(query.id, { text: 'Invalid user id' });
+          return;
+        }
+        await this.sendUserLinks(chatId, linkUserId);
+        await this.bot.answerCallbackQuery(query.id, { text: 'Links generated' });
+        break;
+      }
       case 'xray_restart':
         await this.restartXray(chatId);
         await this.bot.answerCallbackQuery(query.id, { text: 'Restarting...' });
@@ -466,7 +518,10 @@ class VPNTelegramBot {
           { text: '+30 Days', callback_data: `extend_expiry:${user.id}:30` },
           { text: 'Disable', callback_data: `disable_user:${user.id}` }
         ],
-        [{ text: 'Back to Users', callback_data: 'users' }]
+        [
+          { text: 'Get Link', callback_data: `get_link:${user.id}` },
+          { text: 'Back to Users', callback_data: 'users' }
+        ]
       ]
     };
 
@@ -504,6 +559,51 @@ class VPNTelegramBot {
   async disableUser(chatId, userId) {
     await userService.updateUser(userId, { status: 'DISABLED' });
     await this.sendUserDetailsById(chatId, userId);
+  }
+
+  async sendUserLinks(chatId, userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        inbounds: {
+          where: {
+            enabled: true,
+            inbound: { enabled: true }
+          },
+          include: { inbound: true }
+        }
+      }
+    });
+
+    if (!user) {
+      await this.bot.sendMessage(chatId, 'User not found');
+      return;
+    }
+
+    if (!user.inbounds || user.inbounds.length === 0) {
+      await this.bot.sendMessage(chatId, 'This user is not assigned to any active inbounds.');
+      return;
+    }
+
+    let message = `*Subscription Links for ${user.email}*\n\n`;
+
+    for (const ui of user.inbounds) {
+      const url = buildProtocolUrl(ui.inbound.protocol, user, ui.inbound);
+      if (url) {
+        message += `*${ui.inbound.remark || ui.inbound.protocol}* (Port ${ui.inbound.port})\n\`${url}\`\n\n`;
+      }
+    }
+
+    message += `_Tap a link to copy it_`;
+
+    await this.bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Back to User', callback_data: `user_detail:${user.id}` }]
+        ]
+      }
+    });
   }
 
   async restartXray(chatId) {

@@ -415,6 +415,25 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
     }));
   };
 
+  const applyFallbackPreset = (presetType: 'multiplexer' | 'web' | 'shadowsocks') => {
+    if (presetType === 'multiplexer') {
+      setFallbackRows([
+        { id: Math.random().toString(36).substring(7), path: '/api/v2/telemetry', dest: '10002', name: 'Internal VMess', alpn: '', xver: '1' },
+        { id: Math.random().toString(36).substring(7), path: '', dest: '10001', name: 'Internal Trojan', alpn: 'h2', xver: '1' },
+        { id: Math.random().toString(36).substring(7), path: '', dest: '80', name: 'Web Camouflage', alpn: '', xver: '0' }
+      ]);
+    } else if (presetType === 'shadowsocks') {
+      setFallbackRows([
+        { id: Math.random().toString(36).substring(7), path: '', dest: '10003', name: 'Internal Shadowsocks', alpn: '', xver: '1' },
+        { id: Math.random().toString(36).substring(7), path: '', dest: '80', name: 'Web Camouflage', alpn: '', xver: '0' }
+      ]);
+    } else if (presetType === 'web') {
+      setFallbackRows([
+        { id: Math.random().toString(36).substring(7), path: '', dest: '80', name: 'Web Camouflage', alpn: '', xver: '0' }
+      ]);
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       if (isEdit && inbound) {
@@ -729,661 +748,694 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       <div className="flex min-h-full items-end justify-center sm:items-center">
-      <div className="my-2 flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line/80 bg-card/95 shadow-soft backdrop-blur-xl sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">
-            {isEdit ? 'Edit Inbound' : 'Add New Inbound'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <div className="my-2 flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line/80 bg-card/95 shadow-soft backdrop-blur-xl sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
+            <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+              {isEdit ? 'Edit Inbound' : 'Add New Inbound'}
+            </h2>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 pb-28 pt-5 sm:px-6 sm:pb-32 sm:pt-6"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          {!isEdit ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Quick Presets</h3>
-                <span className="text-xs text-muted">One-click inbound wizard</span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {quickPresetTemplates.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyPreset(preset)}
-                    className="rounded-xl border border-line/80 bg-card/70 p-3 text-left transition hover:border-brand-400/55 hover:bg-card"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold text-foreground">{preset.name}</p>
-                      <span className="rounded-md border border-line/70 bg-panel/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
-                        {preset.values.protocol}
-                      </span>
-                      <span className="rounded-md border border-line/70 bg-panel/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
-                        {preset.values.network}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted">{preset.description}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {preset.highlights.slice(0, 3).map((highlight) => (
-                        <span
-                          key={`${preset.id}-${highlight}`}
-                          className="rounded-md border border-brand-500/20 bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 dark:text-brand-300"
-                        >
-                          {highlight}
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 pb-28 pt-5 sm:px-6 sm:pb-32 sm:pt-6"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            {!isEdit ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-foreground">Quick Presets</h3>
+                  <span className="text-xs text-muted">One-click inbound wizard</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {quickPresetTemplates.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      className="rounded-xl border border-line/80 bg-card/70 p-3 text-left transition hover:border-brand-400/55 hover:bg-card"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-foreground">{preset.name}</p>
+                        <span className="rounded-md border border-line/70 bg-panel/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
+                          {preset.values.protocol}
                         </span>
-                      ))}
-                    </div>
-                  </button>
+                        <span className="rounded-md border border-line/70 bg-panel/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
+                          {preset.values.network}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-muted">{preset.description}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {preset.highlights.slice(0, 3).map((highlight) => (
+                          <span
+                            key={`${preset.id}-${highlight}`}
+                            className="rounded-md border border-brand-500/20 bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 dark:text-brand-300"
+                          >
+                            {highlight}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {(validationHints.issues.length > 0 || validationHints.tips.length > 0) ? (
+              <div className="rounded-xl border border-line/70 bg-panel/55 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  {validationHints.issues.length > 0 ? (
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  ) : (
+                    <Info className="h-4 w-4 text-brand-500" />
+                  )}
+                  <p className="text-sm font-semibold text-foreground">Validation Guide</p>
+                </div>
+
+                {validationHints.issues.map((issue) => (
+                  <p key={`issue-${issue}`} className="mb-1 text-xs text-red-500">
+                    • {issue}
+                  </p>
+                ))}
+                {validationHints.tips.map((tip) => (
+                  <p key={`tip-${tip}`} className="mb-1 text-xs text-muted">
+                    • {tip}
+                  </p>
                 ))}
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {(validationHints.issues.length > 0 || validationHints.tips.length > 0) ? (
-            <div className="rounded-xl border border-line/70 bg-panel/55 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                {validationHints.issues.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                ) : (
-                  <Info className="h-4 w-4 text-brand-500" />
-                )}
-                <p className="text-sm font-semibold text-foreground">Validation Guide</p>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-foreground">Basic Settings</h3>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-muted">
+                    Protocol *
+                  </label>
+                  <select
+                    {...register('protocol', { required: 'Protocol is required' })}
+                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                  >
+                    <option value="VLESS">VLESS</option>
+                    <option value="VMESS">VMess</option>
+                    <option value="TROJAN">Trojan</option>
+                    <option value="SHADOWSOCKS">Shadowsocks</option>
+                    <option value="SOCKS">SOCKS5</option>
+                    <option value="HTTP">HTTP Proxy</option>
+                    <option value="DOKODEMO_DOOR">Dokodemo-door</option>
+                    <option value="WIREGUARD">Wireguard</option>
+                    <option value="MTPROTO">MTProto (Telegram)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Input
+                    label="Port *"
+                    type="number"
+                    {...register('port', {
+                      required: 'Port is required',
+                      min: { value: 1, message: 'Port must be between 1-65535' },
+                      max: { value: 65535, message: 'Port must be between 1-65535' }
+                    })}
+                    error={errors.port?.message}
+                    placeholder="443"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => randomPortMutation.mutate()}
+                    loading={randomPortMutation.isPending}
+                  >
+                    <Shuffle className="mr-2 h-4 w-4" />
+                    Random Free Port
+                  </Button>
+                </div>
               </div>
 
-              {validationHints.issues.map((issue) => (
-                <p key={`issue-${issue}`} className="mb-1 text-xs text-red-500">
-                  • {issue}
-                </p>
-              ))}
-              {validationHints.tips.map((tip) => (
-                <p key={`tip-${tip}`} className="mb-1 text-xs text-muted">
-                  • {tip}
-                </p>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Basic Settings</h3>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-muted">
-                  Protocol *
-                </label>
-                <select
-                  {...register('protocol', { required: 'Protocol is required' })}
-                  className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                >
-                  <option value="VLESS">VLESS</option>
-                  <option value="VMESS">VMess</option>
-                  <option value="TROJAN">Trojan</option>
-                  <option value="SHADOWSOCKS">Shadowsocks</option>
-                  <option value="SOCKS">SOCKS5</option>
-                  <option value="HTTP">HTTP Proxy</option>
-                  <option value="DOKODEMO_DOOR">Dokodemo-door</option>
-                  <option value="WIREGUARD">Wireguard</option>
-                  <option value="MTPROTO">MTProto (Telegram)</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Input
-                  label="Port *"
-                  type="number"
-                  {...register('port', {
-                    required: 'Port is required',
-                    min: { value: 1, message: 'Port must be between 1-65535' },
-                    max: { value: 65535, message: 'Port must be between 1-65535' }
-                  })}
-                  error={errors.port?.message}
-                  placeholder="443"
+                  label="Tag *"
+                  {...register('tag', { required: 'Tag is required' })}
+                  error={errors.tag?.message}
+                  placeholder="vless-ws-tls"
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => randomPortMutation.mutate()}
-                  loading={randomPortMutation.isPending}
-                >
-                  <Shuffle className="mr-2 h-4 w-4" />
-                  Random Free Port
-                </Button>
+
+                <Input
+                  label="Remark"
+                  {...register('remark')}
+                  placeholder="My VLESS Inbound"
+                />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Tag *"
-                {...register('tag', { required: 'Tag is required' })}
-                error={errors.tag?.message}
-                placeholder="vless-ws-tls"
-              />
 
               <Input
-                label="Remark"
-                {...register('remark')}
-                placeholder="My VLESS Inbound"
+                label={isDokodemo ? 'Target Address *' : 'Server Address *'}
+                {...register('serverAddress', { required: 'Server address is required' })}
+                error={errors.serverAddress?.message}
+                placeholder={isDokodemo ? '127.0.0.1' : 'your.domain.com or IP'}
               />
-            </div>
 
-            <Input
-              label={isDokodemo ? 'Target Address *' : 'Server Address *'}
-              {...register('serverAddress', { required: 'Server address is required' })}
-              error={errors.serverAddress?.message}
-              placeholder={isDokodemo ? '127.0.0.1' : 'your.domain.com or IP'}
-            />
-
-            <div>
+              <div>
                 <label className="mb-2 block text-sm font-medium text-muted">
                   Additional Domains
                 </label>
-              <Input
-                placeholder="cdn.domain.com, worker.domain.com (comma separated)"
-                {...register('domains')}
-              />
-              <p className="mt-1 text-xs text-muted">
-                Optional: Comma-separated list of additional domains for this inbound.
-              </p>
-            </div>
-          </div>
-
-          {isDokodemo ? (
-            <div className="space-y-4 rounded-xl border border-line/70 bg-panel/50 p-4">
-              <h3 className="text-lg font-semibold text-foreground">Dokodemo-door Settings</h3>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Input
-                  label="Target Port *"
-                  type="number"
-                  {...register('dokodemoTargetPort', {
-                    valueAsNumber: true,
-                    min: { value: 1, message: 'Target port must be between 1-65535' },
-                    max: { value: 65535, message: 'Target port must be between 1-65535' }
-                  })}
-                  error={errors.dokodemoTargetPort?.message}
-                  placeholder="80"
-                />
-
-                <Input
-                  label="Target Network"
-                  {...register('dokodemoNetwork')}
-                  placeholder="tcp,udp"
-                />
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  {...register('dokodemoFollowRedirect')}
-                  className="h-4 w-4 rounded border-line bg-card"
-                />
-                Follow redirect
-              </label>
-            </div>
-          ) : null}
-
-          {supportsTransport ? (
-            <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Network Settings</h3>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-muted">
-                  Network *
-                </label>
-                <select
-                  {...register('network', { required: 'Network is required' })}
-                  className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                >
-                  <option value="TCP">TCP</option>
-                  <option value="WS">WebSocket</option>
-                  <option value="HTTPUPGRADE">HTTP Upgrade</option>
-                  <option value="XHTTP">XHTTP</option>
-                  <option value="GRPC">gRPC</option>
-                  <option value="HTTP">HTTP/2</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-muted">
-                  Security *
-                </label>
-                <select
-                  {...register('security', { required: 'Security is required' })}
-                  className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                >
-                  <option value="NONE">None</option>
-                  {supportsTls ? <option value="TLS">TLS</option> : null}
-                  {supportsReality ? <option value="REALITY">REALITY</option> : null}
-                </select>
-              </div>
-            </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-line/80 bg-panel/50 p-3 text-sm text-muted">
-              This protocol uses direct listener mode. Network and TLS settings are not required.
-            </div>
-          )}
-
-          {security === 'TLS' && supportsTls && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">TLS Settings</h3>
-
-              <Input
-                label="Server Name (SNI)"
-                {...register('serverName')}
-                placeholder="your.domain.com"
-              />
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-muted">
-                  ALPN (JSON Array)
-                </label>
-                <input
-                  {...register('alpn')}
-                  className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 font-mono text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                  placeholder='["h2","http/1.1"]'
+                  placeholder="cdn.domain.com, worker.domain.com (comma separated)"
+                  {...register('domains')}
                 />
                 <p className="mt-1 text-xs text-muted">
-                  Example: ["h2","http/1.1"] or ["h2"]
+                  Optional: Comma-separated list of additional domains for this inbound.
                 </p>
               </div>
+            </div>
 
-              {supportsFallbacks ? (
-                <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">Fallbacks</p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={addFallbackRow}
+            {isDokodemo ? (
+              <div className="space-y-4 rounded-xl border border-line/70 bg-panel/50 p-4">
+                <h3 className="text-lg font-semibold text-foreground">Dokodemo-door Settings</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Target Port *"
+                    type="number"
+                    {...register('dokodemoTargetPort', {
+                      valueAsNumber: true,
+                      min: { value: 1, message: 'Target port must be between 1-65535' },
+                      max: { value: 65535, message: 'Target port must be between 1-65535' }
+                    })}
+                    error={errors.dokodemoTargetPort?.message}
+                    placeholder="80"
+                  />
+
+                  <Input
+                    label="Target Network"
+                    {...register('dokodemoNetwork')}
+                    placeholder="tcp,udp"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    {...register('dokodemoFollowRedirect')}
+                    className="h-4 w-4 rounded border-line bg-card"
+                  />
+                  Follow redirect
+                </label>
+              </div>
+            ) : null}
+
+            {supportsTransport ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Network Settings</h3>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-muted">
+                      Network *
+                    </label>
+                    <select
+                      {...register('network', { required: 'Network is required' })}
+                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Fallback
-                    </Button>
+                      <option value="TCP">TCP</option>
+                      <option value="WS">WebSocket</option>
+                      <option value="HTTPUPGRADE">HTTP Upgrade</option>
+                      <option value="XHTTP">XHTTP</option>
+                      <option value="GRPC">gRPC</option>
+                      <option value="HTTP">HTTP/2</option>
+                    </select>
                   </div>
-
-                  {fallbackRows.length === 0 ? (
-                    <p className="text-xs text-muted">
-                      No fallbacks configured. Add fallback rows only when you need path/destination based routing.
-                    </p>
-                  ) : null}
-
-                  {fallbackRows.map((row) => (
-                    <div key={row.id} className="space-y-3 rounded-xl border border-line/70 bg-card/70 p-3">
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Dest *</label>
-                          <input
-                            value={row.dest}
-                            onChange={(event) => updateFallbackRow(row.id, 'dest', event.target.value)}
-                            className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                            placeholder="3001 or 127.0.0.1:3001"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Path</label>
-                          <input
-                            value={row.path}
-                            onChange={(event) => updateFallbackRow(row.id, 'path', event.target.value)}
-                            className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                            placeholder="/ws"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Name</label>
-                          <input
-                            value={row.name}
-                            onChange={(event) => updateFallbackRow(row.id, 'name', event.target.value)}
-                            className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                            placeholder="fallback-api"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">ALPN</label>
-                          <input
-                            value={row.alpn}
-                            onChange={(event) => updateFallbackRow(row.id, 'alpn', event.target.value)}
-                            className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                            placeholder="h2,http/1.1"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Xver</label>
-                          <input
-                            value={row.xver}
-                            onChange={(event) => updateFallbackRow(row.id, 'xver', event.target.value)}
-                            className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                            placeholder="1"
-                            inputMode="numeric"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeFallbackRow(row.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">JSON Preview</label>
-                    <pre className="max-h-36 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
-                      {fallbackPreview}
-                    </pre>
+                    <label className="mb-2 block text-sm font-medium text-muted">
+                      Security *
+                    </label>
+                    <select
+                      {...register('security', { required: 'Security is required' })}
+                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    >
+                      <option value="NONE">None</option>
+                      {supportsTls ? <option value="TLS">TLS</option> : null}
+                      {supportsReality ? <option value="REALITY">REALITY</option> : null}
+                    </select>
                   </div>
                 </div>
-              ) : null}
-            </div>
-          )}
-
-          {security === 'REALITY' && supportsReality && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-foreground">REALITY Settings</h3>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => realityKeyGenMutation.mutate()}
-                  loading={realityKeyGenMutation.isPending}
-                >
-                  Generate REALITY Keys
-                </Button>
               </div>
+            ) : (
+              <div className="rounded-xl border border-line/80 bg-panel/50 p-3 text-sm text-muted">
+                This protocol uses direct listener mode. Network and TLS settings are not required.
+              </div>
+            )}
 
-              <RealitySettings
-                register={register}
-                watch={watch}
-                setValue={setValue}
-                errors={errors}
-              />
+            {security === 'TLS' && supportsTls && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">TLS Settings</h3>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Input
-                  label="Server Name (SNI) *"
-                  {...register('serverName', { required: security === 'REALITY' ? 'SNI is required for REALITY' : false })}
-                  placeholder="www.microsoft.com"
+                  label="Server Name (SNI)"
+                  {...register('serverName')}
+                  placeholder="your.domain.com"
                 />
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-muted">
-                    Fingerprint
+                    ALPN (JSON Array)
                   </label>
-                  <select
-                    {...register('realityFingerprint')}
-                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                  >
-                    <option value="chrome">Chrome</option>
-                    <option value="firefox">Firefox</option>
-                    <option value="safari">Safari</option>
-                    <option value="ios">iOS</option>
-                    <option value="android">Android</option>
-                    <option value="edge">Edge</option>
-                    <option value="random">Random</option>
-                  </select>
+                  <input
+                    {...register('alpn')}
+                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 font-mono text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    placeholder='["h2","http/1.1"]'
+                  />
+                  <p className="mt-1 text-xs text-muted">
+                    Example: ["h2","http/1.1"] or ["h2"]
+                  </p>
                 </div>
+
+                {supportsFallbacks ? (
+                  <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">Fallbacks</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={addFallbackRow}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Fallback
+                      </Button>
+                    </div>
+
+                    {fallbackRows.length === 0 ? (
+                      <p className="text-xs text-muted">
+                        No fallbacks configured. Add fallback rows only when you need path/destination based routing.
+                      </p>
+                    ) : null}
+
+                    {fallbackRows.map((row) => (
+                      <div key={row.id} className="space-y-3 rounded-xl border border-line/70 bg-card/70 p-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Dest *</label>
+                            <input
+                              value={row.dest}
+                              onChange={(event) => updateFallbackRow(row.id, 'dest', event.target.value)}
+                              className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                              placeholder="3001 or 127.0.0.1:3001"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Path</label>
+                            <input
+                              value={row.path}
+                              onChange={(event) => updateFallbackRow(row.id, 'path', event.target.value)}
+                              className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                              placeholder="/ws"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Name</label>
+                            <input
+                              value={row.name}
+                              onChange={(event) => updateFallbackRow(row.id, 'name', event.target.value)}
+                              className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                              placeholder="fallback-api"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">ALPN</label>
+                            <input
+                              value={row.alpn}
+                              onChange={(event) => updateFallbackRow(row.id, 'alpn', event.target.value)}
+                              className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                              placeholder="h2,http/1.1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Xver</label>
+                            <input
+                              value={row.xver}
+                              onChange={(event) => updateFallbackRow(row.id, 'xver', event.target.value)}
+                              className="w-full rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                              placeholder="1"
+                              inputMode="numeric"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeFallbackRow(row.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">JSON Preview</label>
+                      <pre className="max-h-36 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
+                        {fallbackPreview}
+                      </pre>
+                    </div>
+
+                    <div className="pt-2 border-t border-line/50">
+                      <p className="mb-1 text-sm font-semibold text-foreground">Quick Fallback Presets</p>
+                      <p className="mb-3 text-xs text-muted">Note: Users assigned to fallback destinations automatically inherit this Master Inbound's port and REALITY security.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => applyFallbackPreset('multiplexer')}
+                          className="bg-brand-500/10 text-brand-700 hover:bg-brand-500/20 border-brand-500/20"
+                        >
+                          Setup VLESS+VMess+Trojan Multiplexer
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => applyFallbackPreset('shadowsocks')}
+                          className="bg-brand-500/5 text-brand-600 hover:bg-brand-500/15 border-brand-500/20"
+                        >
+                          Setup Shadowsocks Multiplexer
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => applyFallbackPreset('web')}
+                        >
+                          Nginx Web Camouflage (Port 80)
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
+            )}
 
-              <Input
-                label="Public Key *"
-                {...register('realityPublicKey', { required: security === 'REALITY' ? 'Public key is required' : false })}
-                placeholder="Enter REALITY public key"
-              />
+            {security === 'REALITY' && supportsReality && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-foreground">REALITY Settings</h3>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => realityKeyGenMutation.mutate()}
+                    loading={realityKeyGenMutation.isPending}
+                  >
+                    Generate REALITY Keys
+                  </Button>
+                </div>
 
-              <Input
-                label="Private Key *"
-                {...register('realityPrivateKey', { required: security === 'REALITY' ? 'Private key is required' : false })}
-                placeholder="Enter REALITY private key"
-              />
+                <RealitySettings
+                  register={register}
+                  watch={watch}
+                  setValue={setValue}
+                  errors={errors}
+                />
 
-              <Input
-                label="Short ID"
-                {...register('realityShortId')}
-                placeholder="e.g., 0123456789abcdef,abcdef0123456789"
-              />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Server Name (SNI) *"
+                    {...register('serverName', { required: security === 'REALITY' ? 'SNI is required for REALITY' : false })}
+                    placeholder="www.microsoft.com"
+                  />
 
-              <Input
-                label="Reality Server Names"
-                {...register('realityServerName')}
-                placeholder="www.microsoft.com,www.cloudflare.com"
-              />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-muted">
+                      Fingerprint
+                    </label>
+                    <select
+                      {...register('realityFingerprint')}
+                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    >
+                      <option value="chrome">Chrome</option>
+                      <option value="firefox">Firefox</option>
+                      <option value="safari">Safari</option>
+                      <option value="ios">iOS</option>
+                      <option value="android">Android</option>
+                      <option value="edge">Edge</option>
+                      <option value="random">Random</option>
+                    </select>
+                  </div>
+                </div>
 
-              {realityLinkTemplate ? (
-                <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">REALITY Link Template</p>
+                <Input
+                  label="Public Key *"
+                  {...register('realityPublicKey', { required: security === 'REALITY' ? 'Public key is required' : false })}
+                  placeholder="Enter REALITY public key"
+                />
+
+                <Input
+                  label="Private Key *"
+                  {...register('realityPrivateKey', { required: security === 'REALITY' ? 'Private key is required' : false })}
+                  placeholder="Enter REALITY private key"
+                />
+
+                <Input
+                  label="Short ID"
+                  {...register('realityShortId')}
+                  placeholder="e.g., 0123456789abcdef,abcdef0123456789"
+                />
+
+                <Input
+                  label="Reality Server Names"
+                  {...register('realityServerName')}
+                  placeholder="www.microsoft.com,www.cloudflare.com"
+                />
+
+                {realityLinkTemplate ? (
+                  <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">REALITY Link Template</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          void copyRealityTemplate();
+                        }}
+                      >
+                        {realityTemplateCopied ? 'Copied' : 'Copy Template'}
+                      </Button>
+                    </div>
+                    <pre className="max-h-44 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
+                      {realityLinkTemplate}
+                    </pre>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
+                        <QRCodeSVG value={realityLinkTemplate} size={132} />
+                      </div>
+                      <p className="text-xs text-muted">
+                        Replace {'{UUID}'} with the user UUID for manual links, or use subscription URLs for automatic client import.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Enter server address, port, and REALITY keys to preview a share-link template.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {protocol === 'WIREGUARD' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-foreground">Wireguard Settings</h3>
+                  <div className="flex gap-2">
                     <Button
                       type="button"
                       size="sm"
                       variant="secondary"
-                      onClick={() => {
-                        void copyRealityTemplate();
-                      }}
+                      onClick={composePeerEndpoint}
                     >
-                      {realityTemplateCopied ? 'Copied' : 'Copy Template'}
+                      Auto Endpoint
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => wireguardKeyGenMutation.mutate()}
+                      loading={wireguardKeyGenMutation.isPending}
+                    >
+                      Generate Key Pair
                     </Button>
                   </div>
-                  <pre className="max-h-44 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
-                    {realityLinkTemplate}
-                  </pre>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
-                      <QRCodeSVG value={realityLinkTemplate} size={132} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Private Key *"
+                    {...register('wgPrivateKey', { required: protocol === 'WIREGUARD' ? 'Private key is required' : false })}
+                    placeholder="Your Wireguard private key"
+                  />
+
+                  <Input
+                    label="Public Key"
+                    {...register('wgPublicKey')}
+                    placeholder="Your Wireguard public key"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Peer Public Key *"
+                    {...register('wgPeerPublicKey', { required: protocol === 'WIREGUARD' ? 'Peer public key is required' : false })}
+                    placeholder="Server's Wireguard public key"
+                  />
+
+                  <Input
+                    label="Peer Endpoint"
+                    {...register('wgPeerEndpoint')}
+                    placeholder="server:51820"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Allowed IPs"
+                    {...register('wgAllowedIPs')}
+                    placeholder="0.0.0.0/0, ::/0"
+                  />
+
+                  <Input
+                    label="MTU"
+                    type="number"
+                    {...register('wgMtu', { valueAsNumber: true })}
+                    placeholder="1420"
+                  />
+                </div>
+
+                <Input
+                  label="Client Address (optional)"
+                  {...register('wgAddress')}
+                  placeholder="10.66.2.2/32"
+                />
+
+                {wireguardConfigPreview ? (
+                  <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
+                    <p className="text-sm font-semibold text-foreground">WireGuard Config Preview</p>
+                    <pre className="max-h-52 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
+                      {wireguardConfigPreview}
+                    </pre>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
+                        <QRCodeSVG value={wireguardConfigPreview} size={132} />
+                      </div>
+                      <p className="text-xs text-muted">
+                        Scan this QR in WireGuard mobile app using &quot;Create from QR code&quot;.
+                      </p>
                     </div>
-                    <p className="text-xs text-muted">
-                      Replace {'{UUID}'} with the user UUID for manual links, or use subscription URLs for automatic client import.
-                    </p>
                   </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted">
-                  Enter server address, port, and REALITY keys to preview a share-link template.
-                </p>
-              )}
-            </div>
-          )}
+                ) : (
+                  <p className="text-xs text-muted">
+                    Enter Private Key, Peer Public Key, and Peer Endpoint to preview WireGuard config and QR.
+                  </p>
+                )}
+              </div>
+            )}
 
-          {protocol === 'WIREGUARD' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-foreground">Wireguard Settings</h3>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={composePeerEndpoint}
+            {(network === 'WS' || network === 'XHTTP' || network === 'HTTPUPGRADE') && supportsTransport && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">
+                  {network === 'XHTTP' ? 'XHTTP Settings' : network === 'HTTPUPGRADE' ? 'HTTP Upgrade Settings' : 'WebSocket Settings'}
+                </h3>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Path"
+                    {...register('wsPath')}
+                    placeholder={network === 'XHTTP' ? '/xhttp' : '/vless'}
+                  />
+
+                  <Input
+                    label={network === 'XHTTP' ? 'Host (comma-separated)' : 'Host'}
+                    {...register('wsHost')}
+                    placeholder="your.domain.com"
+                  />
+                </div>
+
+                {network === 'XHTTP' ? (
+                  <Input
+                    label="Mode"
+                    {...register('xhttpMode')}
+                    placeholder="auto or packet-up"
+                  />
+                ) : null}
+              </div>
+            )}
+
+            {network === 'GRPC' && supportsTransport && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">gRPC Settings</h3>
+
+                <Input
+                  label="Service Name"
+                  {...register('grpcServiceName')}
+                  placeholder="grpc-service"
+                />
+              </div>
+            )}
+
+            {protocol === 'SHADOWSOCKS' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Shadowsocks Settings</h3>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-muted">
+                    Cipher Method
+                  </label>
+                  <select
+                    {...register('cipher')}
+                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
                   >
-                    Auto Endpoint
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => wireguardKeyGenMutation.mutate()}
-                    loading={wireguardKeyGenMutation.isPending}
-                  >
-                    Generate Key Pair
-                  </Button>
+                    <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
+                    <option value="aes-256-gcm">aes-256-gcm</option>
+                    <option value="aes-128-gcm">aes-128-gcm</option>
+                  </select>
                 </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Private Key *"
-                  {...register('wgPrivateKey', { required: protocol === 'WIREGUARD' ? 'Private key is required' : false })}
-                  placeholder="Your Wireguard private key"
-                />
-
-                <Input
-                  label="Public Key"
-                  {...register('wgPublicKey')}
-                  placeholder="Your Wireguard public key"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Peer Public Key *"
-                  {...register('wgPeerPublicKey', { required: protocol === 'WIREGUARD' ? 'Peer public key is required' : false })}
-                  placeholder="Server's Wireguard public key"
-                />
-
-                <Input
-                  label="Peer Endpoint"
-                  {...register('wgPeerEndpoint')}
-                  placeholder="server:51820"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Allowed IPs"
-                  {...register('wgAllowedIPs')}
-                  placeholder="0.0.0.0/0, ::/0"
-                />
-
-                <Input
-                  label="MTU"
-                  type="number"
-                  {...register('wgMtu', { valueAsNumber: true })}
-                  placeholder="1420"
-                />
-              </div>
-
-              <Input
-                label="Client Address (optional)"
-                {...register('wgAddress')}
-                placeholder="10.66.2.2/32"
-              />
-
-              {wireguardConfigPreview ? (
-                <div className="space-y-3 rounded-xl border border-line/70 bg-panel/55 p-4">
-                  <p className="text-sm font-semibold text-foreground">WireGuard Config Preview</p>
-                  <pre className="max-h-52 overflow-auto rounded-lg border border-line/70 bg-card/80 p-3 text-xs text-foreground">
-                    {wireguardConfigPreview}
-                  </pre>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
-                      <QRCodeSVG value={wireguardConfigPreview} size={132} />
-                    </div>
-                    <p className="text-xs text-muted">
-                      Scan this QR in WireGuard mobile app using &quot;Create from QR code&quot;.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted">
-                  Enter Private Key, Peer Public Key, and Peer Endpoint to preview WireGuard config and QR.
-                </p>
-              )}
+            <div className="sticky bottom-0 z-10 -mx-5 flex flex-col gap-2 border-t border-line/70 bg-card/95 px-5 pb-2 pt-4 sm:-mx-6 sm:flex-row sm:px-6">
+              <Button
+                type="submit"
+                className="flex-1"
+                loading={mutation.isPending}
+              >
+                {isEdit ? 'Update Inbound' : 'Create Inbound'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
             </div>
-          )}
-
-          {(network === 'WS' || network === 'XHTTP' || network === 'HTTPUPGRADE') && supportsTransport && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                {network === 'XHTTP' ? 'XHTTP Settings' : network === 'HTTPUPGRADE' ? 'HTTP Upgrade Settings' : 'WebSocket Settings'}
-              </h3>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Path"
-                  {...register('wsPath')}
-                  placeholder={network === 'XHTTP' ? '/xhttp' : '/vless'}
-                />
-
-                <Input
-                  label={network === 'XHTTP' ? 'Host (comma-separated)' : 'Host'}
-                  {...register('wsHost')}
-                  placeholder="your.domain.com"
-                />
-              </div>
-
-              {network === 'XHTTP' ? (
-                <Input
-                  label="Mode"
-                  {...register('xhttpMode')}
-                  placeholder="auto or packet-up"
-                />
-              ) : null}
-            </div>
-          )}
-
-          {network === 'GRPC' && supportsTransport && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">gRPC Settings</h3>
-
-              <Input
-                label="Service Name"
-                {...register('grpcServiceName')}
-                placeholder="grpc-service"
-              />
-            </div>
-          )}
-
-          {protocol === 'SHADOWSOCKS' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Shadowsocks Settings</h3>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-muted">
-                  Cipher Method
-                </label>
-                <select
-                  {...register('cipher')}
-                  className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
-                >
-                  <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
-                  <option value="aes-256-gcm">aes-256-gcm</option>
-                  <option value="aes-128-gcm">aes-128-gcm</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div className="sticky bottom-0 z-10 -mx-5 flex flex-col gap-2 border-t border-line/70 bg-card/95 px-5 pb-2 pt-4 sm:-mx-6 sm:flex-row sm:px-6">
-            <Button
-              type="submit"
-              className="flex-1"
-              loading={mutation.isPending}
-            >
-              {isEdit ? 'Update Inbound' : 'Create Inbound'}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
       </div>
     </div>
   );

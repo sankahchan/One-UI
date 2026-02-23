@@ -42,6 +42,12 @@ class SubscriptionController {
         return res.status(400).send('Invalid subscription token');
       }
 
+      if (req.accepts('html') && !dl && !target) {
+        const protocol = req.secure ? 'https' : 'http';
+        const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
+        return res.redirect(`${baseUrl}/user/${token}`);
+      }
+
       const format = String(target || clientDetector.detect(userAgent)).toLowerCase();
       const { content, user, fileName, branding, format: resolvedFormat } = await subscriptionGenerator.generate(
         token,
@@ -215,9 +221,9 @@ class SubscriptionController {
       const daysRemaining = user.expireDate
         ? isDeferredExpiry
           ? Math.max(
-              1,
-              Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-            )
+            1,
+            Math.ceil((new Date(user.expireDate).getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+          )
           : Math.max(0, Math.ceil((new Date(user.expireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : null;
 

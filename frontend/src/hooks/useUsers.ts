@@ -13,7 +13,8 @@ import {
   rotateUserKeys,
   revokeUserKeys,
   regenerateSubscriptionToken,
-  getUserActivity
+  getUserActivity,
+  killUser
 } from '../api/users';
 import { API_URL } from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -370,6 +371,19 @@ export const useRevokeUserDevice = () => {
       usersApi.revokeUserDevice(id, fingerprint),
     onSuccess: (_result, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['user-devices', variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
+    }
+  });
+};
+
+export const useKillUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => killUser(id),
+    onSuccess: (_, id) => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['user', id] });
       void queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
     }
   });

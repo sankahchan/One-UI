@@ -281,6 +281,36 @@ async function deleteUser(req, res, next) {
   }
 }
 
+async function killUser(req, res, next) {
+  try {
+    const user = await userService.updateUser(req.params.id, { status: 'DISABLED' });
+
+    const response = sendSuccess(res, {
+      statusCode: 200,
+      message: 'User connection killed successfully',
+      data: user
+    });
+
+    webhookService.emitEvent(
+      'user.killed',
+      {
+        id: user.id,
+        email: user.email,
+        status: user.status
+      },
+      {
+        actor: buildActorContext(req),
+        request: buildRequestContext(req)
+      }
+    );
+
+    scheduleXrayReload('user.killed');
+    return response;
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function getSubscriptionInfo(req, res, next) {
   try {
     const { id } = req.params;
@@ -311,27 +341,27 @@ async function getSubscriptionInfo(req, res, next) {
 
     const links = userWithInbounds
       ? (
-          await Promise.all(
-            userWithInbounds.inbounds.map(async (userInbound) => {
-              const inbound = userInbound.inbound;
-              const url = buildProtocolUrl(inbound.protocol, user, inbound);
-              if (!url) {
-                return null;
-              }
+        await Promise.all(
+          userWithInbounds.inbounds.map(async (userInbound) => {
+            const inbound = userInbound.inbound;
+            const url = buildProtocolUrl(inbound.protocol, user, inbound);
+            if (!url) {
+              return null;
+            }
 
-              const qrCode = await QRCode.toDataURL(url);
-              return {
-                inboundId: inbound.id,
-                remark: inbound.remark || `${user.email}-${inbound.protocol}`,
-                protocol: inbound.protocol,
-                network: inbound.network,
-                security: inbound.security || 'NONE',
-                url,
-                qrCode
-              };
-            })
-          )
-        ).filter(Boolean)
+            const qrCode = await QRCode.toDataURL(url);
+            return {
+              inboundId: inbound.id,
+              remark: inbound.remark || `${user.email}-${inbound.protocol}`,
+              protocol: inbound.protocol,
+              network: inbound.network,
+              security: inbound.security || 'NONE',
+              url,
+              qrCode
+            };
+          })
+        )
+      ).filter(Boolean)
       : [];
 
     const shareUrl = `${baseUrl}/user/${user.subscriptionToken}`;
@@ -356,16 +386,16 @@ async function getSubscriptionInfo(req, res, next) {
         shareUrl,
         branding: branding
           ? {
-              appName: branding.appName || 'One-UI',
-              logoUrl: branding.logoUrl || null,
-              primaryColor: branding.primaryColor || null,
-              accentColor: branding.accentColor || null,
-              profileTitle: branding.profileTitle || null,
-              profileDescription: branding.profileDescription || null,
-              supportUrl: branding.supportUrl || null,
-              customFooter: branding.customFooter || null,
-              metadata: branding.metadata || null
-            }
+            appName: branding.appName || 'One-UI',
+            logoUrl: branding.logoUrl || null,
+            primaryColor: branding.primaryColor || null,
+            accentColor: branding.accentColor || null,
+            profileTitle: branding.profileTitle || null,
+            profileDescription: branding.profileDescription || null,
+            supportUrl: branding.supportUrl || null,
+            customFooter: branding.customFooter || null,
+            metadata: branding.metadata || null
+          }
           : null
       })
     );
@@ -1326,5 +1356,6 @@ module.exports = {
   bulkReorderUserInboundsByPattern,
   previewUserInboundQualityReorder,
   reorderUserInboundsByQuality,
-  bulkReorderUserInboundsByQuality
+  bulkReorderUserInboundsByQuality,
+  killUser
 };

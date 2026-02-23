@@ -5,6 +5,7 @@ const logger = require('../config/logger');
 const { runTrafficMonitor } = require('./traffic-monitor');
 const { runExpiryChecker } = require('./expiry-checker');
 const { runSslRenew } = require('./ssl-renew');
+const { runBackup } = require('./backup.job');
 const reports = require('../telegram/notifications/reports');
 
 const scheduledTasks = [];
@@ -41,6 +42,10 @@ function startScheduledJobs() {
   registerJob('traffic-monitor', env.TRAFFIC_MONITOR_CRON, runTrafficMonitor);
   registerJob('expiry-checker', env.EXPIRY_CHECK_CRON, runExpiryChecker);
   registerJob('ssl-renew', env.SSL_RENEW_CRON, runSslRenew);
+
+  if (env.BACKUP_ENABLED) {
+    registerJob('database-backup', env.BACKUP_SCHEDULE, runBackup);
+  }
 
   if (env.TELEGRAM_ENABLED) {
     registerJob('telegram-daily-report', env.TELEGRAM_REPORT_CRON, reports.sendDailyReport);
