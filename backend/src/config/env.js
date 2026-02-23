@@ -139,7 +139,13 @@ const env = cleanEnv(process.env, {
   CLOUDFLARE_ZONE_ID: str({ default: '' }),
   CLOUDFLARE_EMAIL: str({ default: '' }),
   CLOUDFLARE_ACCOUNT_EMAIL: str({ default: '' }),
-  CLOUDFLARE_API_KEY: str({ default: '' })
+  CLOUDFLARE_API_KEY: str({ default: '' }),
+
+  MARZBAN_BASE_URL: str({ default: '' }),
+  MARZBAN_ADMIN_USERNAME: str({ default: '' }),
+  MARZBAN_ADMIN_PASSWORD: str({ default: '' }),
+  MARZBAN_TOKEN_REFRESH_INTERVAL: num({ default: 3300000 }),
+  MARZBAN_WEBHOOK_SECRET: str({ default: '' })
 });
 
 function hasPlaceholderValue(value = '') {

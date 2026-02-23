@@ -40,6 +40,13 @@ const xrayUpdateService = require('./services/xrayUpdate.service');
 const xrayConfigGenerator = require('./xray/config-generator');
 const xrayManager = require('./xray/manager');
 
+const marzbanService = require('./services/marzban.service');
+const marzbanUserRoutes = require('./routes/marzbanUser.routes');
+const marzbanSystemRoutes = require('./routes/marzbanSystem.routes');
+const marzbanWebhookRoutes = require('./routes/marzbanWebhook.routes');
+const socketLayer = require('./utils/socket');
+const http = require('http');
+
 const app = express();
 const inlineRuntime = new WorkerRuntime('api-inline');
 const serveFrontend = process.env.SERVE_FRONTEND === 'true';
@@ -109,10 +116,18 @@ if (panelPath) {
 // Mount API routes under both /api and /${PANEL_PATH}/api
 const apiPrefix = panelPath ? `${panelPath}/api` : '/api';
 app.use(`${apiPrefix}/auth`, authRoutes);
-app.use(`${apiPrefix}/users`, userRoutes);
+
+if (env.MARZBAN_BASE_URL) {
+  app.use(`${apiPrefix}/users`, marzbanUserRoutes);
+  app.use(`${apiPrefix}/system`, marzbanSystemRoutes);
+  app.use(`${apiPrefix}/webhook/marzban`, marzbanWebhookRoutes);
+} else {
+  app.use(`${apiPrefix}/users`, userRoutes);
+  app.use(`${apiPrefix}/system`, systemRoutes);
+}
+
 app.use(`${apiPrefix}/groups`, groupRoutes);
 app.use(`${apiPrefix}/inbounds`, inboundRoutes);
-app.use(`${apiPrefix}/system`, systemRoutes);
 app.use(`${apiPrefix}/xray`, xrayRoutes);
 app.use(`${apiPrefix}/subscription`, subscriptionRoutes);
 app.use(`${apiPrefix}/ssl`, sslRoutes);
@@ -127,10 +142,18 @@ app.use(`${apiPrefix}/logs`, logsRoutes);
 // Also keep /api routes working when panel path is set (for backwards compat and health checks)
 if (panelPath) {
   app.use('/api/auth', authRoutes);
-  app.use('/api/users', userRoutes);
+
+  if (env.MARZBAN_BASE_URL) {
+    app.use('/api/users', marzbanUserRoutes);
+    app.use('/api/system', marzbanSystemRoutes);
+    app.use('/api/webhook/marzban', marzbanWebhookRoutes);
+  } else {
+    app.use('/api/users', userRoutes);
+    app.use('/api/system', systemRoutes);
+  }
+
   app.use('/api/groups', groupRoutes);
   app.use('/api/inbounds', inboundRoutes);
-  app.use('/api/system', systemRoutes);
   app.use('/api/xray', xrayRoutes);
   app.use('/api/subscription', subscriptionRoutes);
   app.use('/api/ssl', sslRoutes);
@@ -206,6 +229,7 @@ async function startServer() {
       void xrayUpdateService.runStartupSelfHeal();
     }
     await webhookService.initialize();
+    await marzbanService.initialize(); // Async fetch and ticker registry
     // Initialize Xray config
     logger.info('Initializing Xray configuration...');
     try {
@@ -216,7 +240,10 @@ async function startServer() {
       // We don't exit here, as the panel might be needed to fix the config
     }
 
-    const server = app.listen(env.PORT, () => {
+    const server = http.createServer(app);
+    socketLayer.init(server);
+
+    server.listen(env.PORT, () => {
       logger.info(`Server running on port ${env.PORT}`);
     });
 

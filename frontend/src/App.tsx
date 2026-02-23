@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { useTheme } from './hooks/useTheme';
+import { useMarzbanSocket } from './hooks/useMarzbanSocket';
 import { useAuthStore } from './store/authStore';
 import { ToastProvider } from './components/shared/ToastProvider';
 import { queryClient } from './lib/queryClient';
@@ -42,6 +43,7 @@ const panelBasePath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.r
 const AppRoutes: React.FC = () => {
   // Initializes and keeps the selected/system theme synced with the root element.
   useTheme();
+  useMarzbanSocket();
 
   return (
     <BrowserRouter basename={panelBasePath}>
