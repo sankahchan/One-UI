@@ -31,8 +31,8 @@
   --color-border: 218 25% 24%;
 
   --glow-a: 199 91% 52%;
-  --glow-b: 161 84% 38%;
-  --bg-noise-opacity: 0.045;
+  --glow-b: 271 84% 58%;
+  --bg-noise-opacity: 0.035;
 }
 
 * {
@@ -96,15 +96,29 @@ a:hover {
 
 @layer components {
   .glass {
-    @apply border border-line/70 bg-card/70 backdrop-blur-lg;
+    @apply border border-line/50 bg-card/60 backdrop-blur-lg;
   }
 
   .glass-card {
-    @apply border border-line/70 bg-card/[0.78] backdrop-blur-xl shadow-[0_20px_50px_-28px_rgba(15,23,42,0.45)] dark:shadow-[0_24px_58px_-32px_rgba(2,6,23,0.85)];
+    @apply relative border border-line/60 bg-card/[0.70] backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.7)] transition-all duration-300;
+  }
+  
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(to bottom right, rgba(255,255,255,0.15), rgba(255,255,255,0.01));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    pointer-events: none;
   }
 
   .glass-panel {
-    @apply border-r border-line/70 bg-card/85 backdrop-blur-xl;
+    @apply border-r border-line/60 bg-card/85 backdrop-blur-xl shadow-[4px_0_24px_-4px_rgba(0,0,0,0.3)];
   }
 
   .mobile-shell {

@@ -15,10 +15,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           className={cn(
-            'w-full rounded-xl border px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-200 sm:text-base',
-            'border-line/80 bg-card/75 placeholder:text-muted',
-            'focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app',
-            error ? 'border-red-500/45 focus-visible:ring-red-500/35' : 'focus-visible:border-brand-500/50',
+            'w-full rounded-xl border px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-300 sm:text-base',
+            'border-line/60 bg-card/60 backdrop-blur-md placeholder:text-muted/70',
+            'focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]',
+            error ? 'border-red-500/45 focus:border-red-500/60 focus:ring-red-500/15' : '',
             className
           )}
           {...props}

@@ -709,17 +709,17 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       params.set('sid', shortIds[0]);
     }
 
-    if ((realitySpiderX || '').trim()) {
+    if (realitySpiderX && String(realitySpiderX).trim()) {
       params.set('spx', String(realitySpiderX).trim());
     }
 
     if (network === 'WS' || network === 'HTTPUPGRADE' || network === 'XHTTP') {
       params.set('path', (wsPath || '/').trim() || '/');
-      if ((wsHost || '').trim()) {
-        params.set('host', wsHost.trim());
+      if (wsHost && String(wsHost).trim()) {
+        params.set('host', String(wsHost).trim());
       }
-      if (network === 'XHTTP' && (xhttpMode || '').trim()) {
-        params.set('mode', xhttpMode.trim());
+      if (network === 'XHTTP' && xhttpMode && String(xhttpMode).trim()) {
+        params.set('mode', String(xhttpMode).trim());
       }
     } else if (network === 'GRPC') {
       params.set('serviceName', (grpcServiceName || '').trim());
@@ -755,15 +755,14 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       <div className="flex min-h-full items-end justify-center sm:items-center">
-        <div className="my-2 flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line/80 bg-card/95 shadow-soft backdrop-blur-xl sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/80 bg-card/95 p-5">
-            <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+        <div className="my-2 flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl glass-card sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line/50 bg-card/60 p-5 backdrop-blur-md">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent sm:text-2xl">
               {isEdit ? 'Edit Inbound' : 'Add New Inbound'}
             </h2>
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-muted transition-colors hover:bg-card hover:text-foreground"
-              aria-label="Close"
+              className="rounded-xl p-2 text-muted transition-all hover:bg-white/10 hover:text-foreground active:scale-95"
             >
               <X className="h-5 w-5" />
             </button>
@@ -848,7 +847,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                   </label>
                   <select
                     {...register('protocol', { required: 'Protocol is required' })}
-                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm sm:text-base text-foreground backdrop-blur-md outline-none transition-all duration-300 focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                   >
                     <option value="VLESS">VLESS</option>
                     <option value="VMESS">VMess</option>
@@ -968,7 +967,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                     </label>
                     <select
                       {...register('network', { required: 'Network is required' })}
-                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                      className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm sm:text-base text-foreground backdrop-blur-md outline-none transition-all duration-300 focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                     >
                       <option value="TCP">TCP</option>
                       <option value="WS">WebSocket</option>
@@ -985,7 +984,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                     </label>
                     <select
                       {...register('security', { required: 'Security is required' })}
-                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                      className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm sm:text-base text-foreground backdrop-blur-md outline-none transition-all duration-300 focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                     >
                       <option value="NONE">None</option>
                       {supportsTls ? <option value="TLS">TLS</option> : null}
@@ -1193,7 +1192,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                     </label>
                     <select
                       {...register('realityFingerprint')}
-                      className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                      className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm sm:text-base text-foreground backdrop-blur-md outline-none transition-all duration-300 focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                     >
                       <option value="chrome">Chrome</option>
                       <option value="firefox">Firefox</option>
@@ -1414,7 +1413,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                   </label>
                   <select
                     {...register('cipher')}
-                    className="w-full rounded-xl border border-line/80 bg-card/75 px-3 py-2 text-foreground focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/35"
+                    className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm sm:text-base text-foreground backdrop-blur-md outline-none transition-all duration-300 focus:bg-card/90 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
                   >
                     <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
                     <option value="aes-256-gcm">aes-256-gcm</option>
