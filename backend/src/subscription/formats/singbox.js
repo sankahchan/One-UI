@@ -1,3 +1,5 @@
+const URLBuilder = require('./url-builder');
+
 class SingboxFormat {
   buildHttpUpgradeTransport(inbound) {
     const transport = {
@@ -164,16 +166,21 @@ class SingboxFormat {
           server: inbound.serverAddress,
           server_port: inbound.port,
           uuid: user.uuid,
-          flow: inbound.flow || '',
           packet_encoding: 'xudp'
         };
 
+        const vlessFlow = String(inbound.flow || '').trim();
+        if (vlessFlow) {
+          vlessOutbound.flow = vlessFlow;
+        }
+
         if (inbound.security === 'TLS') {
+          const parsedAlpn = URLBuilder.parseALPN(inbound.alpn);
           vlessOutbound.tls = {
             enabled: true,
             server_name: inbound.serverName || inbound.serverAddress,
             insecure: false,
-            alpn: inbound.alpn ? JSON.parse(inbound.alpn) : ['h2', 'http/1.1']
+            alpn: parsedAlpn.length > 0 ? parsedAlpn : ['h2', 'http/1.1']
           };
         } else if (inbound.security === 'REALITY') {
           vlessOutbound.flow = 'xtls-rprx-vision';
@@ -223,11 +230,12 @@ class SingboxFormat {
         };
 
         if (inbound.security === 'TLS') {
+          const parsedAlpn = URLBuilder.parseALPN(inbound.alpn);
           vmessOutbound.tls = {
             enabled: true,
             server_name: inbound.serverName || inbound.serverAddress,
             insecure: false,
-            alpn: inbound.alpn ? JSON.parse(inbound.alpn) : ['h2', 'http/1.1']
+            alpn: parsedAlpn.length > 0 ? parsedAlpn : ['h2', 'http/1.1']
           };
         }
 

@@ -116,29 +116,51 @@ class ClashFormat {
     };
 
     switch (inbound.protocol) {
-      case 'VLESS':
-        return {
+      case 'VLESS': {
+        const vlessFlow = String(inbound.flow || '').trim();
+        const vlessProxy = {
           ...base,
           type: 'vless',
           uuid: user.uuid,
-          tls: inbound.security === 'TLS',
+          tls: inbound.security === 'TLS' || inbound.security === 'REALITY',
           'skip-cert-verify': false,
           servername: inbound.serverName,
           network,
-          udp: true,
-          flow: inbound.flow || '',
-          ...((inbound.network === 'WS' || inbound.network === 'XHTTP' || inbound.network === 'HTTPUPGRADE') && {
-            'ws-opts': {
-              path: inbound.wsPath || '/',
-              headers: { Host: inbound.wsHost || inbound.serverName }
-            }
-          }),
-          ...(inbound.network === 'GRPC' && {
-            'grpc-opts': {
-              'grpc-service-name': inbound.grpcServiceName
-            }
-          })
+          udp: true
         };
+
+        if (vlessFlow) {
+          vlessProxy.flow = vlessFlow;
+        }
+
+        if (inbound.security === 'REALITY') {
+          vlessProxy.flow = 'xtls-rprx-vision';
+          vlessProxy.servername = Array.isArray(inbound.realityServerNames) && inbound.realityServerNames.length > 0
+            ? inbound.realityServerNames[0]
+            : (inbound.serverName || '');
+          vlessProxy['client-fingerprint'] = inbound.realityFingerprint || 'chrome';
+          vlessProxy['reality-opts'] = {
+            'public-key': inbound.realityPublicKey || '',
+            'short-id': Array.isArray(inbound.realityShortIds) && inbound.realityShortIds.length > 0
+              ? inbound.realityShortIds[0]
+              : (inbound.realityShortId || '')
+          };
+        }
+
+        if (inbound.network === 'WS' || inbound.network === 'XHTTP' || inbound.network === 'HTTPUPGRADE') {
+          vlessProxy['ws-opts'] = {
+            path: inbound.wsPath || '/',
+            headers: { Host: inbound.wsHost || inbound.serverName }
+          };
+        }
+        if (inbound.network === 'GRPC') {
+          vlessProxy['grpc-opts'] = {
+            'grpc-service-name': inbound.grpcServiceName
+          };
+        }
+
+        return vlessProxy;
+      }
       case 'VMESS':
         return {
           ...base,

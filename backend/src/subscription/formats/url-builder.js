@@ -68,8 +68,9 @@ class URLBuilder {
       params.append('mode', 'gun');
     }
 
-    if (inbound.flow && security !== 'REALITY') {
-      params.append('flow', inbound.flow);
+    const flowValue = String(inbound.flow || '').trim();
+    if (flowValue && security !== 'REALITY') {
+      params.append('flow', flowValue);
     }
 
     const remark = encodeURIComponent(inbound.remark || `${user.email}-VLESS`);
@@ -144,7 +145,7 @@ class URLBuilder {
     }
 
     const remark = encodeURIComponent(inbound.remark || `${user.email}-Trojan`);
-    return `trojan://${user.password}@${inbound.serverAddress}:${inbound.port}?${params.toString()}#${remark}`;
+    return `trojan://${encodeURIComponent(user.password)}@${inbound.serverAddress}:${inbound.port}?${params.toString()}#${remark}`;
   }
 
   // Shadowsocks URL (SIP002): ss://base64(method:password)@host:port#remark
