@@ -467,7 +467,9 @@ async function runUserDiagnostics(req, res, next) {
   try {
     const diagnostics = await userService.runUserDiagnostics(req.params.id, {
       windowMinutes: req.body?.windowMinutes,
-      portProbeTimeoutMs: req.body?.portProbeTimeoutMs
+      portProbeTimeoutMs: req.body?.portProbeTimeoutMs,
+      endpointProbeTimeoutMs: req.body?.endpointProbeTimeoutMs,
+      realityDestProbeTimeoutMs: req.body?.realityDestProbeTimeoutMs
     });
 
     return sendSuccess(res, {

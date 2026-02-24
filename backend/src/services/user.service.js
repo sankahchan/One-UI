@@ -2,6 +2,7 @@ const prisma = require('../config/database');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const net = require('node:net');
+const tls = require('node:tls');
 const cryptoService = require('./crypto.service');
 const xrayManager = require('../xray/manager');
 const xrayStatsCollector = require('../xray/stats-collector');
@@ -549,6 +550,113 @@ function normalizeDestHostPort(value, fallbackPort = 443) {
   };
 }
 
+function normalizeEndpointHost(hostname = '') {
+  const value = String(hostname || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  if (value.startsWith('[') && value.endsWith(']')) {
+    return value.slice(1, -1).trim();
+  }
+
+  return value;
+}
+
+function isValidEndpointHost(hostname = '') {
+  const value = normalizeEndpointHost(hostname);
+  if (!value || value.length > 253) {
+    return false;
+  }
+
+  if (net.isIP(value)) {
+    return true;
+  }
+
+  if (!/^[a-zA-Z0-9.-]+$/.test(value)) {
+    return false;
+  }
+
+  if (value.startsWith('.') || value.endsWith('.') || value.includes('..')) {
+    return false;
+  }
+
+  return value
+    .split('.')
+    .every((label) => /^[a-zA-Z0-9-]{1,63}$/.test(label) && !label.startsWith('-') && !label.endsWith('-'));
+}
+
+function parseEndpointHostPort(value, fallbackPort = 0) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { host: '', port: fallbackPort };
+  }
+
+  const bracketedIpv6 = raw.match(/^\[([^\]]+)\](?::(\d+))?$/);
+  if (bracketedIpv6) {
+    const host = normalizeEndpointHost(bracketedIpv6[1]);
+    const port = Number.parseInt(bracketedIpv6[2] || '', 10);
+    return {
+      host,
+      port: Number.isInteger(port) && port > 0 ? port : fallbackPort
+    };
+  }
+
+  const separator = raw.lastIndexOf(':');
+  if (separator > 0 && separator < raw.length - 1) {
+    const hostCandidate = raw.slice(0, separator).trim();
+    const portCandidate = Number.parseInt(raw.slice(separator + 1).trim(), 10);
+    if (hostCandidate && Number.isInteger(portCandidate) && portCandidate > 0) {
+      return {
+        host: normalizeEndpointHost(hostCandidate),
+        port: portCandidate
+      };
+    }
+  }
+
+  return {
+    host: normalizeEndpointHost(raw),
+    port: fallbackPort
+  };
+}
+
+function resolveInboundEndpoint(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  const fallbackPort = Number.parseInt(String(inbound?.port || ''), 10);
+
+  if (protocol === 'WIREGUARD') {
+    const endpoint = String(inbound?.wgPeerEndpoint || '').trim();
+    if (!endpoint) {
+      return {
+        host: normalizeEndpointHost(inbound?.serverAddress),
+        port: Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 51820
+      };
+    }
+    return parseEndpointHostPort(endpoint, Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 51820);
+  }
+
+  return {
+    host: normalizeEndpointHost(inbound?.serverAddress),
+    port: Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 0
+  };
+}
+
+function shouldProbeInboundTcpEndpoint(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  if (protocol === 'WIREGUARD') {
+    return false;
+  }
+
+  if (protocol === 'DOKODEMO_DOOR') {
+    const dokodemoNetwork = String(inbound?.dokodemoNetwork || '').toLowerCase();
+    if (dokodemoNetwork && !dokodemoNetwork.includes('tcp')) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function probeLocalTcpPort(port, timeoutMs = 1200) {
   return new Promise((resolve) => {
     const parsedPort = Number.parseInt(String(port || ''), 10);
@@ -583,6 +691,108 @@ function probeLocalTcpPort(port, timeoutMs = 1200) {
     socket.once('timeout', () => finalize(false, 'timeout'));
     socket.once('error', (error) => finalize(false, error?.code || error?.message || 'connect-error'));
     socket.connect(parsedPort, '127.0.0.1');
+  });
+}
+
+function probeTcpEndpoint(host, port, timeoutMs = 1800) {
+  return new Promise((resolve) => {
+    const targetHost = normalizeEndpointHost(host);
+    const targetPort = Number.parseInt(String(port || ''), 10);
+    if (!isValidEndpointHost(targetHost)) {
+      resolve({
+        reachable: false,
+        error: 'invalid-host',
+        durationMs: 0
+      });
+      return;
+    }
+
+    if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+      resolve({
+        reachable: false,
+        error: 'invalid-port',
+        durationMs: 0
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const socket = new net.Socket();
+    let settled = false;
+
+    const finalize = (reachable, errorCode = null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      resolve({
+        reachable,
+        error: errorCode,
+        durationMs: Date.now() - startedAt
+      });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finalize(true, null));
+    socket.once('timeout', () => finalize(false, 'timeout'));
+    socket.once('error', (error) => finalize(false, error?.code || error?.message || 'connect-error'));
+    socket.connect(targetPort, targetHost);
+  });
+}
+
+function probeTlsEndpoint(host, port, timeoutMs = 2500) {
+  return new Promise((resolve) => {
+    const targetHost = normalizeEndpointHost(host);
+    const targetPort = Number.parseInt(String(port || ''), 10);
+    if (!isValidEndpointHost(targetHost)) {
+      resolve({
+        reachable: false,
+        error: 'invalid-host',
+        durationMs: 0
+      });
+      return;
+    }
+
+    if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+      resolve({
+        reachable: false,
+        error: 'invalid-port',
+        durationMs: 0
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    let settled = false;
+    const socket = tls.connect({
+      host: targetHost,
+      port: targetPort,
+      servername: net.isIP(targetHost) ? undefined : targetHost,
+      rejectUnauthorized: false,
+      timeout: timeoutMs
+    });
+
+    const finalize = (reachable, errorCode = null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      try {
+        socket.destroy();
+      } catch (_error) {
+        // ignore socket cleanup errors
+      }
+      resolve({
+        reachable,
+        error: errorCode,
+        durationMs: Date.now() - startedAt
+      });
+    };
+
+    socket.once('secureConnect', () => finalize(true, null));
+    socket.once('timeout', () => finalize(false, 'timeout'));
+    socket.once('error', (error) => finalize(false, error?.code || error?.message || 'tls-connect-error'));
   });
 }
 
@@ -2070,6 +2280,8 @@ class UserService {
     const userId = parseId(id);
     const windowMinutes = parseBoundedInt(options.windowMinutes, { min: 5, max: 1440, fallback: 60 });
     const portProbeTimeoutMs = parseBoundedInt(options.portProbeTimeoutMs, { min: 300, max: 5000, fallback: 1200 });
+    const endpointProbeTimeoutMs = parseBoundedInt(options.endpointProbeTimeoutMs, { min: 300, max: 8000, fallback: 1800 });
+    const realityDestProbeTimeoutMs = parseBoundedInt(options.realityDestProbeTimeoutMs, { min: 500, max: 10000, fallback: 2500 });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -2196,6 +2408,44 @@ class UserService {
       })
     );
 
+    const endpointTargets = Array.from(
+      new Set(
+        enabledRelations
+          .map((relation) => relation.inbound)
+          .filter((inbound) => inbound && shouldProbeInboundTcpEndpoint(inbound))
+          .map((inbound) => resolveInboundEndpoint(inbound))
+          .filter((endpoint) => endpoint.host && endpoint.port > 0)
+          .map((endpoint) => `${endpoint.host}:${endpoint.port}`)
+      )
+    );
+    const endpointProbeByTarget = new Map();
+    await Promise.all(
+      endpointTargets.map(async (target) => {
+        const parsed = parseEndpointHostPort(target, 0);
+        const result = await probeTcpEndpoint(parsed.host, parsed.port, endpointProbeTimeoutMs);
+        endpointProbeByTarget.set(target, result);
+      })
+    );
+
+    const realityDestTargets = Array.from(
+      new Set(
+        enabledRelations
+          .map((relation) => relation.inbound)
+          .filter((inbound) => inbound && String(inbound.security || '').toUpperCase() === 'REALITY')
+          .map((inbound) => normalizeDestHostPort(inbound.realityDest, 443))
+          .filter((dest) => dest.host && dest.port > 0)
+          .map((dest) => `${dest.host}:${dest.port}`)
+      )
+    );
+    const realityDestProbeByTarget = new Map();
+    await Promise.all(
+      realityDestTargets.map(async (target) => {
+        const parsed = parseEndpointHostPort(target, 443);
+        const result = await probeTlsEndpoint(parsed.host, parsed.port, realityDestProbeTimeoutMs);
+        realityDestProbeByTarget.set(target, result);
+      })
+    );
+
     for (const relation of enabledRelations) {
       const inbound = relation.inbound;
       if (!inbound) {
@@ -2208,6 +2458,9 @@ class UserService {
       const keyLabel = inbound.remark || inbound.tag || `${protocol}:${inbound.port}`;
       const port = Number.parseInt(String(inbound.port || ''), 10);
       const portProbe = portProbeByPort.get(port);
+      const endpoint = resolveInboundEndpoint(inbound);
+      const endpointTarget = endpoint.host && endpoint.port > 0 ? `${endpoint.host}:${endpoint.port}` : null;
+      const endpointProbe = endpointTarget ? endpointProbeByTarget.get(endpointTarget) : null;
 
       pushCheck({
         id: `inbound:${inbound.id}:port`,
@@ -2221,12 +2474,54 @@ class UserService {
           : `Ensure inbound "${keyLabel}" is enabled and open TCP ${port} on host firewall/cloud security groups.`
       });
 
+      if (shouldProbeInboundTcpEndpoint(inbound)) {
+        if (!endpoint.host || !endpoint.port) {
+          pushCheck({
+            id: `inbound:${inbound.id}:endpoint`,
+            label: `Inbound ${keyLabel} advertised endpoint`,
+            status: 'WARN',
+            details: 'Endpoint host/port is missing in inbound settings.',
+            recommendedAction: `Set serverAddress and port for inbound "${keyLabel}" so clients can reach the advertised endpoint.`
+          });
+        } else if (!isValidEndpointHost(endpoint.host)) {
+          pushCheck({
+            id: `inbound:${inbound.id}:endpoint`,
+            label: `Inbound ${keyLabel} advertised endpoint`,
+            status: 'FAIL',
+            details: `Endpoint host "${endpoint.host}" is invalid.`,
+            recommendedAction: `Fix serverAddress for inbound "${keyLabel}" to a valid domain or public IP.`
+          });
+        } else {
+          pushCheck({
+            id: `inbound:${inbound.id}:endpoint`,
+            label: `Inbound ${keyLabel} advertised endpoint`,
+            status: endpointProbe?.reachable ? 'PASS' : 'FAIL',
+            details: endpointProbe?.reachable
+              ? `${endpointTarget} is reachable from the server (${endpointProbe.durationMs}ms).`
+              : `${endpointTarget} is not reachable from the server${endpointProbe?.error ? ` (${endpointProbe.error})` : ''}.`,
+            recommendedAction: endpointProbe?.reachable
+              ? null
+              : `Open firewall/cloud security group for ${endpointTarget} and confirm reverse-proxy pass-through routes to inbound "${keyLabel}".`
+          });
+        }
+      } else if (protocol === 'WIREGUARD') {
+        pushCheck({
+          id: `inbound:${inbound.id}:wireguard-udp`,
+          label: `Inbound ${keyLabel} WireGuard endpoint`,
+          status: 'WARN',
+          details: `WireGuard uses UDP on ${endpoint.host || 'server'}:${endpoint.port || 51820}; TCP probe skipped.`,
+          recommendedAction: `Validate UDP ${endpoint.port || 51820} is open externally and client peer endpoint matches "${endpoint.host || inbound.serverAddress}".`
+        });
+      }
+
       if (security === 'REALITY') {
         const hasRealityKeys = Boolean(inbound.realityPublicKey && inbound.realityPrivateKey);
         const hasShortIds = Array.isArray(inbound.realityShortIds) && inbound.realityShortIds.length > 0;
         const hasServerNames = Array.isArray(inbound.realityServerNames) && inbound.realityServerNames.length > 0;
         const { host: realityDestHost, port: realityDestPort } = normalizeDestHostPort(inbound.realityDest, 443);
         const hasRealityDest = Boolean(realityDestHost && realityDestPort);
+        const realityDestTarget = hasRealityDest ? `${realityDestHost}:${realityDestPort}` : null;
+        const realityDestProbe = realityDestTarget ? realityDestProbeByTarget.get(realityDestTarget) : null;
 
         pushCheck({
           id: `inbound:${inbound.id}:reality`,
@@ -2241,6 +2536,20 @@ class UserService {
               ? null
               : `Open inbound "${keyLabel}" and regenerate REALITY keys plus destination/server names.`
         });
+
+        if (hasRealityDest) {
+          pushCheck({
+            id: `inbound:${inbound.id}:reality-destination`,
+            label: `Inbound ${keyLabel} REALITY destination`,
+            status: realityDestProbe?.reachable ? 'PASS' : 'FAIL',
+            details: realityDestProbe?.reachable
+              ? `Destination ${realityDestTarget} is reachable over TLS (${realityDestProbe.durationMs}ms).`
+              : `Destination ${realityDestTarget} is not reachable over TLS${realityDestProbe?.error ? ` (${realityDestProbe.error})` : ''}.`,
+            recommendedAction: realityDestProbe?.reachable
+              ? null
+              : `Switch REALITY destination for "${keyLabel}" to a reachable host (for example www.microsoft.com:443) and retry.`
+          });
+        }
       }
 
       if (security === 'TLS' && !String(inbound.serverName || '').trim()) {

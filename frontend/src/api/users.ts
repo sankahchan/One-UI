@@ -257,7 +257,12 @@ export const usersApi = {
 
   runDiagnostics: async (
     id: number,
-    payload: { windowMinutes?: number; portProbeTimeoutMs?: number } = {}
+    payload: {
+      windowMinutes?: number;
+      portProbeTimeoutMs?: number;
+      endpointProbeTimeoutMs?: number;
+      realityDestProbeTimeoutMs?: number;
+    } = {}
   ): Promise<ApiResponse<UserDiagnosticsResult>> => {
     return apiClient.post(`/users/${id}/diagnostics`, payload);
   },

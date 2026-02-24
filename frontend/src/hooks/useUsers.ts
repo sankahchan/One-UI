@@ -319,7 +319,18 @@ export const useRunUserDiagnostics = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload?: { windowMinutes?: number; portProbeTimeoutMs?: number } }) =>
+    mutationFn: ({
+      id,
+      payload
+    }: {
+      id: number;
+      payload?: {
+        windowMinutes?: number;
+        portProbeTimeoutMs?: number;
+        endpointProbeTimeoutMs?: number;
+        realityDestProbeTimeoutMs?: number;
+      };
+    }) =>
       usersApi.runDiagnostics(id, payload || {}),
     onSuccess: (_result, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['user', variables.id] });

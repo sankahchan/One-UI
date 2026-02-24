@@ -171,6 +171,16 @@ router.post(
       .optional()
       .isInt({ min: 300, max: 5000 })
       .withMessage('portProbeTimeoutMs must be between 300 and 5000')
+      .toInt(),
+    body('endpointProbeTimeoutMs')
+      .optional()
+      .isInt({ min: 300, max: 8000 })
+      .withMessage('endpointProbeTimeoutMs must be between 300 and 8000')
+      .toInt(),
+    body('realityDestProbeTimeoutMs')
+      .optional()
+      .isInt({ min: 500, max: 10000 })
+      .withMessage('realityDestProbeTimeoutMs must be between 500 and 10000')
       .toInt()
   ],
   validator,
