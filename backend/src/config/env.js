@@ -116,12 +116,13 @@ const env = cleanEnv(process.env, {
   STARTUP_HEALTH_REQUIRE_XRAY: bool({
     default: String(process.env.NODE_ENV || 'development').toLowerCase() === 'production'
   }),
-  USER_ONLINE_TTL_SECONDS: num({ default: 90 }),
-  USER_ONLINE_IDLE_TTL_SECONDS: num({ default: 180 }),
-  USER_ONLINE_DEVICE_TTL_SECONDS: num({ default: 120 }),
+  USER_ONLINE_TTL_SECONDS: num({ default: 60 }),
+  USER_ONLINE_IDLE_TTL_SECONDS: num({ default: 75 }),
+  USER_ONLINE_DEVICE_TTL_SECONDS: num({ default: 60 }),
   USER_ONLINE_REFRESH_INTERVAL_SECONDS: num({ default: 5 }),
   DEVICE_TRACKING_TTL_SECONDS: num({ default: 1800 }),
   SECURITY_RULES_ENABLED: bool({ default: true }),
+  MYANMAR_DEFAULTS_ENABLED: bool({ default: true }),
 
   WORKER_MODE: str({ choices: ['inline', 'separate', 'worker'], default: 'inline' }),
   WORKER_LOCK_NAME: str({ default: 'one-ui-jobs' }),

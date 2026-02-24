@@ -12,7 +12,7 @@ class OnlineTracker {
   }
 
   get ttlMs() {
-    return Math.max(5, Number(env.USER_ONLINE_TTL_SECONDS || 90)) * 1000;
+    return Math.max(5, Number(env.USER_ONLINE_TTL_SECONDS || 60)) * 1000;
   }
 
   get refreshIntervalMs() {
@@ -22,7 +22,7 @@ class OnlineTracker {
   get idleTtlMs() {
     return Math.max(
       this.ttlMs,
-      Math.max(30, Number(env.USER_ONLINE_IDLE_TTL_SECONDS || 180)) * 1000
+      Math.max(30, Number(env.USER_ONLINE_IDLE_TTL_SECONDS || 75)) * 1000
     );
   }
 
@@ -33,7 +33,7 @@ class OnlineTracker {
   get deviceOnlineTtlMs() {
     return Math.max(
       this.ttlMs,
-      Math.min(this.idleTtlMs, Math.max(30, Number(env.USER_ONLINE_DEVICE_TTL_SECONDS || 120)) * 1000)
+      Math.min(this.idleTtlMs, Math.max(30, Number(env.USER_ONLINE_DEVICE_TTL_SECONDS || 60)) * 1000)
     );
   }
 
@@ -310,6 +310,9 @@ class OnlineTracker {
       ].filter((value) => Number.isFinite(value));
       const newestActivityMs = candidateTimestamps.length > 0 ? Math.max(...candidateTimestamps) : null;
       const lastActivity = Number.isFinite(newestActivityMs) ? new Date(newestActivityMs).toISOString() : null;
+      const lastPacketSeenAt = latestTrafficLog?.timestamp instanceof Date
+        ? latestTrafficLog.timestamp.toISOString()
+        : lastActivity;
       const liveStat = statByUserId.get(user.id) || { upload: 0, download: 0 };
       const deviceInbound = Number.isInteger(latestDevice?.inboundId)
         ? inboundById.get(latestDevice.inboundId) || null
@@ -347,6 +350,7 @@ class OnlineTracker {
         online,
         state: online ? 'online' : String(latestConnection?.action || '').toLowerCase() === 'connect' ? 'idle' : 'offline',
         lastActivity,
+        lastPacketSeenAt,
         lastAction: displayConnection?.action || latestConnection?.action || null,
         currentIp: latestDevice?.clientIp || displayConnection?.clientIp || null,
         currentInbound,

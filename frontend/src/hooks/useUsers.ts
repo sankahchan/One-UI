@@ -87,7 +87,7 @@ export const useUserSessions = (
   const streamInterval = Number.isInteger(options.streamInterval)
     ? Math.min(Math.max(options.streamInterval as number, 500), 10000)
     : 2000;
-  const fallbackInterval = options.refetchInterval ?? 10_000;
+  const fallbackInterval = options.refetchInterval ?? 5_000;
 
   const query = useQuery<UserSessionSnapshotResponse>({
     queryKey: ['user-sessions', userIds, options.includeOffline ?? true],

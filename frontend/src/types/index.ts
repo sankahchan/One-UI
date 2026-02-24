@@ -282,6 +282,7 @@ export interface UserSessionSnapshot {
   activeKeyCount?: number;
   onlineKeyCount?: number;
   lastSeenAt: string | null;
+  lastPacketSeenAt?: string | null;
   lastAction: 'connect' | 'disconnect' | null;
   currentIp: string | null;
   currentInbound: UserSessionInbound | null;

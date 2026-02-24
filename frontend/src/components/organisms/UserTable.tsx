@@ -283,6 +283,35 @@ export const UserTable: FC<UserTableProps> = ({
     return t('users.sessions.daysAgo', { defaultValue: '{{count}}d ago', count: elapsedDays });
   };
 
+  const getLastPacketLabel = (session?: UserSessionSnapshot) => {
+    const source = session?.lastPacketSeenAt || session?.lastSeenAt || null;
+    if (!source) {
+      return t('users.sessions.noActivity', { defaultValue: 'No activity' });
+    }
+
+    const timestamp = new Date(source).getTime();
+    if (Number.isNaN(timestamp)) {
+      return t('users.sessions.noActivity', { defaultValue: 'No activity' });
+    }
+
+    const elapsedMinutes = Math.floor((Date.now() - timestamp) / 60_000);
+    if (elapsedMinutes < 1) {
+      return t('users.sessions.justNow', { defaultValue: 'just now' });
+    }
+
+    if (elapsedMinutes < 60) {
+      return t('users.sessions.minutesAgo', { defaultValue: '{{count}}m ago', count: elapsedMinutes });
+    }
+
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return t('users.sessions.hoursAgo', { defaultValue: '{{count}}h ago', count: elapsedHours });
+    }
+
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return t('users.sessions.daysAgo', { defaultValue: '{{count}}d ago', count: elapsedDays });
+  };
+
   const getSessionMetaLabel = (session?: UserSessionSnapshot) => {
     if (!session) {
       return '';
@@ -400,6 +429,7 @@ export const UserTable: FC<UserTableProps> = ({
               : 0;
           const sessionMeta = getSessionMetaLabel(session);
           const lastSeenLabel = getLastSeenLabel(session);
+          const lastPacketLabel = getLastPacketLabel(session);
 
           return (
             <div
@@ -448,6 +478,9 @@ export const UserTable: FC<UserTableProps> = ({
                 {sessionMeta ? (
                   <span className="text-xs text-muted">{sessionMeta}</span>
                 ) : null}
+                <span className="text-xs text-muted">
+                  {t('users.sessions.lastPacketPrefix', { defaultValue: 'Last packet {{label}}', label: lastPacketLabel })}
+                </span>
                 {!isOnline ? (
                   <span className="text-xs text-muted">
                     {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}
@@ -588,6 +621,7 @@ export const UserTable: FC<UserTableProps> = ({
                   : 0;
               const sessionMeta = getSessionMetaLabel(session);
               const lastSeenLabel = getLastSeenLabel(session);
+              const lastPacketLabel = getLastPacketLabel(session);
 
               return (
                 <Fragment key={user.id}>
@@ -630,6 +664,9 @@ export const UserTable: FC<UserTableProps> = ({
                         })}
                       </p>
                       {sessionMeta ? <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{sessionMeta}</p> : null}
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('users.sessions.lastPacketPrefix', { defaultValue: 'Last packet {{label}}', label: lastPacketLabel })}
+                      </p>
                       {!isOnline ? (
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}

@@ -214,6 +214,118 @@ function normalizeInboundAssignments(inboundInput) {
   return normalized;
 }
 
+function resolveMyanmarInboundBucket(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  const network = String(inbound?.network || '').toUpperCase();
+  const security = String(inbound?.security || '').toUpperCase();
+
+  if (protocol === 'VLESS' && security === 'REALITY') {
+    return 0;
+  }
+
+  if (protocol === 'VLESS' && network === 'WS' && security === 'TLS') {
+    return 1;
+  }
+
+  if (protocol === 'TROJAN' && network === 'WS' && security === 'TLS') {
+    return 2;
+  }
+
+  if (protocol === 'VLESS' && network === 'GRPC' && security === 'TLS') {
+    return 3;
+  }
+
+  return 99;
+}
+
+function sortMyanmarPreferredInbounds(inbounds = []) {
+  return [...inbounds].sort((a, b) => {
+    const aBucket = resolveMyanmarInboundBucket(a);
+    const bBucket = resolveMyanmarInboundBucket(b);
+    if (aBucket !== bBucket) {
+      return aBucket - bBucket;
+    }
+
+    const aCreatedAt = a?.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+    const bCreatedAt = b?.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+    if (aCreatedAt !== bCreatedAt) {
+      return aCreatedAt - bCreatedAt;
+    }
+
+    return Number(a?.id || 0) - Number(b?.id || 0);
+  });
+}
+
+async function buildMyanmarDefaultInboundAssignments() {
+  const enabledInbounds = await prisma.inbound.findMany({
+    where: { enabled: true },
+    select: {
+      id: true,
+      protocol: true,
+      network: true,
+      security: true,
+      createdAt: true
+    }
+  });
+
+  if (enabledInbounds.length === 0) {
+    return [];
+  }
+
+  const preferred = sortMyanmarPreferredInbounds(enabledInbounds);
+  const selected = preferred.slice(0, 3);
+
+  return selected.map((inbound, index) => ({
+    inboundId: inbound.id,
+    enabled: true,
+    priority: normalizePriority(100 + index)
+  }));
+}
+
+async function validateEnabledInboundAssignments(
+  inboundInput,
+  {
+    requireAtLeastOne = true,
+    allowAutoMyanmarDefaults = false
+  } = {}
+) {
+  let inboundAssignments = normalizeInboundAssignments(inboundInput);
+
+  if (inboundAssignments.length === 0 && allowAutoMyanmarDefaults && parseBooleanFlag(env.MYANMAR_DEFAULTS_ENABLED, true)) {
+    inboundAssignments = await buildMyanmarDefaultInboundAssignments();
+  }
+
+  if (inboundAssignments.length === 0) {
+    if (requireAtLeastOne) {
+      throw new ValidationError('at least one enabled inbound is required');
+    }
+    return [];
+  }
+
+  if (requireAtLeastOne && !inboundAssignments.some((assignment) => assignment.enabled)) {
+    throw new ValidationError('at least one enabled inbound is required');
+  }
+
+  const inboundIds = inboundAssignments.map((assignment) => assignment.inboundId);
+  const enabledInbounds = await prisma.inbound.findMany({
+    where: {
+      id: { in: inboundIds },
+      enabled: true
+    },
+    select: { id: true }
+  });
+
+  const enabledInboundIdSet = new Set(enabledInbounds.map((inbound) => inbound.id));
+  const invalidOrDisabled = inboundIds.filter((inboundId) => !enabledInboundIdSet.has(inboundId));
+  if (invalidOrDisabled.length > 0) {
+    throw new ValidationError(
+      `inboundIds contain invalid or disabled entries: ${Array.from(new Set(invalidOrDisabled)).join(', ')}`
+    );
+  }
+
+  return inboundAssignments;
+}
+
 const USER_INBOUND_PATTERN_MYANMAR = 'myanmar';
 const SUPPORTED_USER_INBOUND_PATTERNS = new Set([USER_INBOUND_PATTERN_MYANMAR]);
 
@@ -819,7 +931,10 @@ class UserService {
     const days = parsePositiveNumber(expiryDays, 30);
     expireDate.setDate(expireDate.getDate() + days);
 
-    const inboundAssignments = normalizeInboundAssignments(inboundIds);
+    const inboundAssignments = await validateEnabledInboundAssignments(inboundIds, {
+      requireAtLeastOne: true,
+      allowAutoMyanmarDefaults: true
+    });
 
     const user = await prisma.user.create({
       data: {
@@ -1036,7 +1151,10 @@ class UserService {
     });
 
     if (inboundIds !== undefined) {
-      const inboundAssignments = normalizeInboundAssignments(inboundIds);
+      const inboundAssignments = await validateEnabledInboundAssignments(inboundIds, {
+        requireAtLeastOne: false,
+        allowAutoMyanmarDefaults: false
+      });
 
       await prisma.userInbound.deleteMany({
         where: { userId }
@@ -1755,7 +1873,10 @@ class UserService {
   async getUserDevices(id, options = {}) {
     const userId = parseId(id);
     const windowMinutes = parseBoundedInt(options.windowMinutes, { min: 5, max: 1440, fallback: 60 });
-    const staleThresholdMs = Math.max(300, Number(env.DEVICE_TRACKING_TTL_SECONDS || 1800)) * 1000;
+    const staleThresholdMs = Math.max(
+      5,
+      Number(env.USER_ONLINE_DEVICE_TTL_SECONDS || env.USER_ONLINE_TTL_SECONDS || 60)
+    ) * 1000;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -2017,7 +2138,7 @@ class UserService {
 
     const activeDevices = deviceTrackingService.getActiveDevices(userId);
     const activeIps = ipTrackingService.getActiveIps(userId);
-    const lookbackMs = Math.max(Math.max(5, Number(env.USER_ONLINE_TTL_SECONDS || 90)) * 1000 * 4, 15 * 60 * 1000);
+    const lookbackMs = Math.max(Math.max(5, Number(env.USER_ONLINE_TTL_SECONDS || 60)) * 1000 * 4, 15 * 60 * 1000);
     const since = new Date(Date.now() - lookbackMs);
 
     const recentConnectLogs = await prisma.connectionLog.findMany({
@@ -2181,6 +2302,9 @@ class UserService {
         : latestConnection?.timestamp
           ? latestConnection.timestamp.toISOString()
           : null;
+      const lastPacketSeenAt = heartbeat?.lastPacketSeenAt
+        ? new Date(heartbeat.lastPacketSeenAt).toISOString()
+        : lastSeenAt;
       const online = Boolean(heartbeat?.online);
       const activeKeyCount = user.inbounds.length;
       const onlineKeyCount = Number.isInteger(heartbeat?.onlineKeyCount)
@@ -2206,6 +2330,7 @@ class UserService {
         online,
         state: heartbeat?.state || (online ? 'online' : latestConnection?.action === 'connect' ? 'idle' : 'offline'),
         lastSeenAt,
+        lastPacketSeenAt,
         lastAction: heartbeat?.lastAction || latestConnection?.action || null,
         currentIp: heartbeat?.currentIp || latestConnection?.clientIp || null,
         currentInbound: activeInbound
@@ -2917,10 +3042,10 @@ class UserService {
 
   async bulkAssignInbounds(userIds, inboundIds, options = {}) {
     const parsedUserIds = normalizePositiveIdArray(userIds, 'userIds');
-    const inboundAssignments = normalizeInboundAssignments(inboundIds || []);
-    if (inboundAssignments.length === 0) {
-      throw new ValidationError('inboundIds must be a non-empty array');
-    }
+    const inboundAssignments = await validateEnabledInboundAssignments(inboundIds || [], {
+      requireAtLeastOne: true,
+      allowAutoMyanmarDefaults: false
+    });
 
     const normalizedInboundIds = inboundAssignments.map((assignment) => assignment.inboundId);
     const mode = String(options.mode || 'merge').trim().toLowerCase();
@@ -2934,7 +3059,10 @@ class UserService {
         select: { id: true }
       }),
       prisma.inbound.findMany({
-        where: { id: { in: normalizedInboundIds } },
+        where: {
+          id: { in: normalizedInboundIds },
+          enabled: true
+        },
         select: { id: true }
       }),
       prisma.userInbound.findMany({
@@ -2957,7 +3085,7 @@ class UserService {
     if (inbounds.length !== normalizedInboundIds.length) {
       const existingInboundIds = new Set(inbounds.map((inbound) => inbound.id));
       const missing = normalizedInboundIds.filter((inboundId) => !existingInboundIds.has(inboundId));
-      throw new NotFoundError(`Inbounds not found: ${missing.join(', ')}`);
+      throw new NotFoundError(`Enabled inbounds not found: ${missing.join(', ')}`);
     }
 
     const relationsByUserId = new Map();
@@ -3396,7 +3524,6 @@ class UserService {
     const safeIpLimit = ipLimit === undefined ? 0 : Number.parseInt(ipLimit, 10);
     const safeDeviceLimit = deviceLimit === undefined ? 0 : Number.parseInt(deviceLimit, 10);
     const parsedDays = parsePositiveNumber(expiryDays, 30);
-    const inboundAssignments = normalizeInboundAssignments(inboundIds);
 
     if (!safePrefix) {
       throw new ValidationError('prefix is required');
@@ -3422,22 +3549,14 @@ class UserService {
     if (!Number.isInteger(safeDeviceLimit) || safeDeviceLimit < 0) {
       throw new ValidationError('deviceLimit must be 0 or greater');
     }
-    if (inboundAssignments.length === 0) {
-      throw new ValidationError('at least one inbound is required');
-    }
+    const inboundAssignments = await validateEnabledInboundAssignments(inboundIds, {
+      requireAtLeastOne: true,
+      allowAutoMyanmarDefaults: true
+    });
 
     const validStatuses = ['ACTIVE', 'EXPIRED', 'DISABLED', 'LIMITED'];
     if (!validStatuses.includes(safeStatus)) {
       throw new ValidationError('status is invalid');
-    }
-
-    const inboundCount = await prisma.inbound.count({
-      where: {
-        id: { in: inboundAssignments.map((assignment) => assignment.inboundId) }
-      }
-    });
-    if (inboundCount !== inboundAssignments.length) {
-      throw new ValidationError('one or more inboundIds are invalid');
     }
 
     const generatedEmails = Array.from({ length: safeCount }, (_, offset) =>
