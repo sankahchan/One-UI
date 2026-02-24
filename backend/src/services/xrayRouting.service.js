@@ -5,7 +5,10 @@ const logger = require('../config/logger');
 const { ValidationError } = require('../utils/errors');
 
 const DEFAULT_DOMESTIC_IPS = ['geoip:cn', 'geoip:ir', 'geoip:ru'];
-const DEFAULT_DOMESTIC_DOMAINS = ['geosite:cn', 'geosite:ir', 'geosite:ru'];
+// Keep defaults conservative. Some geosite bundles do not include all region
+// codes (for example geosite:ir/geosite:ru), which can make xray -test fail
+// and cause config rollbacks. Users can still override via env/profile.
+const DEFAULT_DOMESTIC_DOMAINS = ['geosite:cn'];
 const ALLOWED_MODES = new Set(['smart', 'filtered', 'strict', 'open']);
 
 function parseBoolean(value, fallback = false) {

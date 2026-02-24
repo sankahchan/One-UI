@@ -228,6 +228,18 @@ probe_tcp() {
   timeout 3 bash -c "</dev/tcp/${host}/${port}" >/dev/null 2>&1
 }
 
+is_loopback_host() {
+  local host="${1:-}"
+  case "$host" in
+    127.0.0.1|localhost|::1)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 probe_reality_dest_tls() {
   local dest="$1"
   local host port
@@ -365,6 +377,10 @@ main() {
     while IFS=$'\t' read -r tag protocol port listen network security dokodemo_network reality_dest; do
       transport="$(transport_for "$protocol" "$network" "$dokodemo_network")"
       if [[ "$transport" != "tcp" && "$transport" != "both" ]]; then
+        continue
+      fi
+      # Skip internal control-plane/API inbounds from external checks.
+      if [[ "$tag" == "api" ]] || is_loopback_host "$listen"; then
         continue
       fi
 
