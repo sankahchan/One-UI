@@ -91,7 +91,7 @@ export const useUserSessions = (
 
   const query = useQuery<UserSessionSnapshotResponse>({
     queryKey: ['user-sessions', userIds, options.includeOffline ?? true],
-    queryFn: () => getUserSessions(userIds, { includeOffline: options.includeOffline ?? true, limit: userIds.length }),
+    queryFn: () => getUserSessions(userIds, { includeOffline: options.includeOffline ?? true, limit: Math.max(1, userIds.length) }),
     enabled: userIds.length > 0,
     refetchInterval: live ? (streamStatus === 'connected' ? false : fallbackInterval) : fallbackInterval,
     staleTime: options.staleTime ?? 5_000
