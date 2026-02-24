@@ -1,6 +1,7 @@
 const logger = require('../config/logger');
 const ApiResponse = require('../utils/response');
 const mieruRuntimeService = require('../services/mieruRuntime.service');
+const mieruSyncService = require('../services/mieruSync.service');
 
 async function getPolicy(_req, res, next) {
   try {
@@ -46,9 +47,37 @@ async function getLogs(req, res, next) {
   }
 }
 
+async function sync(req, res, next) {
+  try {
+    const reason = req.body?.reason
+      ? String(req.body.reason).slice(0, 120)
+      : `api.mieru.sync.admin.${req.admin?.id || 'unknown'}`;
+
+    const result = await mieruSyncService.syncUsers({
+      reason,
+      force: true
+    });
+
+    logger.info('Mieru users sync requested', {
+      adminId: req.admin?.id,
+      username: req.admin?.username,
+      role: req.admin?.role,
+      changed: result.changed,
+      userCount: result.userCount,
+      restarted: result.restarted,
+      skipped: result.skipped
+    });
+
+    res.json(ApiResponse.success(result, result.changed ? 'Mieru users synced successfully' : 'Mieru users already in sync'));
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getPolicy,
   getStatus,
   restart,
-  getLogs
+  getLogs,
+  sync
 };

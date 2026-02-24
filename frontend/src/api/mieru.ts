@@ -46,10 +46,26 @@ export interface MieruRestartResult {
   status: MieruStatus;
 }
 
+export interface MieruSyncResult {
+  enabled: boolean;
+  autoSync: boolean;
+  skipped: boolean;
+  skippedReason: string | null;
+  changed: boolean;
+  restarted: boolean;
+  restartError: string | null;
+  configPath: string;
+  usersPath: string;
+  userCount: number;
+  hash: string | null;
+}
+
 export const mieruApi = {
   getPolicy: async (): Promise<ApiResponse<MieruPolicy>> => apiClient.get('/mieru/policy'),
   getStatus: async (): Promise<ApiResponse<MieruStatus>> => apiClient.get('/mieru/status'),
   restart: async (): Promise<ApiResponse<MieruRestartResult>> => apiClient.post('/mieru/restart'),
+  syncUsers: async (reason?: string): Promise<ApiResponse<MieruSyncResult>> =>
+    apiClient.post('/mieru/sync', reason ? { reason } : {}),
   getLogs: async (params: { lines?: number } = {}): Promise<ApiResponse<MieruLogs>> =>
     apiClient.get('/mieru/logs', { params })
 };
@@ -80,6 +96,14 @@ export const restartMieru = async (): Promise<MieruRestartResult> => {
   const response = await mieruApi.restart();
   if (!response.data) {
     throw new Error(response.message || 'Unable to restart Mieru sidecar');
+  }
+  return response.data;
+};
+
+export const syncMieruUsers = async (reason?: string): Promise<MieruSyncResult> => {
+  const response = await mieruApi.syncUsers(reason);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to sync Mieru users');
   }
   return response.data;
 };

@@ -5,9 +5,11 @@ import {
   getMieruPolicy,
   getMieruStatus,
   restartMieru,
+  syncMieruUsers,
   type MieruLogs,
   type MieruPolicy,
   type MieruRestartResult,
+  type MieruSyncResult,
   type MieruStatus
 } from '../api/mieru';
 
@@ -43,6 +45,19 @@ export const useRestartMieru = () => {
 
   return useMutation<MieruRestartResult>({
     mutationFn: restartMieru,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
+    }
+  });
+};
+
+export const useSyncMieruUsers = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<MieruSyncResult, Error, string | undefined>({
+    mutationFn: (reason) => syncMieruUsers(reason),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });

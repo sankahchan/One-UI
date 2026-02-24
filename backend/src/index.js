@@ -40,6 +40,7 @@ const webhookService = require('./services/webhook.service');
 const xrayUpdateService = require('./services/xrayUpdate.service');
 const xrayConfigGenerator = require('./xray/config-generator');
 const xrayManager = require('./xray/manager');
+const { scheduleMieruSync } = require('./utils/mieruSyncQueue');
 
 const marzbanService = require('./services/marzban.service');
 const marzbanUserRoutes = require('./routes/marzbanUser.routes');
@@ -242,6 +243,8 @@ async function startServer() {
       logger.error('Failed to initialize Xray configuration:', error);
       // We don't exit here, as the panel might be needed to fix the config
     }
+
+    scheduleMieruSync('startup.bootstrap');
 
     const server = http.createServer(app);
     socketLayer.init(server);

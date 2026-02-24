@@ -33,6 +33,21 @@ function getXrayManager() {
   return require('../xray/manager');
 }
 
+function scheduleMieruSync(reason) {
+  try {
+    const { scheduleMieruSync: enqueueMieruSync } = require('./mieruSyncQueue');
+    enqueueMieruSync(reason);
+  } catch (error) {
+    const logger = getLogger();
+    logger.debug?.({
+      action: 'mieru_auto_sync_enqueue',
+      skipped: true,
+      reason,
+      error: error.message
+    });
+  }
+}
+
 async function _doReload(reasons) {
   const logger = getLogger();
   try {
@@ -91,6 +106,7 @@ function scheduleXrayReload(reason) {
     _timer = null;
     const reasons = _pendingReasons.splice(0);
     _doReload(reasons);
+    scheduleMieruSync(reasons.join(',') || 'xray.reload.queue');
   }, RELOAD_DELAY_MS);
 
   // Don't let this timer keep the Node.js event loop alive (important

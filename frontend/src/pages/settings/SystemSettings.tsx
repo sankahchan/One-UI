@@ -33,7 +33,7 @@ import {
   useXrayUpdatePreflight,
   useXrayUpdatePolicy
 } from '../../hooks/useXray';
-import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru } from '../../hooks/useMieru';
+import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru, useSyncMieruUsers } from '../../hooks/useMieru';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
@@ -105,6 +105,7 @@ const SystemSettings: React.FC = () => {
   const mieruStatusQuery = useMieruStatus();
   const mieruLogsQuery = useMieruLogs(120, showMieruLogs);
   const restartMieruMutation = useRestartMieru();
+  const syncMieruUsersMutation = useSyncMieruUsers();
   const xrayConfigQuery = useXrayConfig(showConfigPreview);
   const restartXrayMutation = useRestartXray();
   const reloadXrayConfigMutation = useReloadXrayConfig();
@@ -309,6 +310,49 @@ const SystemSettings: React.FC = () => {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('systemSettings.toast.mieruRestartFailed', { defaultValue: 'Failed to restart Mieru sidecar.' })
+      );
+    }
+  };
+
+  const handleSyncMieruUsers = async () => {
+    try {
+      const result = await syncMieruUsersMutation.mutateAsync('manual.sync.button');
+      if (result.skipped) {
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          result.skippedReason || t('systemSettings.toast.mieruSyncSkipped', { defaultValue: 'Mieru sync is currently skipped.' })
+        );
+        return;
+      }
+
+      if (result.changed) {
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('systemSettings.toast.mieruSyncChanged', {
+            defaultValue: 'Mieru users synced successfully ({{count}} users).',
+            count: result.userCount
+          })
+        );
+      } else {
+        toast.success(
+          t('common.success', { defaultValue: 'Success' }),
+          t('systemSettings.toast.mieruSyncNoChange', {
+            defaultValue: 'Mieru users are already in sync ({{count}} users).',
+            count: result.userCount
+          })
+        );
+      }
+
+      if (result.restartError) {
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          result.restartError
+        );
+      }
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.mieruSyncFailed', { defaultValue: 'Failed to sync Mieru users.' })
       );
     }
   };
@@ -890,7 +934,7 @@ const SystemSettings: React.FC = () => {
           <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">{mieruStatus.detail}</p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
           <Button
             variant="secondary"
             onClick={refreshMieruStatus}
@@ -898,6 +942,17 @@ const SystemSettings: React.FC = () => {
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh Status
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void handleSyncMieruUsers();
+            }}
+            loading={syncMieruUsersMutation.isPending}
+            disabled={!mieruPolicy?.enabled}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Sync Users
           </Button>
           <Button
             variant="secondary"
