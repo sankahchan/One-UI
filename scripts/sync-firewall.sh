@@ -37,7 +37,7 @@ CURRENT_UDP_RULES=$(iptables -S INPUT | grep "$COMMENT_TAG" | grep " -p udp " ||
 # 3. Clean up stale TCP ports
 if [ -n "$CURRENT_TCP_RULES" ]; then
     echo "$CURRENT_TCP_RULES" | while read -r rule; do
-        port=$(echo "$rule" | grep -oP '(?<=-m tcp --dport )\d+')
+        port=$(echo "$rule" | sed -n 's/.*--dport \([0-9][0-9]*\).*/\1/p')
         # If port is missing from extraction but rule exists, skip to avoid blank eval
         if [ -z "$port" ]; then continue; fi
 
@@ -60,7 +60,7 @@ fi
 # 4. Clean up stale UDP ports
 if [ -n "$CURRENT_UDP_RULES" ]; then
     echo "$CURRENT_UDP_RULES" | while read -r rule; do
-        port=$(echo "$rule" | grep -oP '(?<=-m udp --dport )\d+')
+        port=$(echo "$rule" | sed -n 's/.*--dport \([0-9][0-9]*\).*/\1/p')
         if [ -z "$port" ]; then continue; fi
 
         found=0
