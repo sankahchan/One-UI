@@ -189,6 +189,28 @@ Set your bot token and admin chat IDs. Once enabled you get:
 | SSL not working | Run `one-ui ssl` to re-issue or check `one-ui health` |
 | Xray not connecting | Run `one-ui health` and check xray logs with `one-ui logs xray` |
 
+### Connectivity Audit (One Command)
+
+If clients show timeout / connected-but-no-traffic, run:
+
+```bash
+cd /opt/one-ui
+sudo ./scripts/check-connectivity.sh
+```
+
+Optional (force a specific public IP):
+
+```bash
+sudo ./scripts/check-connectivity.sh <YOUR_PUBLIC_IP>
+```
+
+This checks:
+- Xray config readability and quick syntax test
+- All inbound listeners (TCP/UDP) from `xray/config.json`
+- External TCP reachability to your public IP per inbound port
+- REALITY destination reachability (`dest host:port`) when configured
+- Firewall summary and exact fix commands for blocked ports
+
 ---
 
 ## Contributing
