@@ -119,7 +119,7 @@ one-ui xray-rollback      # Rollback Xray core
 one-ui start              # Start all services
 one-ui stop               # Stop all services
 one-ui restart            # Restart all services
-one-ui update             # Update One-UI to latest
+one-ui update             # Update One-UI to latest (includes post-update verification)
 one-ui uninstall          # Uninstall One-UI
 ```
 
@@ -210,6 +210,17 @@ This checks:
 - External TCP reachability to your public IP per inbound port
 - REALITY destination reachability (`dest host:port`) when configured
 - Firewall summary and exact fix commands for blocked ports
+
+### Post-Update Verifier
+
+Run the same verifier manually anytime:
+
+```bash
+cd /opt/one-ui
+sudo ./scripts/post-update-verify.sh
+```
+
+`one-ui update` already runs this script automatically after rebuild/restart.
 
 ---
 

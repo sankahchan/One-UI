@@ -24,6 +24,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/docker-compose.yml}"
 CONTAINER_NAME="${CONTAINER_NAME:-xray-core}"
 UPDATE_SCRIPT="$ROOT_DIR/scripts/update-xray-core.sh"
+POST_UPDATE_VERIFY_SCRIPT="$ROOT_DIR/scripts/post-update-verify.sh"
 SMOKE_CORE_SCRIPT="$ROOT_DIR/scripts/smoke-core-api.sh"
 SMOKE_MYANMAR_SCRIPT="$ROOT_DIR/scripts/smoke-myanmar-hardening.sh"
 INSTALL_DIR="${ONEUI_INSTALL_DIR:-${ROOT_DIR}}"
@@ -364,7 +365,19 @@ update_oneui() {
   compose up -d --build
 
   sleep 3
-  echo -e "${GREEN}[✓]${NC} One-UI updated successfully!"
+  echo -e "${BLUE}[*]${NC} Running post-update verification..."
+  if [ -x "$POST_UPDATE_VERIFY_SCRIPT" ]; then
+    if ! "$POST_UPDATE_VERIFY_SCRIPT"; then
+      echo -e "${RED}[✗]${NC} One-UI updated, but verification found issues."
+      echo -e "${YELLOW}[!]${NC} Run: ${POST_UPDATE_VERIFY_SCRIPT}"
+      show_status
+      return 1
+    fi
+  else
+    echo -e "${YELLOW}[!]${NC} Post-update verifier script missing or not executable. Skipping."
+  fi
+
+  echo -e "${GREEN}[✓]${NC} One-UI updated and verified successfully!"
   show_status
 }
 
