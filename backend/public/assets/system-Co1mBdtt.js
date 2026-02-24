@@ -1,1 +1,0 @@
-import{b as t}from"./index-DrL1zW_A.js";async function r(){const e=await t.get("/system/health");if(!e.data)throw new Error(e.message||"Health check failed");return e.data}async function s(){try{return(await t.get("/system/public-ip")).data||{ip:""}}catch(e){return console.error("Failed to get public IP",e),{ip:""}}}export{s as a,r as g};

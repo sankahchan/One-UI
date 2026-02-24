@@ -536,7 +536,7 @@ export const Inbounds: React.FC = () => {
     queryFn: async () => {
       const response = await groupsApi.list({
         page: 1,
-        limit: 200,
+        limit: 100,
         includeDisabled: true
       });
       return (response.data || []) as Group[];
