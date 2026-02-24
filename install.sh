@@ -782,6 +782,18 @@ TRAFFIC_SYNC_INTERVAL=60
 XRAY_UPDATE_SCRIPT=/opt/one-ui/scripts/update-xray-core.sh
 COMPOSE_FILE=/opt/one-ui/docker-compose.yml
 
+# Mieru sidecar (Option 2: external GPL runtime)
+MIERU_ENABLED=false
+MIERU_RUNTIME_MODE=docker
+MIERU_CONTAINER_NAME=mieru-sidecar
+MIERU_SERVICE_NAME=mieru
+MIERU_COMPOSE_FILE=/opt/one-ui/docker-compose.yml
+MIERU_HEALTH_URL=
+MIERU_COMMAND_TIMEOUT_MS=7000
+MIERU_VERSION_COMMAND=mita version || mieru version
+MIERU_RESTART_COMMAND=
+MIERU_LOG_PATH=
+
 # SSL / ACME
 SSL_ENABLED=${ssl_enabled}
 SSL_DOMAIN=${DOMAIN}

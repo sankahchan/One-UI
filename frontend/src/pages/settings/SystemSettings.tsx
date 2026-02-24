@@ -33,6 +33,7 @@ import {
   useXrayUpdatePreflight,
   useXrayUpdatePolicy
 } from '../../hooks/useXray';
+import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru } from '../../hooks/useMieru';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
@@ -84,6 +85,7 @@ const SystemSettings: React.FC = () => {
   const [selectedRollbackTag, setSelectedRollbackTag] = useState('');
   const [selectedSnapshotId, setSelectedSnapshotId] = useState('');
   const [guidedRolloutRunning, setGuidedRolloutRunning] = useState(false);
+  const [showMieruLogs, setShowMieruLogs] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description?: string;
@@ -99,6 +101,10 @@ const SystemSettings: React.FC = () => {
   });
 
   const xrayStatusQuery = useXrayStatus();
+  const mieruPolicyQuery = useMieruPolicy();
+  const mieruStatusQuery = useMieruStatus();
+  const mieruLogsQuery = useMieruLogs(120, showMieruLogs);
+  const restartMieruMutation = useRestartMieru();
   const xrayConfigQuery = useXrayConfig(showConfigPreview);
   const restartXrayMutation = useRestartXray();
   const reloadXrayConfigMutation = useReloadXrayConfig();
@@ -129,6 +135,9 @@ const SystemSettings: React.FC = () => {
 
   const stats = systemStats?.data;
   const xrayStatus = xrayStatusQuery.data;
+  const mieruPolicy = mieruPolicyQuery.data;
+  const mieruStatus = mieruStatusQuery.data;
+  const mieruLogs = mieruLogsQuery.data;
   const xrayConfig = xrayConfigQuery.data;
   const xrayUpdateHistory = xrayUpdateHistoryQuery.data;
   const xrayReleaseIntel = xrayReleaseIntelQuery.data;
@@ -252,6 +261,13 @@ const SystemSettings: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['xray-status'] });
   };
 
+  const refreshMieruStatus = () => {
+    void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    if (showMieruLogs) {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
+    }
+  };
+
   const handleReloadConfig = async () => {
     try {
       const result = await reloadXrayConfigMutation.mutateAsync();
@@ -278,6 +294,21 @@ const SystemSettings: React.FC = () => {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('systemSettings.toast.restartFailed', { defaultValue: 'Failed to restart Xray' })
+      );
+    }
+  };
+
+  const handleRestartMieru = async () => {
+    try {
+      const result = await restartMieruMutation.mutateAsync();
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || t('systemSettings.toast.mieruRestartSuccess', { defaultValue: 'Mieru sidecar restarted successfully.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.mieruRestartFailed', { defaultValue: 'Failed to restart Mieru sidecar.' })
       );
     }
   };
@@ -807,6 +838,97 @@ const SystemSettings: React.FC = () => {
         <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
           `Reload Config` validates and reapplies generated config without hard restart. Use `Restart Xray` for binary/runtime issues.
         </p>
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mieru Sidecar (Option 2)</h3>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              External runtime integration for GPL-safe deployment. Managed as an isolated sidecar.
+            </p>
+          </div>
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+              !mieruPolicy?.enabled
+                ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                : mieruStatus?.running
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/35 dark:text-green-300'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/35 dark:text-amber-300'
+            }`}
+          >
+            {!mieruPolicy?.enabled ? 'Disabled' : mieruStatus?.running ? 'Running' : 'Stopped'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Mode</p>
+            <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{mieruPolicy?.mode || 'docker'}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">State</p>
+            <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{mieruStatus?.state || 'unknown'}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Version</p>
+            <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{mieruStatus?.version || 'unknown'}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Health</p>
+            <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">
+              {!mieruStatus?.health?.configured
+                ? 'Not configured'
+                : mieruStatus.health.ok
+                ? `OK${typeof mieruStatus.health.latencyMs === 'number' ? ` (${mieruStatus.health.latencyMs}ms)` : ''}`
+                : 'Unreachable'}
+            </p>
+          </div>
+        </div>
+
+        {mieruStatus?.detail ? (
+          <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">{mieruStatus.detail}</p>
+        ) : null}
+
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Button
+            variant="secondary"
+            onClick={refreshMieruStatus}
+            loading={mieruStatusQuery.isFetching}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh Status
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowMieruLogs((previous) => !previous)}
+            disabled={!mieruPolicy?.enabled}
+          >
+            {showMieruLogs ? 'Hide Logs' : 'Show Logs'}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              void handleRestartMieru();
+            }}
+            loading={restartMieruMutation.isPending}
+            disabled={!mieruPolicy?.enabled}
+          >
+            Restart Mieru
+          </Button>
+        </div>
+
+        {showMieruLogs ? (
+          <div className="mt-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            {mieruLogsQuery.isLoading ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">Loading Mieru logs...</p>
+            ) : (
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded bg-gray-900/95 p-3 text-xs text-gray-100">
+                {mieruLogs?.raw || mieruLogs?.detail || 'No log output available.'}
+              </pre>
+            )}
+          </div>
+        ) : null}
       </Card>
 
       <div id="xray-updates" ref={xrayUpdatesRef}>

@@ -20,6 +20,7 @@ const groupRoutes = require('./routes/group.routes');
 const inboundRoutes = require('./routes/inbound.routes');
 const systemRoutes = require('./routes/system.routes');
 const xrayRoutes = require('./routes/xray.routes');
+const mieruRoutes = require('./routes/mieru.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 const sslRoutes = require('./routes/ssl.routes');
 const portalRoutes = require('./routes/portal.routes');
@@ -129,6 +130,7 @@ if (env.MARZBAN_BASE_URL) {
 app.use(`${apiPrefix}/groups`, groupRoutes);
 app.use(`${apiPrefix}/inbounds`, inboundRoutes);
 app.use(`${apiPrefix}/xray`, xrayRoutes);
+app.use(`${apiPrefix}/mieru`, mieruRoutes);
 app.use(`${apiPrefix}/subscription`, subscriptionRoutes);
 app.use(`${apiPrefix}/ssl`, sslRoutes);
 app.use(`${apiPrefix}/portal`, portalRoutes);
@@ -155,6 +157,7 @@ if (panelPath) {
   app.use('/api/groups', groupRoutes);
   app.use('/api/inbounds', inboundRoutes);
   app.use('/api/xray', xrayRoutes);
+  app.use('/api/mieru', mieruRoutes);
   app.use('/api/subscription', subscriptionRoutes);
   app.use('/api/ssl', sslRoutes);
   app.use('/api/portal', portalRoutes);
