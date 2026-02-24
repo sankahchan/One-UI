@@ -150,7 +150,13 @@ apiClient.interceptors.response.use(
     }
 
     const body: any = error.response.data;
-    const message = body?.error?.message || body?.message || (typeof body === 'string' ? body : 'An error occurred');
+    let message = body?.error?.message || body?.message || (typeof body === 'string' ? body : 'An error occurred');
+    // Append validation details so the user can see which field failed
+    const details = body?.error?.details;
+    if (Array.isArray(details) && details.length > 0) {
+      const summary = details.map((d: any) => d.msg || d.message || String(d)).join(', ');
+      message = `${message}: ${summary}`;
+    }
     return Promise.reject(new Error(message));
   }
 );

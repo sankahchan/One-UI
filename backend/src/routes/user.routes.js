@@ -71,13 +71,13 @@ router.get(
   [
     ...paginationValidators,
     query('status')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isIn(['ACTIVE', 'EXPIRED', 'DISABLED', 'LIMITED'])
       .withMessage('status must be one of ACTIVE, EXPIRED, DISABLED, LIMITED'),
     query('search')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isLength({ max: 200 })

@@ -1,0 +1,1 @@
+import{j as n}from"./index-DrL1zW_A.js";import{c as a}from"./cn-BLSKlp9E.js";function i({className:r}){return n.jsx("span",{className:a("inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-500 border-t-accent-500",r),"aria-label":"Loading"})}export{i as S};
