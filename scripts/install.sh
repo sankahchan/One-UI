@@ -960,7 +960,7 @@ Commands:
   down               Stop containers
   restart            Restart containers
   logs [service]     Tail logs (optionally for a service)
-  update             git pull + rebuild + restart
+  update             Full updater (git pull + frontend rebuild + restart + verify)
   self-heal          Repair runtime env drift and restart backend
 
 Examples:
@@ -1018,6 +1018,9 @@ case "\${cmd}" in
     exec "\${COMPOSE[@]}" logs -f "\$@"
     ;;
   update)
+    if [[ -x ./scripts/menu.sh ]]; then
+      exec ./scripts/menu.sh update "\$@"
+    fi
     git pull || true
     exec "\${COMPOSE[@]}" up -d --build
     ;;

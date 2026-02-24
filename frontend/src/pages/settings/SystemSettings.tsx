@@ -884,7 +884,8 @@ const SystemSettings: React.FC = () => {
         </p>
       </Card>
 
-      <Card>
+      <div id="mieru-sidecar">
+        <Card>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mieru Sidecar (Option 2)</h3>
@@ -984,7 +985,8 @@ const SystemSettings: React.FC = () => {
             )}
           </div>
         ) : null}
-      </Card>
+        </Card>
+      </div>
 
       <div id="xray-updates" ref={xrayUpdatesRef}>
         <Card>
