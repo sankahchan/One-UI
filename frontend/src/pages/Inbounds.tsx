@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Copy, Download, Edit, Eye, FileCode2, MoreVertical, Plus, Power, PowerOff, Shuffle, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Download, Edit, Eye, FileCode2, MoreVertical, Plus, Power, PowerOff, RefreshCw, Shuffle, Sparkles, Trash2, Upload } from 'lucide-react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ import { InboundFormModal } from '../components/organisms/InboundFormModal';
 import { ProtocolCompatibilityPanel } from '../components/organisms/ProtocolCompatibilityPanel';
 import apiClient from '../api/client';
 import { groupsApi } from '../api/groups';
+import { getPublicIp } from '../api/system';
 import { inboundTemplates, type InboundTemplate } from '../data/inboundTemplates';
 import { usePersistedFilters, useSavedViews } from '../hooks/usePersistedFilters';
 import { useSmartAutoRefresh } from '../hooks/useSmartAutoRefresh';
@@ -78,6 +79,16 @@ type MyanmarPackResponseData = {
     requestedUserIds?: number[];
     requestedGroupIds?: number[];
   };
+};
+
+type InboundHealthSummaryItem = {
+  inboundId: number;
+  status: 'open' | 'closed' | 'unknown' | 'disabled';
+  reachable: boolean;
+  durationMs: number;
+  error?: string | null;
+  target?: string;
+  lastCheckedAt?: string;
 };
 
 type InboundsConfirmState =
@@ -413,6 +424,7 @@ export const Inbounds: React.FC = () => {
   const [selectedInboundIds, setSelectedInboundIds] = useState<number[]>([]);
   const [confirmState, setConfirmState] = useState<InboundsConfirmState>(null);
   const [showMyanmarPackModal, setShowMyanmarPackModal] = useState(false);
+  const [isResolvingMyanmarServerAddress, setIsResolvingMyanmarServerAddress] = useState(false);
   const [myanmarPackForm, setMyanmarPackForm] = useState({
     serverAddress: '',
     serverName: '',
@@ -545,6 +557,35 @@ export const Inbounds: React.FC = () => {
   });
 
   const inbounds = useMemo(() => data || [], [data]);
+  const inboundsHealthSummary = useQuery({
+    queryKey: ['inbounds-health-summary', inbounds.map((inbound) => inbound.id).join(',')],
+    queryFn: async () => {
+      const ids = inbounds.map((inbound) => inbound.id).join(',');
+      if (!ids) {
+        return { items: [] as InboundHealthSummaryItem[] };
+      }
+      const response = await apiClient.get('/inbounds/health-summary', {
+        params: { ids, timeoutMs: 1800 }
+      }) as { items?: InboundHealthSummaryItem[]; data?: { items?: InboundHealthSummaryItem[] } };
+      const items = response?.data?.items ?? response?.items;
+      return {
+        items: Array.isArray(items) ? items : []
+      };
+    },
+    enabled: activeTab === 'inbounds' && inbounds.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 15_000
+  });
+  const inboundHealthById = useMemo(() => {
+    const healthMap = new Map<number, InboundHealthSummaryItem>();
+    for (const item of inboundsHealthSummary.data?.items || []) {
+      const inboundId = Number(item?.inboundId);
+      if (Number.isInteger(inboundId) && inboundId > 0) {
+        healthMap.set(inboundId, item);
+      }
+    }
+    return healthMap;
+  }, [inboundsHealthSummary.data]);
   const inboundUserIds = useMemo(
     () => inboundUsers.map((user) => Number(user.id)).filter((id) => Number.isInteger(id) && id > 0),
     [inboundUsers]
@@ -1194,6 +1235,27 @@ export const Inbounds: React.FC = () => {
     setShowAddModal(true);
   };
 
+  const resolveMyanmarPackServerAddress = async () => {
+    setIsResolvingMyanmarServerAddress(true);
+    try {
+      const payload = await getPublicIp();
+      const fallbackHost = typeof window !== 'undefined' ? String(window.location.hostname || '').trim() : '';
+      const resolvedAddress = String(payload?.ip || fallbackHost || '').trim();
+
+      if (!resolvedAddress) {
+        return;
+      }
+
+      setMyanmarPackForm((previous) => ({
+        ...previous,
+        serverAddress: previous.serverAddress.trim() || resolvedAddress,
+        serverName: previous.serverName.trim() || resolvedAddress
+      }));
+    } finally {
+      setIsResolvingMyanmarServerAddress(false);
+    }
+  };
+
   const openMyanmarPackModal = () => {
     setMyanmarPackForm((previous) => ({
       ...previous,
@@ -1204,6 +1266,9 @@ export const Inbounds: React.FC = () => {
     }));
     setMyanmarPackPreview(null);
     setShowMyanmarPackModal(true);
+    if (!(myanmarPackForm.serverAddress || '').trim()) {
+      void resolveMyanmarPackServerAddress();
+    }
   };
 
   const toggleMyanmarPackUser = (userId: number, checked: boolean) => {
@@ -1460,6 +1525,56 @@ export const Inbounds: React.FC = () => {
     }
     const diff = expire.getTime() - nowTimestamp;
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const getInboundHealthMeta = (status: InboundHealthSummaryItem['status'] | undefined) => {
+    switch (status) {
+      case 'open':
+        return {
+          label: t('inbounds.health.open', { defaultValue: 'Open' }),
+          className: 'border-green-400/50 bg-green-500/10 text-green-300'
+        };
+      case 'closed':
+        return {
+          label: t('inbounds.health.closed', { defaultValue: 'Closed' }),
+          className: 'border-red-400/50 bg-red-500/10 text-red-300'
+        };
+      case 'disabled':
+        return {
+          label: t('inbounds.health.disabled', { defaultValue: 'Disabled' }),
+          className: 'border-amber-400/50 bg-amber-500/10 text-amber-300'
+        };
+      default:
+        return {
+          label: t('inbounds.health.unknown', { defaultValue: 'Unknown' }),
+          className: 'border-zinc-400/50 bg-zinc-500/10 text-zinc-300'
+        };
+    }
+  };
+
+  const formatHealthCheckedAgo = (checkedAt?: string) => {
+    if (!checkedAt) {
+      return t('inbounds.health.neverChecked', { defaultValue: 'never checked' });
+    }
+
+    const checkedTime = new Date(checkedAt).getTime();
+    if (Number.isNaN(checkedTime)) {
+      return t('inbounds.health.neverChecked', { defaultValue: 'never checked' });
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - checkedTime) / 1000));
+    if (elapsedSeconds < 60) {
+      return t('inbounds.health.checkedSeconds', {
+        defaultValue: '{{count}}s ago',
+        count: elapsedSeconds
+      });
+    }
+
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    return t('inbounds.health.checkedMinutes', {
+      defaultValue: '{{count}}m ago',
+      count: elapsedMinutes
+    });
   };
 
   const confirmTitle = confirmState?.type === 'bulk-delete'
@@ -1912,7 +2027,7 @@ export const Inbounds: React.FC = () => {
 
           <Card className={tableVisibilityClass}>
             <div className="overflow-x-auto">
-              <table className="min-w-[1080px] w-full text-sm">
+              <table className="min-w-[1160px] w-full text-sm">
                 <thead className="bg-panel/70">
                   <tr className="border-b border-line/70 text-left text-xs uppercase tracking-wide text-muted">
                     <th className="px-3 py-3">{t('common.select', { defaultValue: 'Select' })}</th>
@@ -1920,6 +2035,7 @@ export const Inbounds: React.FC = () => {
                     <th className="px-3 py-3">{t('common.enabled', { defaultValue: 'Enabled' })}</th>
                     <th className="px-3 py-3">{t('inbounds.remark', { defaultValue: 'Remark' })}</th>
                     <th className="px-3 py-3">{t('inbounds.port', { defaultValue: 'Port' })}</th>
+                    <th className="px-3 py-3">{t('inbounds.health.label', { defaultValue: 'Health' })}</th>
                     <th className="px-3 py-3">{t('inbounds.protocol', { defaultValue: 'Protocol' })}</th>
                     <th className="px-3 py-3">{t('inbounds.clients', { defaultValue: 'Clients' })}</th>
                     <th className="px-3 py-3">{t('inbounds.traffic', { defaultValue: 'Traffic' })}</th>
@@ -1934,6 +2050,9 @@ export const Inbounds: React.FC = () => {
                     const totalLimit = clients.reduce((total, client) => total + client.dataLimit, 0);
                     const trafficPercent = totalLimit > 0 ? Math.min((usedTraffic / totalLimit) * 100, 100) : 0;
                     const isExpanded = expandedInboundIds.includes(inbound.id);
+                    const inboundHealth = inboundHealthById.get(inbound.id);
+                    const inboundHealthMeta = getInboundHealthMeta(inboundHealth?.status);
+                    const inboundHealthChecked = formatHealthCheckedAgo(inboundHealth?.lastCheckedAt);
 
                     return (
                       <React.Fragment key={inbound.id}>
@@ -1995,6 +2114,16 @@ export const Inbounds: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-3 py-3">
+                            <div className="space-y-1">
+                              <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${inboundHealthMeta.className}`}>
+                                {inboundHealthMeta.label}
+                              </span>
+                              <p className="text-xs text-muted">
+                                {t('inbounds.health.checkedLabel', { defaultValue: 'Checked' })} {inboundHealthChecked}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${protocolColor[inbound.protocol]}`}>
                                 {inbound.protocol}
@@ -2041,7 +2170,7 @@ export const Inbounds: React.FC = () => {
 
                         {isExpanded ? (
                           <tr className="border-b border-line/70 bg-panel/30">
-                            <td colSpan={9} className="px-4 py-4">
+                            <td colSpan={10} className="px-4 py-4">
                               {clients.length === 0 ? (
                                 <p className="text-sm text-muted">
                                   {t('inbounds.noClients', { defaultValue: 'No clients assigned to this inbound yet.' })}
@@ -2147,6 +2276,9 @@ export const Inbounds: React.FC = () => {
             {inbounds.map((inbound) => {
               const clients = clientsByInbound.get(inbound.id) || [];
               const onlineClients = clients.filter((client) => onlineUuidSet.has(client.uuid)).length;
+              const inboundHealth = inboundHealthById.get(inbound.id);
+              const inboundHealthMeta = getInboundHealthMeta(inboundHealth?.status);
+              const inboundHealthChecked = formatHealthCheckedAgo(inboundHealth?.lastCheckedAt);
               return (
                 <Card key={`mobile-${inbound.id}`} className="transition-shadow hover:shadow-lg">
                   <div className="space-y-3">
@@ -2171,6 +2303,16 @@ export const Inbounds: React.FC = () => {
                       <span className="text-muted">{t('inbounds.clients', { defaultValue: 'Clients' })}</span>
                       <span className="text-foreground">{onlineClients} online / {clients.length} total</span>
                     </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted">{t('inbounds.health.label', { defaultValue: 'Health' })}</span>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${inboundHealthMeta.className}`}>
+                        {inboundHealthMeta.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">
+                      {t('inbounds.health.checkedLabel', { defaultValue: 'Checked' })} {inboundHealthChecked}
+                    </p>
 
                     <div className="flex flex-wrap gap-2 border-t border-line/70 pt-3">
                       <Button variant="ghost" size="sm" onClick={() => toggleInbound.mutate(inbound.id)}>
@@ -2214,14 +2356,29 @@ export const Inbounds: React.FC = () => {
                 <label className="mb-1 block text-sm font-medium text-foreground">
                   {t('inbounds.myanmarPack.serverAddress', { defaultValue: 'Server Address' })}
                 </label>
-                <input
-                  value={myanmarPackForm.serverAddress}
-                  onChange={(event) =>
-                    setMyanmarPackForm((previous) => ({ ...previous, serverAddress: event.target.value }))
-                  }
-                  placeholder="your.domain.com"
-                  className="w-full rounded-lg border border-line/70 bg-panel/60 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none"
-                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    value={myanmarPackForm.serverAddress}
+                    onChange={(event) =>
+                      setMyanmarPackForm((previous) => ({ ...previous, serverAddress: event.target.value }))
+                    }
+                    placeholder="your.domain.com"
+                    className="w-full rounded-lg border border-line/70 bg-panel/60 px-3 py-2 text-sm text-foreground focus:border-brand-500/60 focus:outline-none"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      void resolveMyanmarPackServerAddress();
+                    }}
+                    loading={isResolvingMyanmarServerAddress}
+                    className="shrink-0"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {t('inbounds.myanmarPack.useServerIp', { defaultValue: 'Use server IP' })}
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

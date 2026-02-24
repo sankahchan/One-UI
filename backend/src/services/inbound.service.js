@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const crypto = require('node:crypto');
+const net = require('node:net');
 const JSZip = require('jszip');
 const yaml = require('js-yaml');
 const { NotFoundError, ConflictError, ValidationError } = require('../utils/errors');
@@ -111,6 +112,65 @@ function normalizeJsonArray(value) {
   }
 
   return [];
+}
+
+function normalizeEndpointHost(hostname = '') {
+  const trimmed = String(hostname || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return trimmed
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .replace(/^\[|\]$/g, '')
+    .trim();
+}
+
+function probeTcpEndpoint(host, port, timeoutMs = 1800) {
+  return new Promise((resolve) => {
+    const targetHost = normalizeEndpointHost(host);
+    const targetPort = Number.parseInt(String(port || ''), 10);
+
+    if (!targetHost) {
+      resolve({
+        reachable: false,
+        durationMs: 0,
+        error: 'invalid-host'
+      });
+      return;
+    }
+
+    if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+      resolve({
+        reachable: false,
+        durationMs: 0,
+        error: 'invalid-port'
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const socket = net.createConnection({
+      host: targetHost,
+      port: targetPort
+    });
+
+    const finish = (reachable, error) => {
+      const durationMs = Date.now() - startedAt;
+      socket.destroy();
+      resolve({
+        reachable,
+        durationMs,
+        error
+      });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true, null));
+    socket.once('timeout', () => finish(false, 'timeout'));
+    socket.once('error', (error) => finish(false, error?.code || error?.message || 'error'));
+  });
 }
 
 function normalizeInboundPayload(input = {}) {
@@ -1951,6 +2011,83 @@ class InboundService {
         total,
         totalPages: Math.ceil(total / safeLimit)
       }
+    };
+  }
+
+  async getInboundsHealthSummary({ ids = [], timeoutMs = 1800 } = {}) {
+    const safeTimeout = Number.isInteger(Number(timeoutMs))
+      ? Math.max(500, Math.min(5000, Number(timeoutMs)))
+      : 1800;
+
+    const parsedIds = (Array.isArray(ids) ? ids : [])
+      .map((entry) => Number.parseInt(String(entry), 10))
+      .filter((entry) => Number.isInteger(entry) && entry > 0);
+
+    const where = parsedIds.length > 0
+      ? { id: { in: parsedIds } }
+      : undefined;
+
+    const inbounds = await prisma.inbound.findMany({
+      where,
+      select: {
+        id: true,
+        enabled: true,
+        protocol: true,
+        port: true,
+        serverAddress: true
+      },
+      orderBy: { port: 'asc' }
+    });
+
+    const checkedAt = new Date().toISOString();
+
+    const items = await Promise.all(
+      inbounds.map(async (inbound) => {
+        const host = normalizeEndpointHost(inbound.serverAddress);
+        const port = Number.parseInt(String(inbound.port || ''), 10);
+        const target = host && Number.isInteger(port) ? `${host}:${port}` : '';
+
+        if (!inbound.enabled) {
+          return {
+            inboundId: inbound.id,
+            status: 'disabled',
+            reachable: false,
+            durationMs: 0,
+            error: 'inbound-disabled',
+            target,
+            lastCheckedAt: checkedAt
+          };
+        }
+
+        if (inbound.protocol === 'WIREGUARD') {
+          return {
+            inboundId: inbound.id,
+            status: 'unknown',
+            reachable: false,
+            durationMs: 0,
+            error: 'udp-protocol',
+            target,
+            lastCheckedAt: checkedAt
+          };
+        }
+
+        const probe = await probeTcpEndpoint(host, port, safeTimeout);
+
+        return {
+          inboundId: inbound.id,
+          status: probe.reachable ? 'open' : 'closed',
+          reachable: probe.reachable,
+          durationMs: probe.durationMs,
+          error: probe.error || null,
+          target,
+          lastCheckedAt: checkedAt
+        };
+      })
+    );
+
+    return {
+      checkedAt,
+      items
     };
   }
 

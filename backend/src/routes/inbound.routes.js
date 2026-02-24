@@ -13,6 +13,7 @@ router.get('/', paginationValidators, validator, inboundController.listInbounds)
 router.get('/wireguard/keys', inboundController.generateWireguardKeys);
 router.get('/reality/keys', inboundController.generateRealityKeys);
 router.get('/random-port', inboundController.getRandomPort);
+router.get('/health-summary', inboundController.getInboundsHealthSummary);
 router.get('/:id/client-templates', idParamValidator, validator, inboundController.getInboundClientTemplates);
 router.get('/:id/client-templates/pack', idParamValidator, validator, inboundController.downloadInboundClientTemplatePack);
 router.get('/:id/client-templates/pack/all-users', idParamValidator, validator, inboundController.downloadInboundAllUsersClientTemplatePack);

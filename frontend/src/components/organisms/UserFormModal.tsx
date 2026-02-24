@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, X } from 'lucide-react';
@@ -37,7 +37,14 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
   const generatedDomain = 'one-ui.local';
 
   const { data: inboundsData } = useInbounds();
-  const inbounds: Inbound[] = inboundsData || [];
+  const inbounds = useMemo<Inbound[]>(
+    () => (Array.isArray(inboundsData) ? inboundsData : []),
+    [inboundsData]
+  );
+  const enabledInbounds = useMemo(
+    () => inbounds.filter((inbound) => inbound.enabled),
+    [inbounds]
+  );
 
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -86,7 +93,10 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
         startOnFirstUse: Boolean(user.startOnFirstUse),
         ipLimit: user.ipLimit ?? 0,
         deviceLimit: (user as any).deviceLimit ?? 0,
-        inboundIds: user.inbounds?.map((userInbound) => String(userInbound.inboundId)) || [],
+        inboundIds:
+          user.inbounds
+            ?.filter((userInbound) => userInbound.inbound?.enabled !== false)
+            .map((userInbound) => String(userInbound.inboundId)) || [],
         note: user.note || ''
       });
       return;
@@ -170,6 +180,15 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
         identityMode === 'name'
           ? t('users.form.validation.nameRequired', { defaultValue: 'Name is required' })
           : t('users.form.validation.emailRequired', { defaultValue: 'Email is required' })
+      );
+      return;
+    }
+
+    if (!isEdit && enabledInbounds.length === 0) {
+      setSubmitError(
+        t('users.form.validation.enabledInboundRequired', {
+          defaultValue: 'No enabled inbounds available. Enable or create one first.'
+        })
       );
       return;
     }
@@ -428,10 +447,12 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
               {t('inbounds.title', { defaultValue: 'Inbounds' })} *
             </label>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-line/80 bg-panel/55 p-3">
-              {inbounds.length === 0 ? (
+              {enabledInbounds.length === 0 ? (
                 <div className="space-y-3">
                   <p className="text-sm text-muted">
-                    {t('users.form.noInboundsHint', { defaultValue: 'No inbounds available. Create one first.' })}
+                    {t('users.form.noEnabledInboundsHint', {
+                      defaultValue: 'No enabled inbounds available. Enable or create one first.'
+                    })}
                   </p>
                   <Button
                     type="button"
@@ -446,7 +467,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
                   </Button>
                 </div>
               ) : (
-                inbounds.map((inbound) => (
+                enabledInbounds.map((inbound) => (
                   <label
                     key={inbound.id}
                     className="flex cursor-pointer items-center space-x-3 rounded-lg p-2.5 transition hover:bg-card"
@@ -481,7 +502,7 @@ export function UserFormModal({ user, onClose, onSuccess }: UserFormModalProps) 
               type="submit"
               className="flex-1"
               loading={createUser.isPending || updateUser.isPending}
-              disabled={inbounds.length === 0}
+              disabled={!isEdit && enabledInbounds.length === 0}
             >
               {isEdit
                 ? t('users.form.updateUser', { defaultValue: 'Update User' })

@@ -54,6 +54,29 @@ async function getInbound(req, res, next) {
   }
 }
 
+async function getInboundsHealthSummary(req, res, next) {
+  try {
+    const rawIds = req.query.ids;
+    const ids = String(Array.isArray(rawIds) ? rawIds.join(',') : (rawIds || ''))
+      .split(',')
+      .map((entry) => Number.parseInt(entry.trim(), 10))
+      .filter((entry) => Number.isInteger(entry) && entry > 0);
+
+    const data = await inboundService.getInboundsHealthSummary({
+      ids,
+      timeoutMs: req.query.timeoutMs
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Inbound health summary retrieved successfully',
+      data
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function getInboundClientTemplates(req, res, next) {
   try {
     const payload = await inboundService.getInboundClientTemplates(req.params.id, {
@@ -433,6 +456,7 @@ async function toggleInbound(req, res, next) {
 
 module.exports = {
   listInbounds,
+  getInboundsHealthSummary,
   getInboundClientTemplates,
   downloadInboundClientTemplatePack,
   downloadInboundAllUsersClientTemplatePack,
