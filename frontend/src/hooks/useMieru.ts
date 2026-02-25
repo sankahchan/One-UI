@@ -16,6 +16,7 @@ import {
   updateMieruUser,
   type MieruCustomUserDeleteResult,
   type MieruCustomUserResult,
+  type MieruQuota,
   type MieruLogs,
   type MieruOnlineSnapshot,
   type MieruProfile,
@@ -123,7 +124,7 @@ export const useUpdateMieruProfile = () => {
 export const useCreateMieruUser = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<MieruCustomUserResult, Error, { username: string; password: string; enabled?: boolean }>({
+  return useMutation<MieruCustomUserResult, Error, { username: string; password: string; enabled?: boolean; quotas?: MieruQuota[] }>({
     mutationFn: createMieruUser,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
@@ -139,7 +140,7 @@ export const useUpdateMieruUser = () => {
   return useMutation<
     MieruCustomUserResult,
     Error,
-    { username: string; payload: { username?: string; password?: string; enabled?: boolean } }
+    { username: string; payload: { username?: string; password?: string; enabled?: boolean; quotas?: MieruQuota[] } }
   >({
     mutationFn: ({ username, payload }) => updateMieruUser(username, payload),
     onSuccess: () => {

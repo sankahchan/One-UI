@@ -32,13 +32,14 @@ interface SubscriptionLinksPanelProps {
   userId: number;
 }
 
-type ClientTab = 'v2ray' | 'clash' | 'shadowrocket' | 'singbox';
+type ClientTab = 'v2ray' | 'clash' | 'shadowrocket' | 'singbox' | 'mieru';
 
 const CLIENT_TABS: Array<{ key: ClientTab; label: string; colorClass: string }> = [
   { key: 'v2ray', label: 'V2RayNG', colorClass: 'bg-blue-500 text-white' },
   { key: 'clash', label: 'Clash', colorClass: 'bg-indigo-500 text-white' },
   { key: 'shadowrocket', label: 'Shadowrocket', colorClass: 'bg-orange-500 text-white' },
-  { key: 'singbox', label: 'Sing-box', colorClass: 'bg-emerald-500 text-white' }
+  { key: 'singbox', label: 'Sing-box', colorClass: 'bg-emerald-500 text-white' },
+  { key: 'mieru', label: 'Mieru', colorClass: 'bg-fuchsia-500 text-white' }
 ];
 
 const PROTOCOL_COLORS: Record<string, string> = {

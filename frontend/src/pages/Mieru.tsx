@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { getPublicIp } from '../api/system';
+import type { MieruQuota, MieruUserEntry } from '../api/mieru';
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
@@ -45,9 +46,9 @@ type ProfileForm = {
 
 const DEFAULT_PROFILE: ProfileForm = {
   server: '',
-  portRange: '2012-2022',
+  portRange: '8444-8444',
   transport: 'TCP',
-  udp: true,
+  udp: false,
   multiplexing: 'MULTIPLEXING_HIGH'
 };
 
@@ -55,13 +56,62 @@ type UserForm = {
   username: string;
   password: string;
   enabled: boolean;
+  quotaDays: string;
+  quotaMegabytes: string;
 };
 
 const DEFAULT_USER_FORM: UserForm = {
   username: '',
   password: '',
-  enabled: true
+  enabled: true,
+  quotaDays: '',
+  quotaMegabytes: ''
 };
+
+function parseQuotaPayload(form: UserForm): MieruQuota[] {
+  const quotaDays = form.quotaDays.trim();
+  const quotaMegabytes = form.quotaMegabytes.trim();
+
+  if (!quotaDays && !quotaMegabytes) {
+    return [];
+  }
+
+  const quota: MieruQuota = {};
+  if (quotaDays) {
+    const daysValue = Number.parseInt(quotaDays, 10);
+    if (!Number.isInteger(daysValue) || daysValue < 0) {
+      throw new Error('Quota days must be a positive integer.');
+    }
+    quota.days = daysValue;
+  }
+
+  if (quotaMegabytes) {
+    const megabytesValue = Number.parseInt(quotaMegabytes, 10);
+    if (!Number.isInteger(megabytesValue) || megabytesValue < 0) {
+      throw new Error('Quota megabytes must be a positive integer.');
+    }
+    quota.megabytes = megabytesValue;
+  }
+
+  return [quota];
+}
+
+function getQuotaFields(quotas?: MieruQuota[]): Pick<UserForm, 'quotaDays' | 'quotaMegabytes'> {
+  const primaryQuota = Array.isArray(quotas)
+    ? quotas.find((entry) => Number.isInteger(entry?.days) || Number.isInteger(entry?.megabytes))
+    : undefined;
+
+  return {
+    quotaDays:
+      primaryQuota && Number.isInteger(primaryQuota.days) && (primaryQuota.days ?? 0) >= 0
+        ? String(primaryQuota.days)
+        : '',
+    quotaMegabytes:
+      primaryQuota && Number.isInteger(primaryQuota.megabytes) && (primaryQuota.megabytes ?? 0) >= 0
+        ? String(primaryQuota.megabytes)
+        : ''
+  };
+}
 
 function normalizeHostCandidate(value: string): string {
   const candidate = value.trim();
@@ -304,7 +354,13 @@ export const MieruPage: React.FC = () => {
 
   const onCreateUser = async () => {
     try {
-      await createUserMutation.mutateAsync(createForm);
+      const quotas = parseQuotaPayload(createForm);
+      await createUserMutation.mutateAsync({
+        username: createForm.username,
+        password: createForm.password,
+        enabled: createForm.enabled,
+        ...(quotas.length > 0 ? { quotas } : {})
+      });
       setCreateForm(DEFAULT_USER_FORM);
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
@@ -313,14 +369,19 @@ export const MieruPage: React.FC = () => {
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
-        error?.message || t('mieru.userCreateFailed', { defaultValue: 'Failed to create Mieru user.' })
+        String(error?.message || t('mieru.userCreateFailed', { defaultValue: 'Failed to create Mieru user.' }))
       );
     }
   };
 
-  const onStartEdit = (username: string, password: string, enabled: boolean) => {
-    setEditTarget(username);
-    setEditForm({ username, password, enabled });
+  const onStartEdit = (entry: MieruUserEntry) => {
+    setEditTarget(entry.username);
+    setEditForm({
+      username: entry.username,
+      password: entry.password,
+      enabled: entry.enabled,
+      ...getQuotaFields(entry.quotas)
+    });
   };
 
   const onUpdateUser = async () => {
@@ -329,9 +390,15 @@ export const MieruPage: React.FC = () => {
     }
 
     try {
+      const quotas = parseQuotaPayload(editForm);
       await updateUserMutation.mutateAsync({
         username: editTarget,
-        payload: editForm
+        payload: {
+          username: editForm.username,
+          password: editForm.password,
+          enabled: editForm.enabled,
+          ...(quotas.length > 0 ? { quotas } : { quotas: [] })
+        }
       });
       setEditTarget(null);
       setEditForm(DEFAULT_USER_FORM);
@@ -342,7 +409,7 @@ export const MieruPage: React.FC = () => {
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
-        error?.message || t('mieru.userUpdateFailed', { defaultValue: 'Failed to update Mieru user.' })
+        String(error?.message || t('mieru.userUpdateFailed', { defaultValue: 'Failed to update Mieru user.' }))
       );
     }
   };
@@ -391,6 +458,31 @@ export const MieruPage: React.FC = () => {
     }
   };
 
+  const onRegenerateAndCopyYaml = async (username: string) => {
+    try {
+      const syncResult = await syncMutation.mutateAsync(`manual.mieru.export.regenerate.${username}`);
+      const result = await userExportMutation.mutateAsync(username);
+      const copied = await copyTextToClipboard(result.clashYaml);
+
+      if (!copied) {
+        throw new Error('clipboard failed');
+      }
+
+      toast.success(
+        t('common.copied', { defaultValue: 'Copied' }),
+        t('mieru.regenerateAndCopySuccess', {
+          defaultValue: 'Regenerated config and copied Clash YAML ({{count}} users synced).',
+          count: syncResult.userCount
+        })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.regenerateAndCopyFailed', { defaultValue: 'Failed to regenerate and copy Mieru profile.' })
+      );
+    }
+  };
+
   const onDownloadYaml = async (username: string) => {
     try {
       const result = await userExportMutation.mutateAsync(username);
@@ -411,6 +503,7 @@ export const MieruPage: React.FC = () => {
 
   const onlineCount = usersQuery.data?.stats?.online || 0;
   const totalCount = usersQuery.data?.stats?.total || 0;
+  const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
 
   return (
     <div className="space-y-6">
@@ -451,7 +544,7 @@ export const MieruPage: React.FC = () => {
             })}
           </span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
             <p className="text-xs uppercase tracking-wide text-muted">{t('mieru.mode', { defaultValue: 'Mode' })}</p>
             <p className="mt-1 font-semibold text-foreground">{policyQuery.data?.mode || 'docker'}</p>
@@ -473,6 +566,24 @@ export const MieruPage: React.FC = () => {
           <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
             <p className="text-xs uppercase tracking-wide text-muted">{t('common.status', { defaultValue: 'Status' })}</p>
             <p className="mt-1 font-semibold text-foreground">{statusQuery.data?.state || 'unknown'}</p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('mieru.restartBurst', {
+                defaultValue: 'Restarts ({{minutes}}m)',
+                minutes: restartWindowMinutes
+              })}
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {statusQuery.data?.restartMonitor
+                ? `${statusQuery.data.restartMonitor.observedRestarts} / ${statusQuery.data.restartMonitor.threshold}`
+                : '0 / 0'}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {statusQuery.data?.restartMonitor?.alerting
+                ? t('mieru.restartAlerting', { defaultValue: 'Alerting' })
+                : t('mieru.restartNormal', { defaultValue: 'Normal' })}
+            </p>
           </div>
         </div>
       </Card>
@@ -610,7 +721,7 @@ export const MieruPage: React.FC = () => {
 
       <Card className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">{t('mieru.customUsers', { defaultValue: 'Custom Mieru Users' })}</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-5">
           <Input
             label={t('auth.username', { defaultValue: 'Username' })}
             value={createForm.username}
@@ -622,6 +733,22 @@ export const MieruPage: React.FC = () => {
             value={createForm.password}
             onChange={(event) => setCreateForm((previous) => ({ ...previous, password: event.target.value }))}
             placeholder="strong-password"
+          />
+          <Input
+            type="number"
+            min={0}
+            label={t('mieru.quotaDays', { defaultValue: 'Quota Days' })}
+            value={createForm.quotaDays}
+            onChange={(event) => setCreateForm((previous) => ({ ...previous, quotaDays: event.target.value }))}
+            placeholder="30"
+          />
+          <Input
+            type="number"
+            min={0}
+            label={t('mieru.quotaMegabytes', { defaultValue: 'Quota MB' })}
+            value={createForm.quotaMegabytes}
+            onChange={(event) => setCreateForm((previous) => ({ ...previous, quotaMegabytes: event.target.value }))}
+            placeholder="10240"
           />
           <label className="space-y-1.5">
             <span className="ml-1 block text-sm font-medium text-muted">{t('common.status', { defaultValue: 'Status' })}</span>
@@ -650,6 +777,7 @@ export const MieruPage: React.FC = () => {
                 <th className="px-4 py-3">{t('auth.password', { defaultValue: 'Password' })}</th>
                 <th className="px-4 py-3">{t('mieru.source', { defaultValue: 'Source' })}</th>
                 <th className="px-4 py-3">{t('common.status', { defaultValue: 'Status' })}</th>
+                <th className="px-4 py-3">{t('mieru.quotas', { defaultValue: 'Quotas' })}</th>
                 <th className="px-4 py-3">{t('common.online', { defaultValue: 'Online' })}</th>
                 <th className="px-4 py-3">{t('common.actions', { defaultValue: 'Actions' })}</th>
               </tr>
@@ -701,6 +829,48 @@ export const MieruPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {isEditing ? (
+                        <div className="flex min-w-[220px] items-center gap-2">
+                          <input
+                            value={editForm.quotaDays}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaDays: event.target.value }))}
+                            type="number"
+                            min={0}
+                            placeholder={t('mieru.days', { defaultValue: 'Days' })}
+                            className="w-24 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                          <input
+                            value={editForm.quotaMegabytes}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaMegabytes: event.target.value }))}
+                            type="number"
+                            min={0}
+                            placeholder={t('mieru.megabytes', { defaultValue: 'MB' })}
+                            className="w-28 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted">
+                          {(() => {
+                            const quota = entry.quotas?.find(
+                              (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
+                            );
+                            if (!quota) {
+                              return t('common.notSet', { defaultValue: 'Not set' });
+                            }
+                            const daysText =
+                              Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
+                                ? `${quota.days}d`
+                                : '∞';
+                            const mbText =
+                              Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
+                                ? `${quota.megabytes}MB`
+                                : '∞';
+                            return `${daysText} / ${mbText}`;
+                          })()}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       {entry.online ? (
                         <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
                       ) : (
@@ -709,6 +879,16 @@ export const MieruPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void onRegenerateAndCopyYaml(entry.username)}
+                          loading={syncMutation.isPending || userExportMutation.isPending}
+                          disabled={!entry.configured}
+                        >
+                          <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                          {t('mieru.regenerateCopy', { defaultValue: 'Regen + Copy' })}
+                        </Button>
                         <Button
                           size="sm"
                           variant="secondary"
@@ -752,7 +932,7 @@ export const MieruPage: React.FC = () => {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => onStartEdit(entry.username, entry.password, entry.enabled)}
+                                onClick={() => onStartEdit(entry)}
                               >
                                 <Edit3 className="mr-1 h-3.5 w-3.5" />
                                 {t('common.edit', { defaultValue: 'Edit' })}

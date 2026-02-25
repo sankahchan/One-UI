@@ -1,11 +1,12 @@
 export type Platform = 'android' | 'ios' | 'windows';
-export type FormatTab = 'v2ray' | 'clash' | 'singbox' | 'wireguard';
+export type FormatTab = 'v2ray' | 'clash' | 'singbox' | 'wireguard' | 'mieru';
 
 export interface SubscriptionUrls {
   v2ray?: string;
   clash?: string;
   singbox?: string;
   wireguard?: string;
+  mieru?: string;
 }
 
 export interface ClientAppDefinition {

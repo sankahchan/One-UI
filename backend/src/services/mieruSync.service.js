@@ -100,6 +100,44 @@ function buildSyncHash(payload) {
   return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex');
 }
 
+function normalizeMieruQuotas(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const normalized = [];
+
+  for (const entry of entries) {
+    if (!isPlainObject(entry)) {
+      continue;
+    }
+
+    const days = entry.days === undefined || entry.days === null
+      ? undefined
+      : Number.parseInt(String(entry.days), 10);
+    const megabytes = entry.megabytes === undefined || entry.megabytes === null
+      ? undefined
+      : Number.parseInt(String(entry.megabytes), 10);
+
+    const hasDays = Number.isInteger(days) && days >= 0;
+    const hasMegabytes = Number.isInteger(megabytes) && megabytes >= 0;
+    if (!hasDays && !hasMegabytes) {
+      continue;
+    }
+
+    const quota = {};
+    if (hasDays) {
+      quota.days = days;
+    }
+    if (hasMegabytes) {
+      quota.megabytes = megabytes;
+    }
+    normalized.push(quota);
+  }
+
+  return normalized;
+}
+
 function normalizeMieruCredentialEntries(entries) {
   if (!Array.isArray(entries)) {
     return [];
@@ -115,7 +153,12 @@ function normalizeMieruCredentialEntries(entries) {
       continue;
     }
 
-    deduped.set(name, { name, password });
+    const quotas = normalizeMieruQuotas(entry?.quotas);
+    deduped.set(name, {
+      name,
+      password,
+      ...(quotas.length > 0 ? { quotas } : {})
+    });
   }
 
   return Array.from(deduped.values());
@@ -137,10 +180,13 @@ function normalizeManagedCustomUsers(entries) {
       continue;
     }
 
+    const quotas = normalizeMieruQuotas(entry?.quotas);
+
     deduped.set(name, {
       name,
       password,
       enabled,
+      ...(quotas.length > 0 ? { quotas } : {}),
       createdAt: entry?.createdAt || null,
       updatedAt: entry?.updatedAt || null
     });
@@ -162,7 +208,8 @@ function mergePanelAndCustomUsers(panelUsers, customUsers) {
     }
     merged.set(user.name, {
       name: user.name,
-      password: user.password
+      password: user.password,
+      ...(Array.isArray(user.quotas) && user.quotas.length > 0 ? { quotas: normalizeMieruQuotas(user.quotas) } : {})
     });
   }
 
@@ -265,17 +312,48 @@ class MieruSyncService {
       take: this.maxUsers,
       select: {
         email: true,
-        password: true
+        password: true,
+        dataLimit: true,
+        uploadUsed: true,
+        downloadUsed: true,
+        expireDate: true
       }
     });
 
     return users;
   }
 
+  buildPanelUserQuotas(user) {
+    const quotas = [];
+    const now = Date.now();
+    const expireAt = new Date(user.expireDate).getTime();
+    if (Number.isFinite(expireAt)) {
+      const daysRemaining = Math.max(0, Math.ceil((expireAt - now) / (1000 * 60 * 60 * 24)));
+      if (daysRemaining > 0) {
+        quotas.push({ days: daysRemaining });
+      }
+    }
+
+    const dataLimit = Number(BigInt(user.dataLimit || 0n));
+    const totalUsed = Number(BigInt(user.uploadUsed || 0n) + BigInt(user.downloadUsed || 0n));
+    const remainingBytes = Math.max(0, dataLimit - totalUsed);
+    if (remainingBytes > 0) {
+      const remainingMb = Math.max(1, Math.floor(remainingBytes / (1024 * 1024)));
+      if (quotas.length > 0) {
+        quotas[0].megabytes = remainingMb;
+      } else {
+        quotas.push({ megabytes: remainingMb });
+      }
+    }
+
+    return normalizeMieruQuotas(quotas);
+  }
+
   buildMieruUsers(users) {
     return normalizeMieruCredentialEntries(users.map((user) => ({
       name: user.email,
-      password: user.password
+      password: user.password,
+      quotas: this.buildPanelUserQuotas(user)
     })));
   }
 

@@ -111,7 +111,25 @@ router.post(
       .optional()
       .isBoolean()
       .withMessage('enabled must be boolean')
-      .toBoolean()
+      .toBoolean(),
+    body('quotas')
+      .optional()
+      .isArray({ max: 8 })
+      .withMessage('quotas must be an array (max 8 entries)'),
+    body('quotas.*')
+      .optional()
+      .isObject()
+      .withMessage('each quota entry must be an object'),
+    body('quotas.*.days')
+      .optional()
+      .isInt({ min: 0, max: 3650 })
+      .withMessage('quota days must be between 0 and 3650')
+      .toInt(),
+    body('quotas.*.megabytes')
+      .optional()
+      .isInt({ min: 0, max: 10485760 })
+      .withMessage('quota megabytes must be between 0 and 10485760')
+      .toInt()
   ],
   validate,
   mieruController.createUser
@@ -139,7 +157,25 @@ router.put(
       .optional()
       .isBoolean()
       .withMessage('enabled must be boolean')
-      .toBoolean()
+      .toBoolean(),
+    body('quotas')
+      .optional()
+      .isArray({ max: 8 })
+      .withMessage('quotas must be an array (max 8 entries)'),
+    body('quotas.*')
+      .optional()
+      .isObject()
+      .withMessage('each quota entry must be an object'),
+    body('quotas.*.days')
+      .optional()
+      .isInt({ min: 0, max: 3650 })
+      .withMessage('quota days must be between 0 and 3650')
+      .toInt(),
+    body('quotas.*.megabytes')
+      .optional()
+      .isInt({ min: 0, max: 10485760 })
+      .withMessage('quota megabytes must be between 0 and 10485760')
+      .toInt()
   ],
   validate,
   mieruController.updateUser

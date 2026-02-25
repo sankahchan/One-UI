@@ -26,6 +26,17 @@ export interface MieruStatus extends MieruPolicy {
   state: string;
   restarting?: boolean;
   image?: string | null;
+  restartMonitor?: {
+    restartCount: number;
+    observedRestarts: number;
+    threshold: number;
+    windowSeconds: number;
+    cooldownSeconds: number;
+    alerting: boolean;
+    canAlert: boolean;
+    windowStartedAt: string;
+    lastAlertAt: string | null;
+  } | null;
   version: string | null;
   health: MieruHealthStatus;
   checkedAt: string;
@@ -72,9 +83,15 @@ export interface MieruProfile {
   configPath?: string;
 }
 
+export interface MieruQuota {
+  days?: number;
+  megabytes?: number;
+}
+
 export interface MieruUserEntry {
   username: string;
   password: string;
+  quotas?: MieruQuota[];
   source: 'panel' | 'custom' | 'config';
   enabled: boolean;
   configured: boolean;
@@ -148,6 +165,7 @@ export interface MieruUserExportResult {
     username: string;
     password: string;
     multiplexing: string;
+    quotas?: MieruQuota[];
   };
 }
 
@@ -168,6 +186,7 @@ export const mieruApi = {
     username: string;
     password: string;
     enabled?: boolean;
+    quotas?: MieruQuota[];
   }): Promise<ApiResponse<MieruCustomUserResult>> => apiClient.post('/mieru/users', payload),
   updateUser: async (
     username: string,
@@ -175,6 +194,7 @@ export const mieruApi = {
       username?: string;
       password?: string;
       enabled?: boolean;
+      quotas?: MieruQuota[];
     }
   ): Promise<ApiResponse<MieruCustomUserResult>> => apiClient.put(`/mieru/users/${encodeURIComponent(username)}`, payload),
   deleteUser: async (username: string): Promise<ApiResponse<MieruCustomUserDeleteResult>> =>
@@ -258,6 +278,7 @@ export const createMieruUser = async (payload: {
   username: string;
   password: string;
   enabled?: boolean;
+  quotas?: MieruQuota[];
 }): Promise<MieruCustomUserResult> => {
   const response = await mieruApi.createUser(payload);
   if (!response.data) {
@@ -272,6 +293,7 @@ export const updateMieruUser = async (
     username?: string;
     password?: string;
     enabled?: boolean;
+    quotas?: MieruQuota[];
   }
 ): Promise<MieruCustomUserResult> => {
   const response = await mieruApi.updateUser(username, payload);

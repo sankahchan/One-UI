@@ -87,6 +87,7 @@ interface PublicSubscriptionLinksResponse {
         clash?: string;
         singbox?: string;
         wireguard?: string;
+        mieru?: string;
       };
     };
     links?: SubscriptionLink[];
@@ -272,7 +273,8 @@ export const UserInfoPage = () => {
       v2ray: candidate.v2ray || (fallbackBase ? `${fallbackBase}?target=v2ray` : ''),
       clash: candidate.clash || (fallbackBase ? `${fallbackBase}?target=clash` : ''),
       singbox: candidate.singbox || (fallbackBase ? `${fallbackBase}?target=singbox` : ''),
-      wireguard: candidate.wireguard || (fallbackBase ? `${fallbackBase}?target=wireguard` : '')
+      wireguard: candidate.wireguard || (fallbackBase ? `${fallbackBase}?target=wireguard` : ''),
+      mieru: candidate.mieru || (fallbackBase ? `${fallbackBase}?target=mieru` : '')
     };
   }, [publicLinks, userInfo?.subscription?.url]);
 
@@ -290,7 +292,8 @@ export const UserInfoPage = () => {
       { key: 'v2ray', label: t('portal.formats.v2ray', { defaultValue: 'V2Ray' }) },
       { key: 'clash', label: t('portal.formats.clash', { defaultValue: 'Clash' }) },
       { key: 'singbox', label: t('portal.formats.singbox', { defaultValue: 'Sing-box' }) },
-      { key: 'wireguard', label: t('portal.formats.wireguard', { defaultValue: 'WireGuard' }) }
+      { key: 'wireguard', label: t('portal.formats.wireguard', { defaultValue: 'WireGuard' }) },
+      { key: 'mieru', label: t('portal.formats.mieru', { defaultValue: 'Mieru' }) }
     ];
     return entries.filter((entry) => Boolean(urls[entry.key]));
   }, [t, urls]);
@@ -321,6 +324,9 @@ export const UserInfoPage = () => {
     }
     if (format === 'singbox') {
       return t('portal.subscription.formatHint.singbox', { defaultValue: 'Sing-box subscription' });
+    }
+    if (format === 'mieru') {
+      return t('portal.subscription.formatHint.mieru', { defaultValue: 'Mieru YAML profile' });
     }
     return t('portal.subscription.formatHint.wireguard', { defaultValue: 'WireGuard subscription' });
   };

@@ -1,7 +1,9 @@
 const fs = require('fs/promises');
+const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const logger = require('../config/logger');
+const { getBotManager } = require('../telegram/bot');
 const { ValidationError } = require('../utils/errors');
 
 function parseBoolean(value, fallback = false) {
@@ -88,6 +90,10 @@ function parseVersionText(output = '') {
   return line.slice(0, 120);
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 class MieruRuntimeService {
   constructor() {
     this.enabled = parseBoolean(process.env.MIERU_ENABLED, false);
@@ -103,6 +109,15 @@ class MieruRuntimeService {
     this.manualVersionCommand = String(process.env.MIERU_VERSION_COMMAND || 'mita version || mieru version').trim();
     this.manualRestartCommand = String(process.env.MIERU_RESTART_COMMAND || '').trim();
     this.manualLogPath = String(process.env.MIERU_LOG_PATH || '').trim();
+    this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
+
+    this.restartAlertThreshold = parsePositiveInt(process.env.MIERU_RESTART_ALERT_THRESHOLD, 3, 1, 1000);
+    this.restartAlertWindowMs = parsePositiveInt(process.env.MIERU_RESTART_ALERT_WINDOW_SECONDS, 600, 60, 86_400) * 1000;
+    this.restartAlertCooldownMs = parsePositiveInt(process.env.MIERU_RESTART_ALERT_COOLDOWN_SECONDS, 900, 60, 86_400) * 1000;
+
+    this.startupGuardCompleted = false;
+    this.startupGuardPromise = null;
+    this.restartWindowState = null;
   }
 
   getPolicy() {
@@ -113,8 +128,12 @@ class MieruRuntimeService {
       composeServiceName: this.composeServiceName,
       composeFilePath: this.composeFilePath,
       healthUrl: this.healthUrl || null,
+      configPath: this.configPath || null,
       manualRestartCommandConfigured: Boolean(this.manualRestartCommand),
-      manualLogPathConfigured: Boolean(this.manualLogPath)
+      manualLogPathConfigured: Boolean(this.manualLogPath),
+      restartAlertThreshold: this.restartAlertThreshold,
+      restartAlertWindowSeconds: Math.floor(this.restartAlertWindowMs / 1000),
+      restartAlertCooldownSeconds: Math.floor(this.restartAlertCooldownMs / 1000)
     };
   }
 
@@ -184,6 +203,124 @@ class MieruRuntimeService {
     });
   }
 
+  async writeConfigAtomically(content) {
+    const directory = path.dirname(this.configPath);
+    await fs.mkdir(directory, { recursive: true });
+    const tempPath = `${this.configPath}.tmp-${process.pid}-${Date.now()}`;
+    await fs.writeFile(tempPath, content, 'utf8');
+    await fs.rename(tempPath, this.configPath);
+  }
+
+  async stripLegacySyncMetadataFromConfig() {
+    if (!this.configPath) {
+      return {
+        ok: false,
+        changed: false,
+        checkedAt: new Date().toISOString(),
+        detail: 'MIERU_CONFIG_PATH is not configured.'
+      };
+    }
+
+    let parsed = {};
+    let existed = false;
+    try {
+      const raw = await fs.readFile(this.configPath, 'utf8');
+      existed = true;
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return {
+          ok: true,
+          changed: false,
+          checkedAt: new Date().toISOString(),
+          detail: `Mieru config not found at ${this.configPath}`
+        };
+      }
+      return {
+        ok: false,
+        changed: false,
+        checkedAt: new Date().toISOString(),
+        detail: sanitizeMultiline(error.message || 'Unable to read Mieru config', 280)
+      };
+    }
+
+    if (!isPlainObject(parsed) || !Object.prototype.hasOwnProperty.call(parsed, 'oneUiSync')) {
+      return {
+        ok: true,
+        changed: false,
+        checkedAt: new Date().toISOString(),
+        detail: existed ? 'Mieru config is already clean.' : 'Mieru config not found.'
+      };
+    }
+
+    delete parsed.oneUiSync;
+    await this.writeConfigAtomically(`${JSON.stringify(parsed, null, 2)}\n`);
+    return {
+      ok: true,
+      changed: true,
+      checkedAt: new Date().toISOString(),
+      detail: 'Removed legacy oneUiSync metadata from Mieru runtime config.'
+    };
+  }
+
+  async runStartupGuard({ force = false } = {}) {
+    if (this.startupGuardCompleted && !force) {
+      return {
+        ok: true,
+        changed: false,
+        checkedAt: new Date().toISOString(),
+        detail: 'Startup guard already completed.'
+      };
+    }
+
+    if (this.startupGuardPromise && !force) {
+      return this.startupGuardPromise;
+    }
+
+    this.startupGuardPromise = (async () => {
+      const result = await this.stripLegacySyncMetadataFromConfig();
+      if (result.ok) {
+        this.startupGuardCompleted = true;
+      } else {
+        this.startupGuardCompleted = false;
+        logger.warn('Mieru startup guard could not sanitize runtime config', {
+          action: 'mieru_startup_guard',
+          configPath: this.configPath,
+          detail: result.detail
+        });
+      }
+
+      if (result.changed) {
+        logger.warn('Mieru startup guard removed legacy runtime metadata', {
+          action: 'mieru_startup_guard',
+          configPath: this.configPath
+        });
+      }
+
+      return result;
+    })()
+      .catch((error) => {
+        this.startupGuardCompleted = false;
+        const detail = sanitizeMultiline(error.message || 'Mieru startup guard failed', 280);
+        logger.warn('Mieru startup guard failed', {
+          action: 'mieru_startup_guard',
+          configPath: this.configPath,
+          detail
+        });
+        return {
+          ok: false,
+          changed: false,
+          checkedAt: new Date().toISOString(),
+          detail
+        };
+      })
+      .finally(() => {
+        this.startupGuardPromise = null;
+      });
+
+    return this.startupGuardPromise;
+  }
+
   async probeHealth() {
     if (!this.healthUrl) {
       return {
@@ -233,6 +370,96 @@ class MieruRuntimeService {
     return lines.join('\n').trim();
   }
 
+  buildRestartMonitor(containerState) {
+    if (!containerState?.exists || !Number.isInteger(containerState.restartCount) || containerState.restartCount < 0) {
+      this.restartWindowState = null;
+      return null;
+    }
+
+    const nowMs = Date.now();
+    const currentRestartCount = containerState.restartCount;
+    let state = this.restartWindowState;
+
+    if (!state) {
+      state = {
+        windowStartedAtMs: nowMs,
+        baselineRestartCount: currentRestartCount,
+        lastRestartCount: currentRestartCount,
+        lastAlertAtMs: 0
+      };
+    } else {
+      if (currentRestartCount < state.lastRestartCount) {
+        state.windowStartedAtMs = nowMs;
+        state.baselineRestartCount = currentRestartCount;
+        state.lastRestartCount = currentRestartCount;
+        state.lastAlertAtMs = 0;
+      }
+
+      if (nowMs - state.windowStartedAtMs > this.restartAlertWindowMs) {
+        state.windowStartedAtMs = nowMs;
+        state.baselineRestartCount = currentRestartCount;
+      }
+
+      state.lastRestartCount = currentRestartCount;
+    }
+
+    const observedRestarts = Math.max(0, currentRestartCount - state.baselineRestartCount);
+    const alerting = observedRestarts >= this.restartAlertThreshold;
+    const canAlert = alerting && (state.lastAlertAtMs === 0 || nowMs - state.lastAlertAtMs >= this.restartAlertCooldownMs);
+
+    this.restartWindowState = state;
+
+    return {
+      restartCount: currentRestartCount,
+      observedRestarts,
+      threshold: this.restartAlertThreshold,
+      windowSeconds: Math.floor(this.restartAlertWindowMs / 1000),
+      cooldownSeconds: Math.floor(this.restartAlertCooldownMs / 1000),
+      alerting,
+      canAlert,
+      windowStartedAt: new Date(state.windowStartedAtMs).toISOString(),
+      lastAlertAt: state.lastAlertAtMs ? new Date(state.lastAlertAtMs).toISOString() : null
+    };
+  }
+
+  async emitRestartAlertIfNeeded(restartMonitor) {
+    if (!restartMonitor?.canAlert || !this.restartWindowState) {
+      return;
+    }
+
+    this.restartWindowState.lastAlertAtMs = Date.now();
+    const lines = [
+      'One-UI Mieru Restart Alert',
+      `container=${this.containerName}`,
+      `restarts_in_window=${restartMonitor.observedRestarts}`,
+      `threshold=${restartMonitor.threshold}`,
+      `window=${restartMonitor.windowSeconds}s`,
+      `total_restart_count=${restartMonitor.restartCount}`
+    ];
+
+    logger.warn('Mieru restart threshold exceeded', {
+      action: 'mieru_restart_alert',
+      containerName: this.containerName,
+      observedRestarts: restartMonitor.observedRestarts,
+      threshold: restartMonitor.threshold,
+      windowSeconds: restartMonitor.windowSeconds,
+      restartCount: restartMonitor.restartCount
+    });
+
+    try {
+      const botManager = getBotManager();
+      if (botManager?.enabled && typeof botManager.sendPlainAlert === 'function') {
+        await botManager.sendPlainAlert(lines.join('\n'));
+      }
+    } catch (error) {
+      logger.error('Failed to send Mieru restart alert', {
+        action: 'mieru_restart_alert',
+        containerName: this.containerName,
+        message: error.message
+      });
+    }
+  }
+
   async getDockerContainerState() {
     if (!detectDockerAvailable()) {
       return {
@@ -249,7 +476,7 @@ class MieruRuntimeService {
     const inspectResult = await this.runCommand('docker', [
       'inspect',
       '--format',
-      '{{json .State}}|{{.Config.Image}}',
+      '{{json .State}}|{{.Config.Image}}|{{.RestartCount}}',
       this.containerName
     ]);
 
@@ -266,7 +493,7 @@ class MieruRuntimeService {
       };
     }
 
-    const [stateJson = '{}', image = ''] = String(inspectResult.stdout).trim().split('|');
+    const [stateJson = '{}', image = '', restartCountRaw = '0'] = String(inspectResult.stdout).trim().split('|');
 
     let parsedState = {};
     try {
@@ -278,6 +505,7 @@ class MieruRuntimeService {
     const running = Boolean(parsedState.Running);
     const restarting = Boolean(parsedState.Restarting);
     const state = String(parsedState.Status || '').trim() || (running ? 'running' : 'stopped');
+    const restartCount = Number.parseInt(String(restartCountRaw || '0').trim(), 10);
 
     return {
       dockerAvailable: true,
@@ -286,6 +514,7 @@ class MieruRuntimeService {
       restarting,
       state,
       image: image || null,
+      restartCount: Number.isInteger(restartCount) && restartCount >= 0 ? restartCount : 0,
       detail: null
     };
   }
@@ -336,12 +565,15 @@ class MieruRuntimeService {
   }
 
   async getStatus() {
+    await this.runStartupGuard();
+
     if (!this.enabled) {
       return {
         ...this.getPolicy(),
         running: false,
         state: 'disabled',
         version: null,
+        restartMonitor: null,
         health: {
           configured: Boolean(this.healthUrl),
           ok: null,
@@ -366,6 +598,7 @@ class MieruRuntimeService {
         running: health.ok === true,
         state: health.ok === true ? 'running' : 'unknown',
         version,
+        restartMonitor: null,
         health,
         checkedAt: new Date().toISOString(),
         detail: health.ok === true
@@ -379,6 +612,8 @@ class MieruRuntimeService {
       this.probeHealth()
     ]);
     const version = await this.resolveDockerVersion(containerState);
+    const restartMonitor = this.buildRestartMonitor(containerState);
+    await this.emitRestartAlertIfNeeded(restartMonitor);
 
     return {
       ...this.getPolicy(),
@@ -387,6 +622,7 @@ class MieruRuntimeService {
       state: containerState.state,
       restarting: containerState.restarting,
       image: containerState.image,
+      restartMonitor,
       version,
       health,
       checkedAt: new Date().toISOString(),
@@ -398,6 +634,8 @@ class MieruRuntimeService {
     if (!this.enabled) {
       throw new ValidationError('Mieru integration is disabled. Set MIERU_ENABLED=true first.');
     }
+
+    await this.runStartupGuard();
 
     if (this.mode === 'manual') {
       if (!this.manualRestartCommand) {

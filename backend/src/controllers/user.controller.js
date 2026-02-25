@@ -319,11 +319,12 @@ async function getSubscriptionInfo(req, res, next) {
     const baseUrl = process.env.SUBSCRIPTION_URL || `${req.protocol}://${req.get('host')}`;
     const subscriptionUrl = `${baseUrl}/sub/${user.subscriptionToken}`;
 
-    const [v2rayQr, clashQr, singboxQr, wireguardQr] = await Promise.all([
+    const [v2rayQr, clashQr, singboxQr, wireguardQr, mieruQr] = await Promise.all([
       QRCode.toDataURL(`${subscriptionUrl}?target=v2ray`),
       QRCode.toDataURL(`${subscriptionUrl}?target=clash`),
       QRCode.toDataURL(`${subscriptionUrl}?target=singbox`),
-      QRCode.toDataURL(`${subscriptionUrl}?target=wireguard`)
+      QRCode.toDataURL(`${subscriptionUrl}?target=wireguard`),
+      QRCode.toDataURL(`${subscriptionUrl}?target=mieru`)
     ]);
 
     const userWithInbounds = await prisma.user.findUnique({
@@ -373,13 +374,15 @@ async function getSubscriptionInfo(req, res, next) {
           v2ray: `${subscriptionUrl}?target=v2ray`,
           clash: `${subscriptionUrl}?target=clash`,
           singbox: `${subscriptionUrl}?target=singbox`,
-          wireguard: `${subscriptionUrl}?target=wireguard`
+          wireguard: `${subscriptionUrl}?target=wireguard`,
+          mieru: `${subscriptionUrl}?target=mieru`
         },
         qrCodes: {
           v2ray: v2rayQr,
           clash: clashQr,
           singbox: singboxQr,
-          wireguard: wireguardQr
+          wireguard: wireguardQr,
+          mieru: mieruQr
         },
         token: user.subscriptionToken,
         links,

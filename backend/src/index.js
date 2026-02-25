@@ -38,6 +38,7 @@ const WorkerRuntime = require('./worker/runtime');
 const startupGates = require('./startup/gates');
 const webhookService = require('./services/webhook.service');
 const xrayUpdateService = require('./services/xrayUpdate.service');
+const mieruRuntimeService = require('./services/mieruRuntime.service');
 const xrayConfigGenerator = require('./xray/config-generator');
 const xrayManager = require('./xray/manager');
 const { scheduleMieruSync } = require('./utils/mieruSyncQueue');
@@ -232,6 +233,7 @@ async function startServer() {
     if (String(process.env.XRAY_STARTUP_SELF_HEAL || 'true').toLowerCase() !== 'false') {
       void xrayUpdateService.runStartupSelfHeal();
     }
+    await mieruRuntimeService.runStartupGuard();
     await webhookService.initialize();
     await marzbanService.initialize(); // Async fetch and ticker registry
     // Initialize Xray config

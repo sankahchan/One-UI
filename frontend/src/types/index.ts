@@ -519,12 +519,14 @@ export interface SubscriptionInfo {
     clash: string;
     singbox: string;
     wireguard?: string;
+    mieru?: string;
   };
   qrCodes: {
     v2ray: string;
     clash: string;
     singbox: string;
     wireguard?: string;
+    mieru?: string;
   };
   token: string;
 }
@@ -545,12 +547,14 @@ export interface SubscriptionLinksData {
     clash: string;
     singbox: string;
     wireguard?: string;
+    mieru?: string;
   };
   qrCodes: {
     v2ray: string;
     clash: string;
     singbox: string;
     wireguard?: string;
+    mieru?: string;
   };
   token: string;
   links: SubscriptionLink[];

@@ -47,6 +47,9 @@ class ClientDetector {
     if (ua.includes('wireguard')) {
       return 'wireguard';
     }
+    if (ua.includes('mieru')) {
+      return 'mieru';
+    }
 
     return 'v2ray';
   }
@@ -54,6 +57,8 @@ class ClientDetector {
   getContentType(format) {
     switch (format) {
       case 'clash':
+        return 'text/yaml; charset=utf-8';
+      case 'mieru':
         return 'text/yaml; charset=utf-8';
       case 'singbox':
         return 'application/json; charset=utf-8';
@@ -68,6 +73,8 @@ class ClientDetector {
   getFileExtension(format) {
     switch (format) {
       case 'clash':
+        return 'yaml';
+      case 'mieru':
         return 'yaml';
       case 'singbox':
         return 'json';

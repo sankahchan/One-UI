@@ -10,6 +10,7 @@ const ipTrackingService = require('../services/ipTracking.service');
 const deviceTrackingService = require('../services/deviceTracking.service');
 const connectionLogsService = require('../services/connectionLogs.service');
 const subscriptionBrandingService = require('../services/subscriptionBranding.service');
+const mieruManagerService = require('../services/mieruManager.service');
 const { normalizeClientIp } = require('../utils/network');
 const { buildDeviceFingerprint } = require('../utils/deviceFingerprint');
 
@@ -432,11 +433,6 @@ class SubscriptionGenerator {
 
     const selectedFormat = this.resolveFormat(format, userAgent);
 
-    const formatter = this.formats[selectedFormat];
-    if (!formatter) {
-      throw new Error('Unsupported format');
-    }
-
     await this.enforceConnectionLimits(user, validInbounds, {
       clientIp: context.clientIp,
       userAgent: context.userAgent || userAgent,
@@ -449,6 +445,37 @@ class SubscriptionGenerator {
     });
 
     const branding = await subscriptionBrandingService.resolveEffectiveBrandingForUser(user.id);
+    if (selectedFormat === 'mieru') {
+      const exportPayload = await mieruManagerService.getUserExport(user.email);
+      const content = exportPayload.clashYaml;
+      await this.logAccess(token);
+
+      const links = validInbounds
+        .map((userInbound) => buildProtocolUrl(userInbound.inbound.protocol, user, userInbound.inbound))
+        .filter(Boolean);
+
+      return {
+        format: selectedFormat,
+        content,
+        contentType: clientDetector.getContentType(selectedFormat),
+        fileName: `${(branding?.appName || 'one-ui').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${user.email}-${selectedFormat}.${clientDetector.getFileExtension(selectedFormat)}`,
+        links,
+        branding: branding || null,
+        user: {
+          email: user.email,
+          upload: Number(user.uploadUsed),
+          download: Number(user.downloadUsed),
+          total: Number(user.dataLimit),
+          expire: Math.floor(user.expireDate.getTime() / 1000)
+        }
+      };
+    }
+
+    const formatter = this.formats[selectedFormat];
+    if (!formatter) {
+      throw new Error('Unsupported format');
+    }
+
     const content = formatter.generate(user, validInbounds, { branding });
 
     await this.logAccess(token);

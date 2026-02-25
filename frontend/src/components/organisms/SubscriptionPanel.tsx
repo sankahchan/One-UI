@@ -13,7 +13,7 @@ interface SubscriptionPanelProps {
   userId: number;
 }
 
-type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard';
+type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard' | 'mieru';
 
 interface SubscriptionData {
   urls: Partial<Record<SubscriptionFormat, string>>;
@@ -52,7 +52,8 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
       { key: 'v2ray' as const, label: 'V2Ray / V2RayNG', colorClass: 'bg-blue-500 text-white' },
       { key: 'clash' as const, label: 'Clash / ClashX', colorClass: 'bg-indigo-500 text-white' },
       { key: 'singbox' as const, label: 'Sing-box', colorClass: 'bg-emerald-500 text-white' },
-      { key: 'wireguard' as const, label: 'WireGuard', colorClass: 'bg-teal-500 text-white' }
+      { key: 'wireguard' as const, label: 'WireGuard', colorClass: 'bg-teal-500 text-white' },
+      { key: 'mieru' as const, label: 'Mieru', colorClass: 'bg-fuchsia-500 text-white' }
     ],
     []
   );
@@ -133,8 +134,10 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
       ? 'yaml'
       : selectedFormat === 'singbox'
         ? 'json'
-        : selectedFormat === 'wireguard'
+      : selectedFormat === 'wireguard'
           ? 'conf'
+          : selectedFormat === 'mieru'
+            ? 'yaml'
           : 'txt';
     link.download = `subscription-${selectedFormat}.${extension}`;
     link.click();
@@ -221,6 +224,14 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
                   <li>Open WireGuard desktop/mobile app</li>
                   <li>Import tunnel from file</li>
                   <li>Activate the tunnel</li>
+                </>
+              ) : null}
+              {selectedFormat === 'mieru' ? (
+                <>
+                  <li>Open a Mieru-supported client (Clash Verge/Mihomo + Mieru plugin)</li>
+                  <li>Import from URL (YAML profile)</li>
+                  <li>Select the imported Mieru proxy</li>
+                  <li>Enable global/rule mode and connect</li>
                 </>
               ) : null}
             </ol>

@@ -9,7 +9,7 @@ import type { User } from '../../types';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
 
-type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard';
+type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard' | 'mieru';
 
 interface UserQuickQrModalProps {
   user: User;
@@ -20,7 +20,8 @@ const ALL_FORMATS: Array<{ key: SubscriptionFormat; label: string }> = [
   { key: 'v2ray', label: 'V2Ray' },
   { key: 'clash', label: 'Clash' },
   { key: 'singbox', label: 'Sing-box' },
-  { key: 'wireguard', label: 'WireGuard' }
+  { key: 'wireguard', label: 'WireGuard' },
+  { key: 'mieru', label: 'Mieru' }
 ];
 
 export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {

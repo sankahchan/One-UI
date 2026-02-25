@@ -109,6 +109,43 @@ function normalizePassword(value) {
   return password;
 }
 
+function normalizeQuotaEntries(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const normalized = [];
+  for (const entry of entries) {
+    if (!isPlainObject(entry)) {
+      continue;
+    }
+
+    const days = entry.days === undefined || entry.days === null
+      ? undefined
+      : Number.parseInt(String(entry.days), 10);
+    const megabytes = entry.megabytes === undefined || entry.megabytes === null
+      ? undefined
+      : Number.parseInt(String(entry.megabytes), 10);
+
+    const hasDays = Number.isInteger(days) && days >= 0;
+    const hasMegabytes = Number.isInteger(megabytes) && megabytes >= 0;
+    if (!hasDays && !hasMegabytes) {
+      continue;
+    }
+
+    const quota = {};
+    if (hasDays) {
+      quota.days = days;
+    }
+    if (hasMegabytes) {
+      quota.megabytes = megabytes;
+    }
+    normalized.push(quota);
+  }
+
+  return normalized;
+}
+
 function normalizeCustomUsers(entries) {
   if (!Array.isArray(entries)) {
     return [];
@@ -125,10 +162,13 @@ function normalizeCustomUsers(entries) {
       continue;
     }
 
+    const quotas = normalizeQuotaEntries(entry?.quotas);
+
     deduped.set(name, {
       name,
       password,
       enabled,
+      ...(quotas.length > 0 ? { quotas } : {}),
       createdAt: entry?.createdAt || null,
       updatedAt: entry?.updatedAt || null
     });
@@ -152,9 +192,12 @@ function normalizeConfiguredUsers(entries) {
       continue;
     }
 
+    const quotas = normalizeQuotaEntries(entry?.quotas);
+
     deduped.set(name, {
       name,
-      password
+      password,
+      ...(quotas.length > 0 ? { quotas } : {})
     });
   }
 
@@ -439,6 +482,32 @@ class MieruManagerService {
     return normalizeConfiguredUsers(configuredUsers);
   }
 
+  buildPanelUserQuotas(user) {
+    const quotas = [];
+    const now = Date.now();
+    const expireAt = new Date(user.expireDate).getTime();
+    if (Number.isFinite(expireAt)) {
+      const daysRemaining = Math.max(0, Math.ceil((expireAt - now) / (1000 * 60 * 60 * 24)));
+      if (daysRemaining > 0) {
+        quotas.push({ days: daysRemaining });
+      }
+    }
+
+    const dataLimit = Number(BigInt(user.dataLimit || 0n));
+    const totalUsed = Number(BigInt(user.uploadUsed || 0n) + BigInt(user.downloadUsed || 0n));
+    const remainingBytes = Math.max(0, dataLimit - totalUsed);
+    if (remainingBytes > 0) {
+      const remainingMb = Math.max(1, Math.floor(remainingBytes / (1024 * 1024)));
+      if (quotas.length > 0) {
+        quotas[0].megabytes = remainingMb;
+      } else {
+        quotas.push({ megabytes: remainingMb });
+      }
+    }
+
+    return normalizeQuotaEntries(quotas);
+  }
+
   async getPanelUsers() {
     const users = await prisma.user.findMany({
       where: {
@@ -451,13 +520,18 @@ class MieruManagerService {
       orderBy: { id: 'asc' },
       select: {
         email: true,
-        password: true
+        password: true,
+        dataLimit: true,
+        uploadUsed: true,
+        downloadUsed: true,
+        expireDate: true
       }
     });
 
     return users.map((user) => ({
       username: user.email,
       password: user.password,
+      quotas: this.buildPanelUserQuotas(user),
       source: 'panel',
       enabled: true
     }));
@@ -640,10 +714,16 @@ class MieruManagerService {
         const source = customUser ? 'custom' : panelUser ? 'panel' : 'config';
         const enabled = customUser ? Boolean(customUser.enabled) : true;
         const password = configuredUser?.password || customUser?.password || panelUser?.password || '';
+        const quotas = normalizeQuotaEntries(
+          configuredUser?.quotas
+          || customUser?.quotas
+          || panelUser?.quotas
+        );
 
         return {
           username,
           password,
+          ...(quotas.length > 0 ? { quotas } : {}),
           source,
           enabled,
           configured: Boolean(configuredUser),
@@ -722,6 +802,7 @@ class MieruManagerService {
     const username = normalizeUsername(payload.username);
     const password = normalizePassword(payload.password);
     const enabled = payload.enabled === undefined ? true : Boolean(payload.enabled);
+    const quotas = normalizeQuotaEntries(payload.quotas);
 
     const [configState, syncState, panelUsers] = await Promise.all([
       this.loadCurrentConfig(),
@@ -741,6 +822,7 @@ class MieruManagerService {
         name: username,
         password,
         enabled,
+        ...(quotas.length > 0 ? { quotas } : {}),
         createdAt: now,
         updatedAt: now
       }
@@ -752,6 +834,7 @@ class MieruManagerService {
       user: {
         username,
         password,
+        ...(quotas.length > 0 ? { quotas } : {}),
         source: 'custom',
         enabled,
         configured: true,
@@ -784,6 +867,9 @@ class MieruManagerService {
     const username = payload.username === undefined ? current.name : normalizeUsername(payload.username);
     const password = payload.password === undefined ? current.password : normalizePassword(payload.password);
     const enabled = payload.enabled === undefined ? current.enabled : Boolean(payload.enabled);
+    const quotas = payload.quotas === undefined
+      ? normalizeQuotaEntries(current.quotas)
+      : normalizeQuotaEntries(payload.quotas);
 
     this.assertUniqueUsername(
       username,
@@ -797,6 +883,7 @@ class MieruManagerService {
       name: username,
       password,
       enabled,
+      ...(quotas.length > 0 ? { quotas } : {}),
       updatedAt: new Date().toISOString()
     };
 
@@ -809,6 +896,7 @@ class MieruManagerService {
       user: {
         username: updatedUser.name,
         password: updatedUser.password,
+        ...(Array.isArray(updatedUser.quotas) && updatedUser.quotas.length > 0 ? { quotas: normalizeQuotaEntries(updatedUser.quotas) } : {}),
         source: 'custom',
         enabled: updatedUser.enabled,
         configured: true,

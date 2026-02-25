@@ -189,14 +189,16 @@ class SubscriptionController {
         v2ray: `${subscriptionUrl}?target=v2ray`,
         clash: `${subscriptionUrl}?target=clash`,
         singbox: `${subscriptionUrl}?target=singbox`,
-        wireguard: `${subscriptionUrl}?target=wireguard`
+        wireguard: `${subscriptionUrl}?target=wireguard`,
+        mieru: `${subscriptionUrl}?target=mieru`
       };
 
-      const [v2rayQr, clashQr, singboxQr, wireguardQr] = await Promise.all([
+      const [v2rayQr, clashQr, singboxQr, wireguardQr, mieruQr] = await Promise.all([
         QRCode.toDataURL(urls.v2ray),
         QRCode.toDataURL(urls.clash),
         QRCode.toDataURL(urls.singbox),
-        QRCode.toDataURL(urls.wireguard)
+        QRCode.toDataURL(urls.wireguard),
+        QRCode.toDataURL(urls.mieru)
       ]);
 
       const links = (
@@ -252,7 +254,8 @@ class SubscriptionController {
               v2ray: v2rayQr,
               clash: clashQr,
               singbox: singboxQr,
-              wireguard: wireguardQr
+              wireguard: wireguardQr,
+              mieru: mieruQr
             }
           },
           links,
