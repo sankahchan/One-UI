@@ -1,0 +1,660 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Activity,
+  Copy,
+  Download,
+  Edit3,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Trash2
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { Badge } from '../components/atoms/Badge';
+import { Button } from '../components/atoms/Button';
+import { Card } from '../components/atoms/Card';
+import { Input } from '../components/atoms/Input';
+import {
+  useCreateMieruUser,
+  useDeleteMieruUser,
+  useMieruLogs,
+  useMieruPolicy,
+  useMieruProfile,
+  useMieruStatus,
+  useMieruUserExport,
+  useMieruUsers,
+  useRestartMieru,
+  useSyncMieruUsers,
+  useUpdateMieruProfile,
+  useUpdateMieruUser
+} from '../hooks/useMieru';
+import { useToast } from '../hooks/useToast';
+import { copyTextToClipboard } from '../utils/clipboard';
+
+type ProfileForm = {
+  server: string;
+  portRange: string;
+  transport: 'TCP' | 'UDP';
+  udp: boolean;
+  multiplexing: string;
+};
+
+const DEFAULT_PROFILE: ProfileForm = {
+  server: '',
+  portRange: '2012-2022',
+  transport: 'TCP',
+  udp: true,
+  multiplexing: 'MULTIPLEXING_HIGH'
+};
+
+type UserForm = {
+  username: string;
+  password: string;
+  enabled: boolean;
+};
+
+const DEFAULT_USER_FORM: UserForm = {
+  username: '',
+  password: '',
+  enabled: true
+};
+
+export const MieruPage: React.FC = () => {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const policyQuery = useMieruPolicy();
+  const statusQuery = useMieruStatus();
+  const profileQuery = useMieruProfile();
+  const usersQuery = useMieruUsers(true);
+
+  const syncMutation = useSyncMieruUsers();
+  const restartMutation = useRestartMieru();
+  const updateProfileMutation = useUpdateMieruProfile();
+  const createUserMutation = useCreateMieruUser();
+  const updateUserMutation = useUpdateMieruUser();
+  const deleteUserMutation = useDeleteMieruUser();
+  const userExportMutation = useMieruUserExport();
+
+  const [showLogs, setShowLogs] = useState(false);
+  const logsQuery = useMieruLogs(120, showLogs);
+
+  const [profileForm, setProfileForm] = useState<ProfileForm>(DEFAULT_PROFILE);
+  const [profileDirty, setProfileDirty] = useState(false);
+
+  const [createForm, setCreateForm] = useState<UserForm>(DEFAULT_USER_FORM);
+  const [editTarget, setEditTarget] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<UserForm>(DEFAULT_USER_FORM);
+
+  useEffect(() => {
+    if (!profileQuery.data || profileDirty) {
+      return;
+    }
+
+    setProfileForm({
+      server: profileQuery.data.server || '',
+      portRange: profileQuery.data.portRange || DEFAULT_PROFILE.portRange,
+      transport: profileQuery.data.transport || DEFAULT_PROFILE.transport,
+      udp: Boolean(profileQuery.data.udp),
+      multiplexing: profileQuery.data.multiplexing || DEFAULT_PROFILE.multiplexing
+    });
+  }, [profileDirty, profileQuery.data]);
+
+  const users = usersQuery.data?.users || [];
+
+  const statusBadge = useMemo(() => {
+    if (!policyQuery.data?.enabled) {
+      return { label: t('common.disabled', { defaultValue: 'Disabled' }), variant: 'danger' as const };
+    }
+
+    if (statusQuery.data?.running) {
+      return { label: t('common.online', { defaultValue: 'Online' }), variant: 'success' as const };
+    }
+
+    return { label: t('common.offline', { defaultValue: 'Offline' }), variant: 'warning' as const };
+  }, [policyQuery.data?.enabled, statusQuery.data?.running, t]);
+
+  const onRefreshAll = () => {
+    void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
+    void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    void queryClient.invalidateQueries({ queryKey: ['mieru-profile'] });
+    void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+    if (showLogs) {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
+    }
+  };
+
+  const onSync = async () => {
+    try {
+      const result = await syncMutation.mutateAsync('manual.mieru.page.sync');
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.changed
+          ? t('mieru.syncChanged', {
+              defaultValue: 'Synced {{count}} users to Mieru.',
+              count: result.userCount
+            })
+          : t('mieru.syncNoChange', {
+              defaultValue: 'Already in sync ({{count}} users).',
+              count: result.userCount
+            })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.syncFailed', { defaultValue: 'Failed to sync Mieru users.' })
+      );
+    }
+  };
+
+  const onRestart = async () => {
+    try {
+      await restartMutation.mutateAsync();
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.restartSuccess', { defaultValue: 'Mieru restarted successfully.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.restartFailed', { defaultValue: 'Failed to restart Mieru.' })
+      );
+    }
+  };
+
+  const onSaveProfile = async () => {
+    try {
+      await updateProfileMutation.mutateAsync(profileForm);
+      setProfileDirty(false);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.profileSaved', { defaultValue: 'Mieru profile updated.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.profileSaveFailed', { defaultValue: 'Failed to update Mieru profile.' })
+      );
+    }
+  };
+
+  const onCreateUser = async () => {
+    try {
+      await createUserMutation.mutateAsync(createForm);
+      setCreateForm(DEFAULT_USER_FORM);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.userCreated', { defaultValue: 'Mieru user created.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.userCreateFailed', { defaultValue: 'Failed to create Mieru user.' })
+      );
+    }
+  };
+
+  const onStartEdit = (username: string, password: string, enabled: boolean) => {
+    setEditTarget(username);
+    setEditForm({ username, password, enabled });
+  };
+
+  const onUpdateUser = async () => {
+    if (!editTarget) {
+      return;
+    }
+
+    try {
+      await updateUserMutation.mutateAsync({
+        username: editTarget,
+        payload: editForm
+      });
+      setEditTarget(null);
+      setEditForm(DEFAULT_USER_FORM);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.userUpdated', { defaultValue: 'Mieru user updated.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.userUpdateFailed', { defaultValue: 'Failed to update Mieru user.' })
+      );
+    }
+  };
+
+  const onDeleteUser = async (username: string) => {
+    if (!window.confirm(t('mieru.confirmDelete', { defaultValue: `Delete Mieru user "${username}"?` }))) {
+      return;
+    }
+
+    try {
+      await deleteUserMutation.mutateAsync(username);
+      if (editTarget === username) {
+        setEditTarget(null);
+        setEditForm(DEFAULT_USER_FORM);
+      }
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.userDeleted', { defaultValue: 'Mieru user deleted.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.userDeleteFailed', { defaultValue: 'Failed to delete Mieru user.' })
+      );
+    }
+  };
+
+  const onCopyYaml = async (username: string) => {
+    try {
+      const result = await userExportMutation.mutateAsync(username);
+      const copied = await copyTextToClipboard(result.clashYaml);
+
+      if (!copied) {
+        throw new Error('clipboard failed');
+      }
+
+      toast.success(
+        t('common.copied', { defaultValue: 'Copied' }),
+        t('mieru.exportCopied', { defaultValue: 'Clash YAML copied to clipboard.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.exportCopyFailed', { defaultValue: 'Failed to copy Mieru export.' })
+      );
+    }
+  };
+
+  const onDownloadYaml = async (username: string) => {
+    try {
+      const result = await userExportMutation.mutateAsync(username);
+      const blob = new Blob([result.clashYaml], { type: 'application/yaml;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `mieru-${username}.yaml`;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.exportDownloadFailed', { defaultValue: 'Failed to download Mieru export.' })
+      );
+    }
+  };
+
+  const onlineCount = usersQuery.data?.stats?.online || 0;
+  const totalCount = usersQuery.data?.stats?.total || 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{t('nav.mieru', { defaultValue: 'Mieru' })}</h1>
+          <p className="mt-1 text-sm text-muted">
+            {t('mieru.subtitle', {
+              defaultValue: 'Manage Mieru profile, custom users, exports, and live online state.'
+            })}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={onRefreshAll} loading={statusQuery.isFetching || usersQuery.isFetching}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {t('common.refresh', { defaultValue: 'Refresh' })}
+          </Button>
+          <Button variant="secondary" onClick={() => void onSync()} loading={syncMutation.isPending}>
+            <Activity className="mr-2 h-4 w-4" />
+            {t('mieru.syncUsers', { defaultValue: 'Sync Users' })}
+          </Button>
+          <Button variant="danger" onClick={() => void onRestart()} loading={restartMutation.isPending}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {t('mieru.restart', { defaultValue: 'Restart Mieru' })}
+          </Button>
+        </div>
+      </div>
+
+      <Card className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-xl font-semibold text-foreground">{t('mieru.runtime', { defaultValue: 'Runtime' })}</h2>
+          <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+          <span className="text-sm text-muted">
+            {t('mieru.onlineSummary', {
+              defaultValue: '{{online}} / {{total}} online',
+              online: onlineCount,
+              total: totalCount
+            })}
+          </span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">{t('mieru.mode', { defaultValue: 'Mode' })}</p>
+            <p className="mt-1 font-semibold text-foreground">{policyQuery.data?.mode || 'docker'}</p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">{t('mieru.version', { defaultValue: 'Version' })}</p>
+            <p className="mt-1 font-semibold text-foreground">{statusQuery.data?.version || 'unknown'}</p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">{t('mieru.health', { defaultValue: 'Health' })}</p>
+            <p className="mt-1 font-semibold text-foreground">
+              {statusQuery.data?.health?.configured
+                ? statusQuery.data?.health?.ok
+                  ? t('common.online', { defaultValue: 'Online' })
+                  : t('common.offline', { defaultValue: 'Offline' })
+                : t('mieru.notConfigured', { defaultValue: 'Not configured' })}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">{t('common.status', { defaultValue: 'Status' })}</p>
+            <p className="mt-1 font-semibold text-foreground">{statusQuery.data?.state || 'unknown'}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-xl font-semibold text-foreground">{t('mieru.profile', { defaultValue: 'Server Profile' })}</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input
+            label={t('mieru.serverHost', { defaultValue: 'Server Host / IP' })}
+            value={profileForm.server}
+            onChange={(event) => {
+              setProfileDirty(true);
+              setProfileForm((previous) => ({
+                ...previous,
+                server: event.target.value
+              }));
+            }}
+            placeholder="167.71.212.189"
+          />
+          <Input
+            label={t('mieru.portRange', { defaultValue: 'Port Range' })}
+            value={profileForm.portRange}
+            onChange={(event) => {
+              setProfileDirty(true);
+              setProfileForm((previous) => ({
+                ...previous,
+                portRange: event.target.value
+              }));
+            }}
+            placeholder="2012-2022"
+          />
+          <label className="space-y-1.5">
+            <span className="ml-1 block text-sm font-medium text-muted">{t('mieru.transport', { defaultValue: 'Transport' })}</span>
+            <select
+              value={profileForm.transport}
+              onChange={(event) => {
+                setProfileDirty(true);
+                setProfileForm((previous) => ({
+                  ...previous,
+                  transport: event.target.value as 'TCP' | 'UDP'
+                }));
+              }}
+              className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10"
+            >
+              <option value="TCP">TCP</option>
+              <option value="UDP">UDP</option>
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="ml-1 block text-sm font-medium text-muted">{t('mieru.multiplexing', { defaultValue: 'Multiplexing' })}</span>
+            <select
+              value={profileForm.multiplexing}
+              onChange={(event) => {
+                setProfileDirty(true);
+                setProfileForm((previous) => ({
+                  ...previous,
+                  multiplexing: event.target.value
+                }));
+              }}
+              className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10"
+            >
+              <option value="MULTIPLEXING_DEFAULT">MULTIPLEXING_DEFAULT</option>
+              <option value="MULTIPLEXING_LOW">MULTIPLEXING_LOW</option>
+              <option value="MULTIPLEXING_MIDDLE">MULTIPLEXING_MIDDLE</option>
+              <option value="MULTIPLEXING_HIGH">MULTIPLEXING_HIGH</option>
+            </select>
+          </label>
+        </div>
+        <label className="inline-flex items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={profileForm.udp}
+            onChange={(event) => {
+              setProfileDirty(true);
+              setProfileForm((previous) => ({
+                ...previous,
+                udp: event.target.checked
+              }));
+            }}
+            className="h-4 w-4 rounded border-line/70 bg-card/70 text-brand-500 focus:ring-brand-500/40"
+          />
+          {t('mieru.udp', { defaultValue: 'Enable UDP' })}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => void onSaveProfile()}
+            loading={updateProfileMutation.isPending}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {t('common.save', { defaultValue: 'Save' })}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (!profileQuery.data) {
+                return;
+              }
+              setProfileDirty(false);
+              setProfileForm({
+                server: profileQuery.data.server || '',
+                portRange: profileQuery.data.portRange || DEFAULT_PROFILE.portRange,
+                transport: profileQuery.data.transport || DEFAULT_PROFILE.transport,
+                udp: Boolean(profileQuery.data.udp),
+                multiplexing: profileQuery.data.multiplexing || DEFAULT_PROFILE.multiplexing
+              });
+            }}
+          >
+            {t('common.reset', { defaultValue: 'Reset' })}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-xl font-semibold text-foreground">{t('mieru.customUsers', { defaultValue: 'Custom Mieru Users' })}</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Input
+            label={t('auth.username', { defaultValue: 'Username' })}
+            value={createForm.username}
+            onChange={(event) => setCreateForm((previous) => ({ ...previous, username: event.target.value }))}
+            placeholder="mieru_user"
+          />
+          <Input
+            label={t('auth.password', { defaultValue: 'Password' })}
+            value={createForm.password}
+            onChange={(event) => setCreateForm((previous) => ({ ...previous, password: event.target.value }))}
+            placeholder="strong-password"
+          />
+          <label className="space-y-1.5">
+            <span className="ml-1 block text-sm font-medium text-muted">{t('common.status', { defaultValue: 'Status' })}</span>
+            <select
+              value={createForm.enabled ? 'enabled' : 'disabled'}
+              onChange={(event) => setCreateForm((previous) => ({ ...previous, enabled: event.target.value === 'enabled' }))}
+              className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10"
+            >
+              <option value="enabled">{t('common.enabled', { defaultValue: 'Enabled' })}</option>
+              <option value="disabled">{t('common.disabled', { defaultValue: 'Disabled' })}</option>
+            </select>
+          </label>
+        </div>
+        <Button onClick={() => void onCreateUser()} loading={createUserMutation.isPending}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t('mieru.addCustomUser', { defaultValue: 'Add Custom User' })}
+        </Button>
+      </Card>
+
+      <Card padding={false}>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-line/70">
+            <thead className="bg-panel/40">
+              <tr className="text-left text-xs uppercase tracking-wide text-muted">
+                <th className="px-4 py-3">{t('auth.username', { defaultValue: 'Username' })}</th>
+                <th className="px-4 py-3">{t('auth.password', { defaultValue: 'Password' })}</th>
+                <th className="px-4 py-3">{t('mieru.source', { defaultValue: 'Source' })}</th>
+                <th className="px-4 py-3">{t('common.status', { defaultValue: 'Status' })}</th>
+                <th className="px-4 py-3">{t('common.online', { defaultValue: 'Online' })}</th>
+                <th className="px-4 py-3">{t('common.actions', { defaultValue: 'Actions' })}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/60">
+              {users.map((entry) => {
+                const isEditing = editTarget === entry.username;
+                const isCustom = entry.source === 'custom';
+
+                return (
+                  <tr key={entry.username} className="text-sm">
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <input
+                          value={editForm.username}
+                          onChange={(event) => setEditForm((previous) => ({ ...previous, username: event.target.value }))}
+                          className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                        />
+                      ) : (
+                        <span className="font-medium text-foreground">{entry.username}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <input
+                          value={editForm.password}
+                          onChange={(event) => setEditForm((previous) => ({ ...previous, password: event.target.value }))}
+                          className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                        />
+                      ) : (
+                        <code className="rounded bg-panel/60 px-2 py-1 text-xs text-muted">{entry.password}</code>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted">{entry.source}</td>
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <select
+                          value={editForm.enabled ? 'enabled' : 'disabled'}
+                          onChange={(event) => setEditForm((previous) => ({ ...previous, enabled: event.target.value === 'enabled' }))}
+                          className="rounded-lg border border-line/60 bg-card/60 px-2 py-1 text-sm"
+                        >
+                          <option value="enabled">{t('common.enabled', { defaultValue: 'Enabled' })}</option>
+                          <option value="disabled">{t('common.disabled', { defaultValue: 'Disabled' })}</option>
+                        </select>
+                      ) : entry.enabled ? (
+                        <Badge variant="success">{t('common.enabled', { defaultValue: 'Enabled' })}</Badge>
+                      ) : (
+                        <Badge variant="warning">{t('common.disabled', { defaultValue: 'Disabled' })}</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {entry.online ? (
+                        <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
+                      ) : (
+                        <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void onCopyYaml(entry.username)}
+                          loading={userExportMutation.isPending}
+                          disabled={!entry.configured}
+                        >
+                          <Copy className="mr-1 h-3.5 w-3.5" />
+                          YAML
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void onDownloadYaml(entry.username)}
+                          loading={userExportMutation.isPending}
+                          disabled={!entry.configured}
+                        >
+                          <Download className="mr-1 h-3.5 w-3.5" />
+                          {t('common.export', { defaultValue: 'Export CSV' })}
+                        </Button>
+                        {isCustom ? (
+                          isEditing ? (
+                            <>
+                              <Button size="sm" onClick={() => void onUpdateUser()} loading={updateUserMutation.isPending}>
+                                <Save className="mr-1 h-3.5 w-3.5" />
+                                {t('common.save', { defaultValue: 'Save' })}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditTarget(null);
+                                  setEditForm(DEFAULT_USER_FORM);
+                                }}
+                              >
+                                {t('common.cancel', { defaultValue: 'Cancel' })}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => onStartEdit(entry.username, entry.password, entry.enabled)}
+                              >
+                                <Edit3 className="mr-1 h-3.5 w-3.5" />
+                                {t('common.edit', { defaultValue: 'Edit' })}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => void onDeleteUser(entry.username)}>
+                                <Trash2 className="mr-1 h-3.5 w-3.5 text-red-400" />
+                                {t('common.delete', { defaultValue: 'Delete' })}
+                              </Button>
+                            </>
+                          )
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!users.length ? (
+            <div className="px-4 py-10 text-center text-sm text-muted">
+              {t('mieru.noUsers', { defaultValue: 'No Mieru users found yet.' })}
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowLogs((previous) => !previous)}
+          className="inline-flex items-center rounded-xl border border-line/70 px-3 py-2 text-sm font-medium text-foreground transition hover:bg-panel/60"
+        >
+          <Activity className="mr-2 h-4 w-4" />
+          {showLogs
+            ? t('mieru.hideLogs', { defaultValue: 'Hide Logs' })
+            : t('mieru.showLogs', { defaultValue: 'Show Logs' })}
+        </button>
+        {showLogs ? (
+          <pre className="max-h-80 overflow-auto rounded-2xl border border-line/70 bg-black/35 p-4 text-xs text-slate-200">
+            {logsQuery.isLoading
+              ? t('common.loading', { defaultValue: 'Loading...' })
+              : logsQuery.data?.raw || logsQuery.data?.detail || t('mieru.noLogs', { defaultValue: 'No logs available.' })}
+          </pre>
+        ) : null}
+      </Card>
+    </div>
+  );
+};

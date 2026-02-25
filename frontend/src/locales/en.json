@@ -89,6 +89,7 @@
         "users": "Users",
         "groups": "Groups",
         "inbounds": "Inbounds",
+        "mieru": "Mieru",
         "settings": "Settings",
         "logout": "Logout"
     },

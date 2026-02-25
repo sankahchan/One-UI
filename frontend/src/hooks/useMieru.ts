@@ -1,16 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  createMieruUser,
+  deleteMieruUser,
+  getMieruOnlineSnapshot,
   getMieruLogs,
+  getMieruProfile,
   getMieruPolicy,
   getMieruStatus,
+  getMieruUserExport,
+  listMieruUsers,
   restartMieru,
   syncMieruUsers,
+  updateMieruProfile,
+  updateMieruUser,
+  type MieruCustomUserDeleteResult,
+  type MieruCustomUserResult,
   type MieruLogs,
+  type MieruOnlineSnapshot,
+  type MieruProfile,
   type MieruPolicy,
   type MieruRestartResult,
   type MieruSyncResult,
-  type MieruStatus
+  type MieruStatus,
+  type MieruUserExportResult,
+  type MieruUsersResult
 } from '../api/mieru';
 
 export const useMieruPolicy = () => {
@@ -63,5 +77,94 @@ export const useSyncMieruUsers = () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
     }
+  });
+};
+
+export const useMieruProfile = () => {
+  return useQuery<MieruProfile>({
+    queryKey: ['mieru-profile'],
+    queryFn: getMieruProfile,
+    staleTime: 10_000
+  });
+};
+
+export const useMieruUsers = (includeOnline = true) => {
+  return useQuery<MieruUsersResult>({
+    queryKey: ['mieru-users', includeOnline],
+    queryFn: () => listMieruUsers(includeOnline),
+    refetchInterval: includeOnline ? 15_000 : false,
+    staleTime: 5_000
+  });
+};
+
+export const useMieruOnlineSnapshot = (enabled = true) => {
+  return useQuery<MieruOnlineSnapshot>({
+    queryKey: ['mieru-online'],
+    queryFn: getMieruOnlineSnapshot,
+    enabled,
+    refetchInterval: enabled ? 15_000 : false,
+    staleTime: 5_000
+  });
+};
+
+export const useUpdateMieruProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<MieruProfile, Error, Partial<MieruProfile>>({
+    mutationFn: updateMieruProfile,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-profile'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
+    }
+  });
+};
+
+export const useCreateMieruUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<MieruCustomUserResult, Error, { username: string; password: string; enabled?: boolean }>({
+    mutationFn: createMieruUser,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    }
+  });
+};
+
+export const useUpdateMieruUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    MieruCustomUserResult,
+    Error,
+    { username: string; payload: { username?: string; password?: string; enabled?: boolean } }
+  >({
+    mutationFn: ({ username, payload }) => updateMieruUser(username, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    }
+  });
+};
+
+export const useDeleteMieruUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<MieruCustomUserDeleteResult, Error, string>({
+    mutationFn: deleteMieruUser,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    }
+  });
+};
+
+export const useMieruUserExport = () => {
+  return useMutation<MieruUserExportResult, Error, string>({
+    mutationFn: getMieruUserExport
   });
 };

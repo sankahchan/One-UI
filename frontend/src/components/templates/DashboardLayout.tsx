@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Radio,
+  Server,
   Settings,
   Users,
   X
@@ -100,6 +101,7 @@ export const DashboardLayout: React.FC = () => {
       { path: '/users', icon: Users, label: t('nav.users') },
       { path: '/groups', icon: Layers3, label: t('nav.groups') },
       { path: '/inbounds', icon: Radio, label: t('nav.inbounds') },
+      { path: '/mieru', icon: Server, label: t('nav.mieru', { defaultValue: 'Mieru' }) },
       { path: '/settings', icon: Settings, label: t('nav.settings') }
     ],
     [t]
@@ -262,7 +264,11 @@ export const DashboardLayout: React.FC = () => {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-card/90 px-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur-xl lg:hidden">
-        <ul className={`grid gap-1 ${menuItems.length > 4 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        <ul
+          className={`grid gap-1 ${
+            menuItems.length > 5 ? 'grid-cols-6' : menuItems.length > 4 ? 'grid-cols-5' : 'grid-cols-4'
+          }`}
+        >
           {menuItems.map(({ path, icon: Icon, label }) => {
             const active = isActive(path);
             return (

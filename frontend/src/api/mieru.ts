@@ -60,6 +60,97 @@ export interface MieruSyncResult {
   hash: string | null;
 }
 
+export interface MieruProfile {
+  server: string;
+  portRange: string;
+  transport: 'TCP' | 'UDP';
+  udp: boolean;
+  multiplexing: string;
+  updatedAt: string | null;
+  source?: string;
+  usersPath?: string;
+  configPath?: string;
+}
+
+export interface MieruUserEntry {
+  username: string;
+  password: string;
+  source: 'panel' | 'custom' | 'config';
+  enabled: boolean;
+  configured: boolean;
+  online: boolean;
+  updatedAt: string | null;
+  createdAt: string | null;
+}
+
+export interface MieruOnlineSnapshot {
+  checkedAt: string;
+  users: Array<{
+    username: string;
+    online: boolean;
+  }>;
+  summary: {
+    total: number;
+    online: number;
+    offline: number;
+  };
+  commands: {
+    users: {
+      ok: boolean;
+      error: string | null;
+    };
+    connections: {
+      ok: boolean;
+      error: string | null;
+    };
+  };
+}
+
+export interface MieruUsersResult {
+  users: MieruUserEntry[];
+  stats: {
+    total: number;
+    configured: number;
+    panel: number;
+    custom: number;
+    online: number;
+  };
+  sync: {
+    usersPath: string;
+    configPath: string;
+    usersHash: string | null;
+    lastSyncedAt: string | null;
+  };
+  onlineSnapshot?: MieruOnlineSnapshot | null;
+}
+
+export interface MieruCustomUserResult {
+  user: MieruUserEntry;
+  syncResult: MieruSyncResult;
+}
+
+export interface MieruCustomUserDeleteResult {
+  deleted: boolean;
+  username: string;
+  syncResult: MieruSyncResult;
+}
+
+export interface MieruUserExportResult {
+  username: string;
+  profile: MieruProfile;
+  clashYaml: string;
+  json: {
+    type: 'mieru';
+    server: string;
+    portRange: string;
+    transport: 'TCP' | 'UDP';
+    udp: boolean;
+    username: string;
+    password: string;
+    multiplexing: string;
+  };
+}
+
 export const mieruApi = {
   getPolicy: async (): Promise<ApiResponse<MieruPolicy>> => apiClient.get('/mieru/policy'),
   getStatus: async (): Promise<ApiResponse<MieruStatus>> => apiClient.get('/mieru/status'),
@@ -67,7 +158,30 @@ export const mieruApi = {
   syncUsers: async (reason?: string): Promise<ApiResponse<MieruSyncResult>> =>
     apiClient.post('/mieru/sync', reason ? { reason } : {}),
   getLogs: async (params: { lines?: number } = {}): Promise<ApiResponse<MieruLogs>> =>
-    apiClient.get('/mieru/logs', { params })
+    apiClient.get('/mieru/logs', { params }),
+  getProfile: async (): Promise<ApiResponse<MieruProfile>> => apiClient.get('/mieru/profile'),
+  updateProfile: async (payload: Partial<MieruProfile>): Promise<ApiResponse<MieruProfile>> =>
+    apiClient.put('/mieru/profile', payload),
+  listUsers: async (params: { includeOnline?: boolean } = {}): Promise<ApiResponse<MieruUsersResult>> =>
+    apiClient.get('/mieru/users', { params }),
+  createUser: async (payload: {
+    username: string;
+    password: string;
+    enabled?: boolean;
+  }): Promise<ApiResponse<MieruCustomUserResult>> => apiClient.post('/mieru/users', payload),
+  updateUser: async (
+    username: string,
+    payload: {
+      username?: string;
+      password?: string;
+      enabled?: boolean;
+    }
+  ): Promise<ApiResponse<MieruCustomUserResult>> => apiClient.put(`/mieru/users/${encodeURIComponent(username)}`, payload),
+  deleteUser: async (username: string): Promise<ApiResponse<MieruCustomUserDeleteResult>> =>
+    apiClient.delete(`/mieru/users/${encodeURIComponent(username)}`),
+  getOnlineSnapshot: async (): Promise<ApiResponse<MieruOnlineSnapshot>> => apiClient.get('/mieru/online'),
+  getUserExport: async (username: string): Promise<ApiResponse<MieruUserExportResult>> =>
+    apiClient.get(`/mieru/users/${encodeURIComponent(username)}/export`)
 };
 
 export const getMieruPolicy = async (): Promise<MieruPolicy> => {
@@ -112,6 +226,81 @@ export const getMieruLogs = async (lines = 120): Promise<MieruLogs> => {
   const response = await mieruApi.getLogs({ lines });
   if (!response.data) {
     throw new Error(response.message || 'Unable to fetch Mieru logs');
+  }
+  return response.data;
+};
+
+export const getMieruProfile = async (): Promise<MieruProfile> => {
+  const response = await mieruApi.getProfile();
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to fetch Mieru profile');
+  }
+  return response.data;
+};
+
+export const updateMieruProfile = async (payload: Partial<MieruProfile>): Promise<MieruProfile> => {
+  const response = await mieruApi.updateProfile(payload);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to update Mieru profile');
+  }
+  return response.data;
+};
+
+export const listMieruUsers = async (includeOnline = true): Promise<MieruUsersResult> => {
+  const response = await mieruApi.listUsers({ includeOnline });
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to fetch Mieru users');
+  }
+  return response.data;
+};
+
+export const createMieruUser = async (payload: {
+  username: string;
+  password: string;
+  enabled?: boolean;
+}): Promise<MieruCustomUserResult> => {
+  const response = await mieruApi.createUser(payload);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to create Mieru user');
+  }
+  return response.data;
+};
+
+export const updateMieruUser = async (
+  username: string,
+  payload: {
+    username?: string;
+    password?: string;
+    enabled?: boolean;
+  }
+): Promise<MieruCustomUserResult> => {
+  const response = await mieruApi.updateUser(username, payload);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to update Mieru user');
+  }
+  return response.data;
+};
+
+export const deleteMieruUser = async (username: string): Promise<MieruCustomUserDeleteResult> => {
+  const response = await mieruApi.deleteUser(username);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to delete Mieru user');
+  }
+  return response.data;
+};
+
+export const getMieruOnlineSnapshot = async (): Promise<MieruOnlineSnapshot> => {
+  const response = await mieruApi.getOnlineSnapshot();
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to fetch Mieru online snapshot');
+  }
+  return response.data;
+};
+
+export const getMieruUserExport = async (username: string): Promise<MieruUserExportResult> => {
+  const response = await mieruApi.getUserExport(username);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to generate Mieru export');
   }
   return response.data;
 };

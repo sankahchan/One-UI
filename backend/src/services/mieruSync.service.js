@@ -100,6 +100,75 @@ function buildSyncHash(payload) {
   return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex');
 }
 
+function normalizeMieruCredentialEntries(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const deduped = new Map();
+
+  for (const entry of entries) {
+    const name = String(entry?.name || entry?.username || '').trim();
+    const password = String(entry?.password || '').trim();
+
+    if (!name || !password) {
+      continue;
+    }
+
+    deduped.set(name, { name, password });
+  }
+
+  return Array.from(deduped.values());
+}
+
+function normalizeManagedCustomUsers(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const deduped = new Map();
+
+  for (const entry of entries) {
+    const name = String(entry?.name || entry?.username || '').trim();
+    const password = String(entry?.password || '').trim();
+    const enabled = entry?.enabled === undefined ? true : Boolean(entry.enabled);
+
+    if (!name || !password) {
+      continue;
+    }
+
+    deduped.set(name, {
+      name,
+      password,
+      enabled,
+      createdAt: entry?.createdAt || null,
+      updatedAt: entry?.updatedAt || null
+    });
+  }
+
+  return Array.from(deduped.values());
+}
+
+function mergePanelAndCustomUsers(panelUsers, customUsers) {
+  const merged = new Map();
+
+  for (const user of normalizeMieruCredentialEntries(panelUsers)) {
+    merged.set(user.name, user);
+  }
+
+  for (const user of normalizeManagedCustomUsers(customUsers)) {
+    if (!user.enabled) {
+      continue;
+    }
+    merged.set(user.name, {
+      name: user.name,
+      password: user.password
+    });
+  }
+
+  return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 class MieruSyncService {
   constructor() {
     this.enabled = parseBoolean(process.env.MIERU_ENABLED, false);
@@ -169,30 +238,39 @@ class MieruSyncService {
   }
 
   buildMieruUsers(users) {
-    return users.map((user) => ({
+    return normalizeMieruCredentialEntries(users.map((user) => ({
       name: user.email,
       password: user.password
-    }));
+    })));
   }
 
   buildNextConfig(previousConfig, mieruUsers) {
     const base = deepCloneObject(previousConfig);
-    setObjectValueByPath(base, this.usersPathSegments, mieruUsers);
+    const previousSyncMeta = isPlainObject(base.oneUiSync) ? deepCloneObject(base.oneUiSync) : {};
+    const customUsers = normalizeManagedCustomUsers(previousSyncMeta.customUsers);
+    const mergedUsers = mergePanelAndCustomUsers(mieruUsers, customUsers);
+    setObjectValueByPath(base, this.usersPathSegments, mergedUsers);
 
     const syncMetadata = {
+      ...previousSyncMeta,
       managedBy: 'one-ui',
-      schemaVersion: 1,
+      schemaVersion: 2,
       usersPath: this.usersPathSegments.join('.'),
-      userCount: mieruUsers.length,
-      usersHash: buildSyncHash(mieruUsers),
-      autoSync: this.autoSync
+      panelUserCount: mieruUsers.length,
+      customUserCount: customUsers.filter((user) => user.enabled).length,
+      userCount: mergedUsers.length,
+      usersHash: buildSyncHash(mergedUsers),
+      autoSync: this.autoSync,
+      customUsers,
+      lastSyncedAt: new Date().toISOString()
     };
 
     base.oneUiSync = syncMetadata;
 
     return {
       document: base,
-      hash: syncMetadata.usersHash
+      hash: syncMetadata.usersHash,
+      userCount: mergedUsers.length
     };
   }
 
@@ -283,7 +361,7 @@ class MieruSyncService {
     ]);
 
     const mieruUsers = this.buildMieruUsers(users);
-    const { document: nextDocument, hash } = this.buildNextConfig(existingConfig.parsed, mieruUsers);
+    const { document: nextDocument, hash, userCount } = this.buildNextConfig(existingConfig.parsed, mieruUsers);
 
     const previousCanonical = stableStringify(existingConfig.parsed || {});
     const nextCanonical = stableStringify(nextDocument);
@@ -306,7 +384,7 @@ class MieruSyncService {
       restartError: restartResult.restartError,
       configPath: this.configPath,
       usersPath: this.usersPathSegments.join('.'),
-      userCount: mieruUsers.length,
+      userCount,
       hash
     };
   }

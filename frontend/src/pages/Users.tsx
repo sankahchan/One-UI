@@ -1764,7 +1764,7 @@ export function Users() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
-            onClick={() => navigate('/settings?tab=system#mieru-sidecar')}
+            onClick={() => navigate('/mieru')}
           >
             <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${mieruState.dotClass}`} />
             {mieruState.label}
