@@ -537,6 +537,7 @@ prepare_directories() {
   mkdir -p "${INSTALL_DIR}"
   mkdir -p "${DATA_DIR}/certs"
   mkdir -p "${BACKUP_DIR}"
+  mkdir -p "${INSTALL_DIR}/mieru"
   mkdir -p /var/log/xray
   touch /var/log/xray/access.log /var/log/xray/error.log /var/log/xray/output.log 2>/dev/null || true
   chown -R 65532:65532 /var/log/xray 2>/dev/null || true
@@ -790,8 +791,14 @@ MIERU_SERVICE_NAME=mieru
 MIERU_COMPOSE_FILE=/opt/one-ui/docker-compose.yml
 MIERU_HEALTH_URL=
 MIERU_COMMAND_TIMEOUT_MS=7000
+MIERU_PUBLIC_HOST=
+MIERU_PORT_RANGE=8444-8444
+MIERU_TRANSPORT=TCP
+MIERU_UDP=false
+MIERU_MULTIPLEXING=MULTIPLEXING_HIGH
 MIERU_AUTO_SYNC=true
 MIERU_CONFIG_PATH=/opt/one-ui/mieru/server_config.json
+MIERU_STATE_PATH=/opt/one-ui/mieru/oneui_sync_state.json
 MIERU_USERS_JSON_PATH=users
 MIERU_SYNC_RESTART=true
 MIERU_SYNC_REQUIRE_RESTART=false
@@ -884,6 +891,7 @@ services:
       - ${DATA_DIR}/certs:${DATA_DIR}/certs
       - /var/log/xray:/var/log/xray
       - ${BACKUP_DIR}:${BACKUP_DIR}
+      - ${INSTALL_DIR}/mieru:/opt/one-ui/mieru
       - /var/run/docker.sock:/var/run/docker.sock
       - ${INSTALL_DIR}/scripts:/opt/one-ui/scripts:ro
       - ${INSTALL_DIR}/docker-compose.yml:/opt/one-ui/docker-compose.yml:ro

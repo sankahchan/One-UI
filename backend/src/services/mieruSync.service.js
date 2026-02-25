@@ -169,11 +169,24 @@ function mergePanelAndCustomUsers(panelUsers, customUsers) {
   return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function sanitizeConfigDocument(configDocument) {
+  const base = deepCloneObject(configDocument);
+  if (isPlainObject(base.oneUiSync)) {
+    delete base.oneUiSync;
+  }
+  return base;
+}
+
+function getSyncStateDefaultPath(configPath) {
+  return path.join(path.dirname(configPath), 'oneui_sync_state.json');
+}
+
 class MieruSyncService {
   constructor() {
     this.enabled = parseBoolean(process.env.MIERU_ENABLED, false);
     this.autoSync = parseBoolean(process.env.MIERU_AUTO_SYNC, true);
     this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
+    this.statePath = String(process.env.MIERU_STATE_PATH || getSyncStateDefaultPath(this.configPath)).trim();
     this.usersPathSegments = parsePathSegments(process.env.MIERU_USERS_JSON_PATH, 'users');
     this.restartAfterSync = parseBoolean(process.env.MIERU_SYNC_RESTART, true);
     this.requireRestart = parseBoolean(process.env.MIERU_SYNC_REQUIRE_RESTART, false);
@@ -196,6 +209,28 @@ class MieruSyncService {
       return {
         exists: true,
         parsed,
+        raw
+      };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return {
+          exists: false,
+          parsed: {},
+          raw: ''
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  async loadSyncState() {
+    try {
+      const raw = await fs.readFile(this.statePath, 'utf8');
+      const parsed = JSON.parse(raw);
+      return {
+        exists: true,
+        parsed: isPlainObject(parsed) ? parsed : {},
         raw
       };
     } catch (error) {
@@ -244,9 +279,24 @@ class MieruSyncService {
     })));
   }
 
-  buildNextConfig(previousConfig, mieruUsers) {
-    const base = deepCloneObject(previousConfig);
-    const previousSyncMeta = isPlainObject(base.oneUiSync) ? deepCloneObject(base.oneUiSync) : {};
+  getSyncMetadata(stateDocument, configDocument) {
+    if (isPlainObject(stateDocument) && stateDocument.managedBy) {
+      return deepCloneObject(stateDocument);
+    }
+
+    if (isPlainObject(stateDocument?.oneUiSync)) {
+      return deepCloneObject(stateDocument.oneUiSync);
+    }
+
+    if (isPlainObject(configDocument?.oneUiSync)) {
+      return deepCloneObject(configDocument.oneUiSync);
+    }
+
+    return {};
+  }
+
+  buildNextConfig(previousConfig, mieruUsers, previousSyncMeta = {}) {
+    const base = sanitizeConfigDocument(previousConfig);
     const customUsers = normalizeManagedCustomUsers(previousSyncMeta.customUsers);
     const mergedUsers = mergePanelAndCustomUsers(mieruUsers, customUsers);
     setObjectValueByPath(base, this.usersPathSegments, mergedUsers);
@@ -265,10 +315,9 @@ class MieruSyncService {
       lastSyncedAt: new Date().toISOString()
     };
 
-    base.oneUiSync = syncMetadata;
-
     return {
       document: base,
+      syncMetadata,
       hash: syncMetadata.usersHash,
       userCount: mergedUsers.length
     };
@@ -281,6 +330,15 @@ class MieruSyncService {
     const tempPath = `${this.configPath}.tmp-${process.pid}-${Date.now()}`;
     await fs.writeFile(tempPath, content, 'utf8');
     await fs.rename(tempPath, this.configPath);
+  }
+
+  async writeStateAtomically(content) {
+    const directory = path.dirname(this.statePath);
+    await fs.mkdir(directory, { recursive: true });
+
+    const tempPath = `${this.statePath}.tmp-${process.pid}-${Date.now()}`;
+    await fs.writeFile(tempPath, content, 'utf8');
+    await fs.rename(tempPath, this.statePath);
   }
 
   async restartRuntimeIfNeeded(changed) {
@@ -355,23 +413,37 @@ class MieruSyncService {
       };
     }
 
-    const [existingConfig, users] = await Promise.all([
+    const [existingConfig, existingState, users] = await Promise.all([
       this.loadCurrentConfig(),
+      this.loadSyncState(),
       this.fetchUsers()
     ]);
 
     const mieruUsers = this.buildMieruUsers(users);
-    const { document: nextDocument, hash, userCount } = this.buildNextConfig(existingConfig.parsed, mieruUsers);
+    const previousSyncMeta = this.getSyncMetadata(existingState.parsed, existingConfig.parsed);
+    const { document: nextDocument, syncMetadata, hash, userCount } = this.buildNextConfig(
+      existingConfig.parsed,
+      mieruUsers,
+      previousSyncMeta
+    );
 
-    const previousCanonical = stableStringify(existingConfig.parsed || {});
+    const sanitizedCurrent = sanitizeConfigDocument(existingConfig.parsed || {});
+    const hadLegacyMetadata = isPlainObject(existingConfig.parsed?.oneUiSync);
+    const previousCanonical = stableStringify(sanitizedCurrent);
     const nextCanonical = stableStringify(nextDocument);
-    const changed = previousCanonical !== nextCanonical;
+    const configChanged = hadLegacyMetadata || previousCanonical !== nextCanonical;
+    const previousSyncCanonical = stableStringify(previousSyncMeta);
+    const nextSyncCanonical = stableStringify(syncMetadata);
+    const stateChanged = previousSyncCanonical !== nextSyncCanonical;
 
-    if (changed) {
+    if (configChanged) {
       await this.writeConfigAtomically(`${JSON.stringify(nextDocument, null, 2)}\n`);
     }
+    if (stateChanged || !existingState.exists) {
+      await this.writeStateAtomically(`${JSON.stringify(syncMetadata, null, 2)}\n`);
+    }
 
-    const restartResult = await this.restartRuntimeIfNeeded(changed);
+    const restartResult = await this.restartRuntimeIfNeeded(configChanged);
 
     return {
       enabled: true,
@@ -379,10 +451,11 @@ class MieruSyncService {
       reason: normalizedReason,
       skipped: false,
       skippedReason: null,
-      changed,
+      changed: configChanged || stateChanged,
       restarted: restartResult.restarted,
       restartError: restartResult.restartError,
       configPath: this.configPath,
+      statePath: this.statePath,
       usersPath: this.usersPathSegments.join('.'),
       userCount,
       hash

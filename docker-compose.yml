@@ -40,6 +40,7 @@ services:
       - ./backend:/app
       - /app/node_modules
       - ./xray/config.json:/etc/xray/config.json
+      - ./mieru:/opt/one-ui/mieru
       - /var/run/docker.sock:/var/run/docker.sock
       - ./scripts:/opt/one-ui/scripts:ro
       - ./docker-compose.yml:/opt/one-ui/docker-compose.yml:ro

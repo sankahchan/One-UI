@@ -33,6 +33,18 @@ function deepCloneObject(value) {
   }
 }
 
+function sanitizeConfigDocument(configDocument) {
+  const base = deepCloneObject(configDocument);
+  if (isPlainObject(base.oneUiSync)) {
+    delete base.oneUiSync;
+  }
+  return base;
+}
+
+function getSyncStateDefaultPath(configPath) {
+  return path.join(path.dirname(configPath), 'oneui_sync_state.json');
+}
+
 function getObjectValueByPath(target, segments) {
   if (!Array.isArray(segments) || segments.length === 0) {
     return undefined;
@@ -178,6 +190,86 @@ function normalizePortRange(value) {
   return `${start}-${end}`;
 }
 
+function parsePortRangeBounds(value) {
+  const normalized = normalizePortRange(value);
+  const [startText, endText] = normalized.split('-');
+  return {
+    normalized,
+    start: Number.parseInt(startText, 10),
+    end: Number.parseInt(endText, 10)
+  };
+}
+
+function toPortRangeFromBinding(binding) {
+  if (!isPlainObject(binding)) {
+    return null;
+  }
+
+  const rangeText = String(binding.portRange || '').trim();
+  if (rangeText) {
+    try {
+      return normalizePortRange(rangeText);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  const port = Number.parseInt(String(binding.port ?? ''), 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    return null;
+  }
+
+  return `${port}-${port}`;
+}
+
+function extractProfileFromPortBindings(configDocument) {
+  const bindings = Array.isArray(configDocument?.portBindings) ? configDocument.portBindings : [];
+  if (bindings.length === 0) {
+    return null;
+  }
+
+  const normalizedBindings = bindings
+    .map((binding) => {
+      const portRange = toPortRangeFromBinding(binding);
+      if (!portRange) {
+        return null;
+      }
+
+      return {
+        portRange,
+        transport: normalizeTransport(binding.protocol, 'TCP')
+      };
+    })
+    .filter(Boolean);
+
+  if (normalizedBindings.length === 0) {
+    return null;
+  }
+
+  return normalizedBindings[0];
+}
+
+function buildPortBindingsFromProfile(profile) {
+  const { normalized, start, end } = parsePortRangeBounds(profile.portRange);
+  const protocol = normalizeTransport(profile.transport, 'TCP');
+
+  if (start === end) {
+    return [
+      {
+        port: start,
+        protocol
+      }
+    ];
+  }
+
+  return [
+    {
+      portRange: normalized,
+      protocol
+    }
+  ];
+}
+
 function normalizeMultiplexing(value, fallback = 'MULTIPLEXING_HIGH') {
   const normalized = String(value || fallback).trim().toUpperCase();
   const allowed = new Set([
@@ -229,6 +321,7 @@ function escapeShellArg(value) {
 class MieruManagerService {
   constructor() {
     this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
+    this.statePath = String(process.env.MIERU_STATE_PATH || getSyncStateDefaultPath(this.configPath)).trim();
     this.usersPathSegments = parsePathSegments(process.env.MIERU_USERS_JSON_PATH, 'users');
   }
 
@@ -263,25 +356,64 @@ class MieruManagerService {
     await fs.rename(tempPath, this.configPath);
   }
 
+  async loadSyncState() {
+    try {
+      const raw = await fs.readFile(this.statePath, 'utf8');
+      const parsed = JSON.parse(raw);
+      return {
+        exists: true,
+        parsed: isPlainObject(parsed) ? parsed : {},
+        raw
+      };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return {
+          exists: false,
+          parsed: {},
+          raw: ''
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  async writeStateAtomically(content) {
+    const directory = path.dirname(this.statePath);
+    await fs.mkdir(directory, { recursive: true });
+
+    const tempPath = `${this.statePath}.tmp-${process.pid}-${Date.now()}`;
+    await fs.writeFile(tempPath, content, 'utf8');
+    await fs.rename(tempPath, this.statePath);
+  }
+
   getDefaultProfile() {
     const configuredHost = String(process.env.MIERU_PUBLIC_HOST || process.env.PUBLIC_HOST || '').trim();
 
     return {
       server: configuredHost,
-      portRange: String(process.env.MIERU_PORT_RANGE || '2012-2022').trim(),
+      portRange: String(process.env.MIERU_PORT_RANGE || '8444-8444').trim(),
       transport: normalizeTransport(process.env.MIERU_TRANSPORT, 'TCP'),
-      udp: parseBoolean(process.env.MIERU_UDP, true),
+      udp: parseBoolean(process.env.MIERU_UDP, false),
       multiplexing: normalizeMultiplexing(process.env.MIERU_MULTIPLEXING, 'MULTIPLEXING_HIGH'),
       updatedAt: null
     };
   }
 
-  getSyncMetadata(configDocument) {
-    if (!isPlainObject(configDocument?.oneUiSync)) {
-      return {};
+  getSyncMetadata(stateDocument, configDocument) {
+    if (isPlainObject(stateDocument) && stateDocument.managedBy) {
+      return deepCloneObject(stateDocument);
     }
 
-    return deepCloneObject(configDocument.oneUiSync);
+    if (isPlainObject(stateDocument?.oneUiSync)) {
+      return deepCloneObject(stateDocument.oneUiSync);
+    }
+
+    if (isPlainObject(configDocument?.oneUiSync)) {
+      return deepCloneObject(configDocument.oneUiSync);
+    }
+
+    return {};
   }
 
   normalizeProfile(inputProfile, fallbackProfile) {
@@ -332,24 +464,63 @@ class MieruManagerService {
   }
 
   async getProfile() {
-    const { parsed } = await this.loadCurrentConfig();
-    const metadata = this.getSyncMetadata(parsed);
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const defaults = this.getDefaultProfile();
-    const profile = this.normalizeProfile(metadata.profile, defaults);
+    const runtimeProfile = extractProfileFromPortBindings(configState.parsed);
+    const baseline = this.normalizeProfile(
+      {
+        ...defaults,
+        ...(runtimeProfile || {})
+      },
+      defaults
+    );
+    const metadataProfile = this.normalizeProfile(metadata.profile, baseline);
+    const profile = runtimeProfile
+      ? {
+          ...metadataProfile,
+          portRange: runtimeProfile.portRange,
+          transport: runtimeProfile.transport
+        }
+      : metadataProfile;
+    const source = isPlainObject(metadata.profile) ? 'stored' : runtimeProfile ? 'runtime' : 'default';
 
     return {
       ...profile,
-      source: profile.server ? 'stored' : 'default',
+      source,
       usersPath: this.usersPathSegments.join('.'),
-      configPath: this.configPath
+      configPath: this.configPath,
+      statePath: this.statePath
     };
   }
 
   async updateProfile(payload = {}) {
-    const { parsed } = await this.loadCurrentConfig();
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const parsed = configState.parsed;
     const defaults = this.getDefaultProfile();
-    const metadata = this.getSyncMetadata(parsed);
-    const currentProfile = this.normalizeProfile(metadata.profile, defaults);
+    const metadata = this.getSyncMetadata(syncState.parsed, parsed);
+    const runtimeProfile = extractProfileFromPortBindings(parsed);
+    const baseline = this.normalizeProfile(
+      {
+        ...defaults,
+        ...(runtimeProfile || {})
+      },
+      defaults
+    );
+    const metadataProfile = this.normalizeProfile(metadata.profile, baseline);
+    const currentProfile = runtimeProfile
+      ? {
+          ...metadataProfile,
+          portRange: runtimeProfile.portRange,
+          transport: runtimeProfile.transport
+        }
+      : metadataProfile;
 
     const candidate = {
       ...currentProfile,
@@ -370,8 +541,10 @@ class MieruManagerService {
       defaults
     );
 
-    const nextConfig = deepCloneObject(parsed);
-    nextConfig.oneUiSync = {
+    const nextConfig = sanitizeConfigDocument(parsed);
+    nextConfig.portBindings = buildPortBindingsFromProfile(updatedProfile);
+    const profileConfigChanged = JSON.stringify(parsed?.portBindings || []) !== JSON.stringify(nextConfig.portBindings);
+    const nextSyncState = {
       ...metadata,
       managedBy: 'one-ui',
       schemaVersion: Math.max(Number.parseInt(String(metadata.schemaVersion || '1'), 10) || 1, 2),
@@ -380,21 +553,49 @@ class MieruManagerService {
     };
 
     await this.writeConfigAtomically(`${JSON.stringify(nextConfig, null, 2)}\n`);
+    await this.writeStateAtomically(`${JSON.stringify(nextSyncState, null, 2)}\n`);
+    const syncResult = await mieruSyncService.syncUsers({
+      reason: 'api.mieru.profile.update',
+      force: true
+    });
+    let profileRestarted = false;
+    let profileRestartError = null;
+
+    if (profileConfigChanged) {
+      try {
+        await mieruRuntimeService.restart();
+        profileRestarted = true;
+      } catch (error) {
+        profileRestartError = sanitizeMultiline(error?.message || 'Failed to restart Mieru after profile update', 320);
+        logger.warn('Mieru restart failed after profile update', {
+          action: 'mieru_profile_restart',
+          message: profileRestartError
+        });
+      }
+    }
 
     return {
       ...updatedProfile,
       usersPath: this.usersPathSegments.join('.'),
-      configPath: this.configPath
+      configPath: this.configPath,
+      statePath: this.statePath,
+      sync: {
+        changed: Boolean(syncResult?.changed) || profileConfigChanged,
+        restarted: Boolean(syncResult?.restarted) || profileRestarted,
+        restartError: syncResult?.restartError || profileRestartError,
+        skipped: Boolean(syncResult?.skipped)
+      }
     };
   }
 
   async persistCustomUsers(customUsers, reason) {
     const normalizedCustomUsers = normalizeCustomUsers(customUsers);
-    const { parsed } = await this.loadCurrentConfig();
-    const metadata = this.getSyncMetadata(parsed);
-    const nextConfig = deepCloneObject(parsed);
-
-    nextConfig.oneUiSync = {
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
+    const nextSyncState = {
       ...metadata,
       managedBy: 'one-ui',
       schemaVersion: Math.max(Number.parseInt(String(metadata.schemaVersion || '1'), 10) || 1, 2),
@@ -402,7 +603,11 @@ class MieruManagerService {
       updatedAt: new Date().toISOString()
     };
 
-    await this.writeConfigAtomically(`${JSON.stringify(nextConfig, null, 2)}\n`);
+    await this.writeStateAtomically(`${JSON.stringify(nextSyncState, null, 2)}\n`);
+    if (isPlainObject(configState.parsed?.oneUiSync)) {
+      const sanitizedConfig = sanitizeConfigDocument(configState.parsed);
+      await this.writeConfigAtomically(`${JSON.stringify(sanitizedConfig, null, 2)}\n`);
+    }
 
     const syncResult = await mieruSyncService.syncUsers({
       reason,
@@ -451,12 +656,13 @@ class MieruManagerService {
   }
 
   async listUsers({ includeOnline = false } = {}) {
-    const [configState, panelUsers] = await Promise.all([
+    const [configState, syncState, panelUsers] = await Promise.all([
       this.loadCurrentConfig(),
+      this.loadSyncState(),
       this.getPanelUsers()
     ]);
 
-    const metadata = this.getSyncMetadata(configState.parsed);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const customUsers = normalizeCustomUsers(metadata.customUsers);
     const configuredUsers = this.getConfiguredUsers(configState.parsed);
 
@@ -489,6 +695,7 @@ class MieruManagerService {
       sync: {
         usersPath: this.usersPathSegments.join('.'),
         configPath: this.configPath,
+        statePath: this.statePath,
         usersHash: metadata.usersHash || null,
         lastSyncedAt: metadata.lastSyncedAt || null
       },
@@ -516,12 +723,13 @@ class MieruManagerService {
     const password = normalizePassword(payload.password);
     const enabled = payload.enabled === undefined ? true : Boolean(payload.enabled);
 
-    const [configState, panelUsers] = await Promise.all([
+    const [configState, syncState, panelUsers] = await Promise.all([
       this.loadCurrentConfig(),
+      this.loadSyncState(),
       this.getPanelUsers()
     ]);
 
-    const metadata = this.getSyncMetadata(configState.parsed);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const customUsers = normalizeCustomUsers(metadata.customUsers);
 
     this.assertUniqueUsername(username, panelUsers, customUsers);
@@ -558,12 +766,13 @@ class MieruManagerService {
   async updateCustomUser(targetUsername, payload = {}) {
     const normalizedTarget = normalizeUsername(targetUsername);
 
-    const [configState, panelUsers] = await Promise.all([
+    const [configState, syncState, panelUsers] = await Promise.all([
       this.loadCurrentConfig(),
+      this.loadSyncState(),
       this.getPanelUsers()
     ]);
 
-    const metadata = this.getSyncMetadata(configState.parsed);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const customUsers = normalizeCustomUsers(metadata.customUsers);
 
     const targetIndex = customUsers.findIndex((entry) => entry.name === normalizedTarget);
@@ -613,8 +822,11 @@ class MieruManagerService {
 
   async deleteCustomUser(targetUsername) {
     const normalizedTarget = normalizeUsername(targetUsername);
-    const { parsed } = await this.loadCurrentConfig();
-    const metadata = this.getSyncMetadata(parsed);
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const customUsers = normalizeCustomUsers(metadata.customUsers);
 
     const nextCustomUsers = customUsers.filter((entry) => entry.name !== normalizedTarget);
