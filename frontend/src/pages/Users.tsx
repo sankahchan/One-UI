@@ -21,7 +21,6 @@ import { PromptDialog } from '../components/organisms/PromptDialog';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useGroups } from '../hooks/useGroups';
 import { usePersistedFilters, useSavedViews } from '../hooks/usePersistedFilters';
-import { useMieruStatus } from '../hooks/useMieru';
 import { useSmartAutoRefresh } from '../hooks/useSmartAutoRefresh';
 import { useToast } from '../hooks/useToast';
 import {
@@ -190,7 +189,6 @@ export function Users() {
   });
   const runFallbackAutotuneMutation = useRunFallbackAutotune();
   const runUserDiagnosticsMutation = useRunUserDiagnostics();
-  const mieruStatusQuery = useMieruStatus();
   const bulkMyanmarPriorityMutation = useMutation({
     mutationFn: ({ userIds, dryRun }: { userIds: number[]; dryRun?: boolean }) =>
       usersApi.bulkReorderUserInboundsByPattern({
@@ -680,34 +678,6 @@ export function Users() {
       seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
     });
   }, [autoRefresh.enabled, autoRefresh.nextRunInMs, autoRefresh.statusLabel, t]);
-
-  const mieruState = useMemo(() => {
-    if (!mieruStatusQuery.data) {
-      return {
-        label: t('users.mieru.loading', { defaultValue: 'Mieru loading' }),
-        dotClass: 'bg-gray-400 dark:bg-gray-500'
-      };
-    }
-
-    if (!mieruStatusQuery.data.enabled) {
-      return {
-        label: t('users.mieru.disabled', { defaultValue: 'Mieru disabled' }),
-        dotClass: 'bg-gray-400 dark:bg-gray-500'
-      };
-    }
-
-    if (mieruStatusQuery.data.running) {
-      return {
-        label: t('users.mieru.running', { defaultValue: 'Mieru running' }),
-        dotClass: 'bg-emerald-500'
-      };
-    }
-
-    return {
-      label: t('users.mieru.stopped', { defaultValue: 'Mieru stopped' }),
-      dotClass: 'bg-amber-500'
-    };
-  }, [mieruStatusQuery.data, t]);
 
   const handleSaveCurrentView = async () => {
     const name = await requestPrompt({
@@ -1762,13 +1732,6 @@ export function Users() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => navigate('/mieru')}
-          >
-            <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${mieruState.dotClass}`} />
-            {mieruState.label}
-          </Button>
           <Button variant="secondary" onClick={handleExport} disabled={users.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             {t('common.export', { defaultValue: 'Export CSV' })}

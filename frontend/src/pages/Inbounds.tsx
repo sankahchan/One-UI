@@ -17,7 +17,6 @@ import apiClient from '../api/client';
 import { groupsApi } from '../api/groups';
 import { getPublicIp } from '../api/system';
 import { inboundTemplates, type InboundTemplate } from '../data/inboundTemplates';
-import { useMieruStatus } from '../hooks/useMieru';
 import { usePersistedFilters, useSavedViews } from '../hooks/usePersistedFilters';
 import { useSmartAutoRefresh } from '../hooks/useSmartAutoRefresh';
 import { useToast } from '../hooks/useToast';
@@ -596,7 +595,6 @@ export const Inbounds: React.FC = () => {
     live: true,
     streamInterval: 2000
   });
-  const mieruStatusQuery = useMieruStatus();
 
   const selectedCount = selectedInboundIds.length;
   const allSelected = inbounds.length > 0 && selectedInboundIds.length === inbounds.length;
@@ -925,33 +923,6 @@ export const Inbounds: React.FC = () => {
   };
 
   const hasBulkPending = bulkDeleteInbounds.isPending || bulkEnableInbounds.isPending || bulkDisableInbounds.isPending;
-  const mieruState = useMemo(() => {
-    if (!mieruStatusQuery.data) {
-      return {
-        label: t('inbounds.mieru.loading', { defaultValue: 'Mieru loading' }),
-        dotClass: 'bg-gray-400 dark:bg-gray-500'
-      };
-    }
-
-    if (!mieruStatusQuery.data.enabled) {
-      return {
-        label: t('inbounds.mieru.disabled', { defaultValue: 'Mieru disabled' }),
-        dotClass: 'bg-gray-400 dark:bg-gray-500'
-      };
-    }
-
-    if (mieruStatusQuery.data.running) {
-      return {
-        label: t('inbounds.mieru.running', { defaultValue: 'Mieru running' }),
-        dotClass: 'bg-emerald-500'
-      };
-    }
-
-    return {
-      label: t('inbounds.mieru.stopped', { defaultValue: 'Mieru stopped' }),
-      dotClass: 'bg-amber-500'
-    };
-  }, [mieruStatusQuery.data, t]);
 
   const refreshInboundRelations = async (options: { includeUsersDirectory?: boolean } = {}) => {
     const tasks = [queryClient.invalidateQueries({ queryKey: ['inbounds'] })];
@@ -1661,13 +1632,6 @@ export const Inbounds: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => navigate('/mieru')}
-          >
-            <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${mieruState.dotClass}`} />
-            {mieruState.label}
-          </Button>
           {activeTab === 'inbounds' ? (
             <>
               <Button variant="secondary" onClick={toggleSelectAll} disabled={inbounds.length === 0}>

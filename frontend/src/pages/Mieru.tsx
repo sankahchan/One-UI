@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { getPublicIp } from '../api/system';
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
@@ -62,10 +63,33 @@ const DEFAULT_USER_FORM: UserForm = {
   enabled: true
 };
 
+function normalizeHostCandidate(value: string): string {
+  const candidate = value.trim();
+  if (!candidate) {
+    return '';
+  }
+
+  const lower = candidate.toLowerCase();
+  if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1') {
+    return '';
+  }
+
+  return candidate;
+}
+
+function getPanelHostCandidate(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return normalizeHostCandidate(window.location.hostname || '');
+}
+
 export const MieruPage: React.FC = () => {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const panelHostCandidate = useMemo(() => getPanelHostCandidate(), []);
 
   const policyQuery = useMieruPolicy();
   const statusQuery = useMieruStatus();
@@ -85,6 +109,8 @@ export const MieruPage: React.FC = () => {
 
   const [profileForm, setProfileForm] = useState<ProfileForm>(DEFAULT_PROFILE);
   const [profileDirty, setProfileDirty] = useState(false);
+  const [profileAutofillDone, setProfileAutofillDone] = useState(false);
+  const [detectingPublicIp, setDetectingPublicIp] = useState(false);
 
   const [createForm, setCreateForm] = useState<UserForm>(DEFAULT_USER_FORM);
   const [editTarget, setEditTarget] = useState<string | null>(null);
@@ -102,7 +128,51 @@ export const MieruPage: React.FC = () => {
       udp: Boolean(profileQuery.data.udp),
       multiplexing: profileQuery.data.multiplexing || DEFAULT_PROFILE.multiplexing
     });
+    setProfileAutofillDone(Boolean(profileQuery.data.server));
   }, [profileDirty, profileQuery.data]);
+
+  useEffect(() => {
+    if (profileAutofillDone || profileDirty || profileForm.server.trim() || profileQuery.isLoading) {
+      return;
+    }
+
+    if (panelHostCandidate) {
+      setProfileForm((previous) => ({
+        ...previous,
+        server: panelHostCandidate
+      }));
+      setProfileAutofillDone(true);
+      return;
+    }
+
+    let cancelled = false;
+    setDetectingPublicIp(true);
+    void getPublicIp()
+      .then(({ ip }) => {
+        if (cancelled) {
+          return;
+        }
+        const resolvedIp = normalizeHostCandidate(ip || '');
+        if (resolvedIp) {
+          setProfileForm((previous) => ({
+            ...previous,
+            server: resolvedIp
+          }));
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (cancelled) {
+          return;
+        }
+        setDetectingPublicIp(false);
+        setProfileAutofillDone(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [panelHostCandidate, profileAutofillDone, profileDirty, profileForm.server, profileQuery.isLoading]);
 
   const users = usersQuery.data?.users || [];
 
@@ -179,6 +249,56 @@ export const MieruPage: React.FC = () => {
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('mieru.profileSaveFailed', { defaultValue: 'Failed to update Mieru profile.' })
       );
+    }
+  };
+
+  const onUseCurrentHost = () => {
+    if (!panelHostCandidate) {
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('mieru.currentHostUnavailable', { defaultValue: 'Current panel host is unavailable on this device.' })
+      );
+      return;
+    }
+
+    setProfileDirty(true);
+    setProfileForm((previous) => ({
+      ...previous,
+      server: panelHostCandidate
+    }));
+    setProfileAutofillDone(true);
+  };
+
+  const onDetectPublicIp = async () => {
+    setDetectingPublicIp(true);
+    try {
+      const { ip } = await getPublicIp();
+      const resolvedIp = normalizeHostCandidate(ip || '');
+      if (!resolvedIp) {
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('mieru.publicIpUnavailable', { defaultValue: 'Unable to resolve public IP right now.' })
+        );
+        return;
+      }
+
+      setProfileDirty(true);
+      setProfileForm((previous) => ({
+        ...previous,
+        server: resolvedIp
+      }));
+      setProfileAutofillDone(true);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.publicIpDetected', { defaultValue: 'Public IP detected and applied.' })
+      );
+    } catch {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        t('mieru.publicIpDetectFailed', { defaultValue: 'Failed to detect public IP.' })
+      );
+    } finally {
+      setDetectingPublicIp(false);
     }
   };
 
@@ -360,18 +480,40 @@ export const MieruPage: React.FC = () => {
       <Card className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">{t('mieru.profile', { defaultValue: 'Server Profile' })}</h2>
         <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            label={t('mieru.serverHost', { defaultValue: 'Server Host / IP' })}
-            value={profileForm.server}
-            onChange={(event) => {
-              setProfileDirty(true);
-              setProfileForm((previous) => ({
-                ...previous,
-                server: event.target.value
-              }));
-            }}
-            placeholder="167.71.212.189"
-          />
+          <div className="space-y-2">
+            <Input
+              label={t('mieru.serverHost', { defaultValue: 'Server Host / IP' })}
+              value={profileForm.server}
+              onChange={(event) => {
+                setProfileDirty(true);
+                setProfileForm((previous) => ({
+                  ...previous,
+                  server: event.target.value
+                }));
+              }}
+              placeholder="167.71.212.189"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onUseCurrentHost}
+                disabled={!panelHostCandidate}
+              >
+                {t('mieru.useCurrentHost', { defaultValue: 'Use current host' })}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void onDetectPublicIp()}
+                loading={detectingPublicIp}
+              >
+                {t('mieru.detectPublicIp', { defaultValue: 'Detect public IP' })}
+              </Button>
+            </div>
+          </div>
           <Input
             label={t('mieru.portRange', { defaultValue: 'Port Range' })}
             value={profileForm.portRange}
@@ -451,6 +593,7 @@ export const MieruPage: React.FC = () => {
                 return;
               }
               setProfileDirty(false);
+              setProfileAutofillDone(false);
               setProfileForm({
                 server: profileQuery.data.server || '',
                 portRange: profileQuery.data.portRange || DEFAULT_PROFILE.portRange,
