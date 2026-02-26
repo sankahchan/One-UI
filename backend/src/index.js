@@ -185,6 +185,19 @@ if (panelPath) {
   app.use(`${panelPath}/dns-query`, dohRoutes);
 }
 
+// When PANEL_PATH is enabled, built frontend assets may still be requested from
+// absolute root paths like /assets/* (Vite default). Expose root static aliases
+// so the SPA loads correctly at /<panelPath>/ without blank screens.
+if (serveFrontend && frontendAvailable && panelPath) {
+  app.use(
+    '/',
+    express.static(publicDir, {
+      index: false,
+      fallthrough: true
+    })
+  );
+}
+
 // Optional: serve the React admin UI from the backend (installer places build into backend/public).
 if (serveFrontend) {
   if (frontendAvailable) {

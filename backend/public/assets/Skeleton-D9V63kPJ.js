@@ -1,1 +1,0 @@
-import{j as a}from"./index-Mm4FQecB.js";import{c as e}from"./cn-BLSKlp9E.js";function t({className:r}){return a.jsx("div",{className:e("animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700/50",r)})}export{t as S};

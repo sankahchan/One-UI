@@ -50,7 +50,42 @@ const RouteLoader: React.FC = () => (
   </div>
 );
 
-const panelBasePath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+const configuredPanelBasePath =
+  (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+
+const detectRuntimePanelBasePath = () => {
+  if (configuredPanelBasePath) {
+    return configuredPanelBasePath;
+  }
+
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const knownTopLevelRoutes = new Set([
+    'login',
+    'dashboard',
+    'users',
+    'groups',
+    'inbounds',
+    'mieru',
+    'settings',
+    'user',
+    'sub',
+    'api',
+    'uploads',
+    'dns-query'
+  ]);
+
+  const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
+  if (!firstSegment || knownTopLevelRoutes.has(firstSegment)) {
+    return '';
+  }
+
+  return `/${firstSegment}`;
+};
+
+const panelBasePath = detectRuntimePanelBasePath();
 
 const AppRoutes: React.FC = () => {
   // Initializes and keeps the selected/system theme synced with the root element.
