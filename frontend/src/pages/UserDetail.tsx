@@ -661,7 +661,7 @@ export const UserDetail: React.FC = () => {
     }
 
     if (user.subscriptionToken) {
-      return `${window.location.origin}/sub/${user.subscriptionToken}?target=v2ray`;
+      return `${window.location.origin}/user/${user.subscriptionToken}?target=v2ray`;
     }
 
     return '';

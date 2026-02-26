@@ -1567,7 +1567,7 @@ export function Users() {
 
     try {
       const payload = await regenerateSubscriptionMutation.mutateAsync(user.id);
-      const nextLink = `${window.location.origin}/sub/${payload.subscriptionToken}?target=v2ray`;
+      const nextLink = `${window.location.origin}/user/${payload.subscriptionToken}?target=v2ray`;
 
       const copied = await copyTextToClipboard(nextLink);
 
@@ -1703,7 +1703,7 @@ export function Users() {
   };
 
   const handleCopySubscriptionLink = async (user: User) => {
-    const link = `${window.location.origin}/sub/${user.subscriptionToken}?target=v2ray`;
+    const link = `${window.location.origin}/user/${user.subscriptionToken}?target=v2ray`;
     const copied = await copyTextToClipboard(link);
     if (copied) {
       toast.success(
@@ -2295,7 +2295,7 @@ export function Users() {
             setShowAddModal(false);
             void refreshUsersAndSessions();
             if (createdUser?.subscriptionToken) {
-              const link = `${window.location.origin}/sub/${createdUser.subscriptionToken}?target=v2ray`;
+              const link = `${window.location.origin}/user/${createdUser.subscriptionToken}?target=v2ray`;
               void copyTextToClipboard(link).then((copied) => {
                 if (copied) {
                   toast.success(

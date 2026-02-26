@@ -64,8 +64,8 @@ router.get('/me', portalAuth, async (req, res, next) => {
 router.get('/subscription', portalAuth, async (req, res, next) => {
   try {
     const user = req.user;
-    const baseUrl = process.env.SUBSCRIPTION_URL || `${req.protocol}://${req.get('host')}`;
-    const subscriptionUrl = `${baseUrl}/sub/${user.subscriptionToken}`;
+    const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${req.protocol}://${req.get('host')}`;
+    const subscriptionUrl = `${baseUrl}/user/${user.subscriptionToken}`;
 
     const [v2rayQr, clashQr, singboxQr, wireguardQr] = await Promise.all([
       QRCode.toDataURL(`${subscriptionUrl}?target=v2ray`),

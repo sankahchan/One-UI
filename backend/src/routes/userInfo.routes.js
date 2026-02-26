@@ -13,6 +13,7 @@ const validate = require('../middleware/validator');
 const clientDetector = require('../subscription/utils/client-detector');
 
 const router = express.Router();
+const DIRECT_TARGETS = new Set(['v2ray', 'clash', 'singbox', 'wireguard', 'mieru']);
 
 /**
  * Catch proxy clients (Hiddify, Clash, etc.) that hit /user/:token
@@ -22,6 +23,15 @@ router.get('/:token', (req, res, next) => {
   const { token } = req.params;
   if (!isValidToken(token)) {
     return next();
+  }
+
+  const requestedTarget = String(req.query?.target || '').trim().toLowerCase();
+  const forceDirectSubscription = DIRECT_TARGETS.has(requestedTarget);
+
+  if (forceDirectSubscription) {
+    const basePath = req.baseUrl.replace(/\/user$/, '/sub');
+    const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    return res.redirect(307, `${basePath}/${token}${query}`);
   }
 
   const userAgent = req.headers['user-agent'] || '';
@@ -240,7 +250,7 @@ router.get('/:token/info', async (req, res, next) => {
         // Build subscription URL
         const protocol = req.secure ? 'https' : 'http';
         const baseUrl = process.env.APP_URL || `${protocol}://${req.get('host')}`;
-        const subscriptionUrl = `${baseUrl}/sub/${token}`;
+        const subscriptionUrl = `${baseUrl}/user/${token}`;
 
         // Prepare inbound list
         const inbounds = user.inbounds
@@ -276,8 +286,8 @@ router.get('/:token/info', async (req, res, next) => {
                 },
                 subscription: {
                     url: subscriptionUrl,
-                    clashUrl: `${subscriptionUrl}/clash`,
-                    qrUrl: `${subscriptionUrl}/qr`
+                    clashUrl: `${subscriptionUrl}?target=clash`,
+                    qrUrl: `${subscriptionUrl}?target=v2ray`
                 },
                 inbounds,
                 trafficResetPeriod: user.trafficResetPeriod || 'NEVER',

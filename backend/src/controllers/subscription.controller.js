@@ -119,7 +119,7 @@ class SubscriptionController {
       // Build the subscription URL
       const protocol = req.secure ? 'https' : 'http';
       const baseUrl = process.env.APP_URL || `${protocol}://${req.get('host')}`;
-      const subscriptionUrl = `${baseUrl}/sub/${token}`;
+      const subscriptionUrl = `${baseUrl}/user/${token}`;
 
       const qrSize = Math.min(Math.max(parseInt(size) || 256, 128), 1024);
 
@@ -183,7 +183,7 @@ class SubscriptionController {
 
       const protocol = req.secure ? 'https' : 'http';
       const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
-      const subscriptionUrl = `${baseUrl}/sub/${token}`;
+      const subscriptionUrl = `${baseUrl}/user/${token}`;
 
       const urls = {
         v2ray: `${subscriptionUrl}?target=v2ray`,

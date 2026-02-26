@@ -1100,7 +1100,7 @@ function buildSubscriptionTemplates(user) {
   }
 
   const base = getSubscriptionBaseUrl();
-  const subBase = `${base}/sub/${user.subscriptionToken}`;
+  const subBase = `${base}/user/${user.subscriptionToken}`;
 
   return [
     {

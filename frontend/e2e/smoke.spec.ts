@@ -302,7 +302,7 @@ test.describe('One-UI smoke flows', () => {
       await showQrBtn.waitFor({ state: 'visible', timeout: 10_000 });
       await showQrBtn.click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeVisible();
-      await expect(page.getByText('/sub/')).toBeVisible();
+      await expect(page.getByText(/\/(sub|user)\//)).toBeVisible();
       await page.locator('button[aria-label="Close"]').first().click();
       await expect(page.getByRole('heading', { name: 'Quick QR' })).toBeHidden();
 

@@ -316,8 +316,8 @@ async function getSubscriptionInfo(req, res, next) {
     const { id } = req.params;
     const user = await userService.getUserById(id);
 
-    const baseUrl = process.env.SUBSCRIPTION_URL || `${req.protocol}://${req.get('host')}`;
-    const subscriptionUrl = `${baseUrl}/sub/${user.subscriptionToken}`;
+    const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${req.protocol}://${req.get('host')}`;
+    const subscriptionUrl = `${baseUrl}/user/${user.subscriptionToken}`;
 
     const [v2rayQr, clashQr, singboxQr, wireguardQr, mieruQr] = await Promise.all([
       QRCode.toDataURL(`${subscriptionUrl}?target=v2ray`),
@@ -365,7 +365,7 @@ async function getSubscriptionInfo(req, res, next) {
       ).filter(Boolean)
       : [];
 
-    const shareUrl = `${baseUrl}/user/${user.subscriptionToken}`;
+    const shareUrl = subscriptionUrl;
     const branding = await subscriptionBrandingService.resolveEffectiveBrandingForUser(user.id);
 
     return res.json(
