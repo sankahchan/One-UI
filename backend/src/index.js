@@ -59,6 +59,21 @@ const indexFile = path.join(publicDir, 'index.html');
 const frontendAvailable = serveFrontend && fs.existsSync(indexFile);
 const panelPath = (process.env.PANEL_PATH || '').replace(/\/+$/, '') || '';
 
+const setFrontendCacheHeaders = (res, filePath) => {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+
+  if (normalized.endsWith('/index.html')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return;
+  }
+
+  if (normalized.includes('/assets/')) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+};
+
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -193,7 +208,8 @@ if (serveFrontend && frontendAvailable && panelPath) {
     '/',
     express.static(publicDir, {
       index: false,
-      fallthrough: true
+      fallthrough: true,
+      setHeaders: setFrontendCacheHeaders
     })
   );
 }
@@ -203,7 +219,12 @@ if (serveFrontend) {
   if (frontendAvailable) {
     const frontendBase = panelPath ? `${panelPath}/` : '/';
     logger.info('Serving frontend from backend', { publicDir, panelPath: panelPath || '(none)' });
-    app.use(frontendBase, express.static(publicDir));
+    app.use(
+      frontendBase,
+      express.static(publicDir, {
+        setHeaders: setFrontendCacheHeaders
+      })
+    );
     app.get(`${frontendBase}*`, (req, res, next) => {
       // Keep API, subscriptions, and public endpoints working.
       // When panel path is set, req.path includes the full path (e.g. /panel/sub/token),
@@ -211,8 +232,12 @@ if (serveFrontend) {
       const checkPath = panelPath && req.path.startsWith(panelPath)
         ? req.path.slice(panelPath.length)
         : req.path;
+      const hasFileExtension = path.extname(checkPath || '') !== '';
+      const isStaticLikePath = checkPath.startsWith('/assets/') || checkPath.startsWith('/uploads/');
 
       if (
+        hasFileExtension ||
+        isStaticLikePath ||
         checkPath === '/api' ||
         checkPath.startsWith('/api/') ||
         checkPath === '/sub' ||
