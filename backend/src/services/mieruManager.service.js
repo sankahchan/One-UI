@@ -204,6 +204,97 @@ function normalizeConfiguredUsers(entries) {
   return Array.from(deduped.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripAnsi(value) {
+  return String(value || '').replace(/\u001b\[[0-9;]*m/g, '');
+}
+
+function matchesUsername(line, username) {
+  if (!line || !username) {
+    return false;
+  }
+
+  const pattern = new RegExp(`(^|[\\s|,:;])${escapeRegExp(username)}($|[\\s|,:;])`, 'i');
+  return pattern.test(line);
+}
+
+function parseRelativeAgeMs(input) {
+  const value = String(input || '').trim().toLowerCase();
+  if (!value) {
+    return null;
+  }
+
+  const explicit = value.match(/(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|s|m|h|d)\s*ago/);
+  const compact = value.match(/\b(\d+)\s*([smhd])\b/);
+  const match = explicit || compact;
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number.parseInt(match[1], 10);
+  if (!Number.isInteger(amount) || amount < 0) {
+    return null;
+  }
+
+  const unit = String(match[2] || '').toLowerCase();
+  if (unit.startsWith('d')) {
+    return amount * 24 * 60 * 60 * 1000;
+  }
+  if (unit.startsWith('h')) {
+    return amount * 60 * 60 * 1000;
+  }
+  if (unit.startsWith('m')) {
+    return amount * 60 * 1000;
+  }
+  return amount * 1000;
+}
+
+function parseTimestampMs(rawLine, username) {
+  const line = stripAnsi(rawLine).trim();
+  if (!line) {
+    return null;
+  }
+
+  const lowered = line.toLowerCase();
+  if (/\b(never|n\/a|none|null)\b/.test(lowered)) {
+    return null;
+  }
+
+  const relativeAgeMs = parseRelativeAgeMs(lowered);
+  if (relativeAgeMs !== null) {
+    return Date.now() - relativeAgeMs;
+  }
+
+  const rfc3339 = line.match(/\b\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:z|[+\-]\d{2}:?\d{2})?\b/i);
+  if (rfc3339) {
+    const parsed = Date.parse(rfc3339[0]);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const splitDateTime = line.match(/\b\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\b/);
+  if (splitDateTime) {
+    const parsed = Date.parse(splitDateTime[0].replace(' ', 'T'));
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const tokens = line.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && tokens[0].toLowerCase() === String(username || '').toLowerCase()) {
+    const candidate = Date.parse(tokens[1]);
+    if (!Number.isNaN(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function normalizeTransport(value, fallback = 'TCP') {
   const normalized = String(value || fallback).trim().toUpperCase();
   if (normalized === 'UDP') {
@@ -1027,6 +1118,66 @@ class MieruManagerService {
     return onlineByUsername;
   }
 
+  getOnlineWindowMs() {
+    const configured = Number.parseInt(String(process.env.MIERU_ONLINE_WINDOW_SECONDS || 180), 10);
+    if (!Number.isInteger(configured)) {
+      return 180_000;
+    }
+    const boundedSeconds = Math.min(3600, Math.max(30, configured));
+    return boundedSeconds * 1000;
+  }
+
+  inferOnlineFromUsersOutput(usernames, output) {
+    const statusByUsername = new Map();
+    if (!output) {
+      return statusByUsername;
+    }
+
+    const onlineWindowMs = this.getOnlineWindowMs();
+    const now = Date.now();
+    const lines = String(output)
+      .split('\n')
+      .map((entry) => stripAnsi(entry).trim())
+      .filter(Boolean);
+
+    for (const username of usernames) {
+      const relevantLines = lines.filter((line) => matchesUsername(line, username));
+      if (relevantLines.length === 0) {
+        continue;
+      }
+
+      let isOnline = false;
+      let lastActiveMs = null;
+
+      for (const line of relevantLines) {
+        const lowered = line.toLowerCase();
+        if (/\boffline\b|inactive|disabled|blocked|revoked/.test(lowered)) {
+          continue;
+        }
+
+        if (/\bonline\b|connected|active|alive|established/.test(lowered)) {
+          isOnline = true;
+        }
+
+        const parsedMs = parseTimestampMs(line, username);
+        if (parsedMs !== null && (lastActiveMs === null || parsedMs > lastActiveMs)) {
+          lastActiveMs = parsedMs;
+        }
+      }
+
+      if (!isOnline && lastActiveMs !== null && now - lastActiveMs <= onlineWindowMs) {
+        isOnline = true;
+      }
+
+      statusByUsername.set(username, {
+        online: isOnline,
+        lastActiveAt: lastActiveMs ? new Date(lastActiveMs).toISOString() : null
+      });
+    }
+
+    return statusByUsername;
+  }
+
   async getOnlineSnapshotInternal(usernames) {
     const uniqueUsernames = Array.from(new Set(usernames.map((entry) => String(entry || '').trim()).filter(Boolean)));
 
@@ -1052,13 +1203,17 @@ class MieruManagerService {
     ]);
 
     const onlineByUsername = new Map(uniqueUsernames.map((username) => [username, false]));
+    const lastActiveByUsername = new Map(uniqueUsernames.map((username) => [username, null]));
 
-    const usersStatus = this.inferOnlineFromOutput(uniqueUsernames, usersCommand.raw, 'users');
+    const usersStatus = this.inferOnlineFromUsersOutput(uniqueUsernames, usersCommand.raw);
     const connectionStatus = this.inferOnlineFromOutput(uniqueUsernames, connectionsCommand.raw, 'connections');
 
-    for (const [username, online] of usersStatus.entries()) {
-      if (online) {
+    for (const [username, status] of usersStatus.entries()) {
+      if (status?.online) {
         onlineByUsername.set(username, true);
+      }
+      if (status?.lastActiveAt) {
+        lastActiveByUsername.set(username, status.lastActiveAt);
       }
     }
 
@@ -1070,7 +1225,8 @@ class MieruManagerService {
 
     const users = uniqueUsernames.map((username) => ({
       username,
-      online: Boolean(onlineByUsername.get(username))
+      online: Boolean(onlineByUsername.get(username)),
+      lastActiveAt: lastActiveByUsername.get(username) || null
     }));
 
     const onlineCount = users.filter((entry) => entry.online).length;
@@ -1156,6 +1312,24 @@ class MieruManagerService {
         multiplexing: profile.multiplexing
       }
     };
+  }
+
+  async getPanelUserSubscription(username) {
+    const normalizedUsername = normalizeUsername(username);
+    const panelUser = await prisma.user.findUnique({
+      where: { email: normalizedUsername },
+      select: {
+        id: true,
+        email: true,
+        subscriptionToken: true
+      }
+    });
+
+    if (!panelUser) {
+      throw new NotFoundError('No panel user found for this Mieru username');
+    }
+
+    return panelUser;
   }
 }
 

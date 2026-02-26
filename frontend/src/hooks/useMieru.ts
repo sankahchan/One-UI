@@ -9,6 +9,7 @@ import {
   getMieruPolicy,
   getMieruStatus,
   getMieruUserExport,
+  getMieruUserSubscriptionUrl,
   listMieruUsers,
   restartMieru,
   syncMieruUsers,
@@ -25,6 +26,7 @@ import {
   type MieruSyncResult,
   type MieruStatus,
   type MieruUserExportResult,
+  type MieruUserSubscriptionUrlResult,
   type MieruUsersResult
 } from '../api/mieru';
 
@@ -167,5 +169,11 @@ export const useDeleteMieruUser = () => {
 export const useMieruUserExport = () => {
   return useMutation<MieruUserExportResult, Error, string>({
     mutationFn: getMieruUserExport
+  });
+};
+
+export const useMieruUserSubscriptionUrl = () => {
+  return useMutation<MieruUserSubscriptionUrlResult, Error, string>({
+    mutationFn: getMieruUserSubscriptionUrl
   });
 };

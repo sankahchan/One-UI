@@ -4,6 +4,8 @@ import {
   Copy,
   Download,
   Edit3,
+  ExternalLink,
+  Link,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -27,6 +29,7 @@ import {
   useMieruProfile,
   useMieruStatus,
   useMieruUserExport,
+  useMieruUserSubscriptionUrl,
   useMieruUsers,
   useRestartMieru,
   useSyncMieruUsers,
@@ -153,6 +156,7 @@ export const MieruPage: React.FC = () => {
   const updateUserMutation = useUpdateMieruUser();
   const deleteUserMutation = useDeleteMieruUser();
   const userExportMutation = useMieruUserExport();
+  const userSubscriptionUrlMutation = useMieruUserSubscriptionUrl();
 
   const [showLogs, setShowLogs] = useState(false);
   const logsQuery = useMieruLogs(120, showLogs);
@@ -497,6 +501,37 @@ export const MieruPage: React.FC = () => {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('mieru.exportDownloadFailed', { defaultValue: 'Failed to download Mieru export.' })
+      );
+    }
+  };
+
+  const onCopySubscriptionUrl = async (username: string) => {
+    try {
+      const result = await userSubscriptionUrlMutation.mutateAsync(username);
+      const copied = await copyTextToClipboard(result.subscriptionUrl);
+      if (!copied) {
+        throw new Error('clipboard failed');
+      }
+      toast.success(
+        t('common.copied', { defaultValue: 'Copied' }),
+        t('mieru.subscriptionUrlCopied', { defaultValue: 'Mieru subscription URL copied.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.subscriptionUrlFailed', { defaultValue: 'Failed to get Mieru subscription URL.' })
+      );
+    }
+  };
+
+  const onOpenSubscriptionUrl = async (username: string) => {
+    try {
+      const result = await userSubscriptionUrlMutation.mutateAsync(username);
+      window.open(result.subscriptionUrl, '_blank', 'noopener,noreferrer');
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.subscriptionUrlFailed', { defaultValue: 'Failed to get Mieru subscription URL.' })
       );
     }
   };
@@ -907,7 +942,37 @@ export const MieruPage: React.FC = () => {
                           disabled={!entry.configured}
                         >
                           <Download className="mr-1 h-3.5 w-3.5" />
-                          {t('common.export', { defaultValue: 'Export CSV' })}
+                          {t('common.download', { defaultValue: 'Download' })}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void onCopySubscriptionUrl(entry.username)}
+                          loading={userSubscriptionUrlMutation.isPending}
+                          disabled={!entry.configured || entry.source !== 'panel'}
+                          title={
+                            entry.source === 'panel'
+                              ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru subscription URL' })
+                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
+                          }
+                        >
+                          <Link className="mr-1 h-3.5 w-3.5" />
+                          Sub URL
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void onOpenSubscriptionUrl(entry.username)}
+                          loading={userSubscriptionUrlMutation.isPending}
+                          disabled={!entry.configured || entry.source !== 'panel'}
+                          title={
+                            entry.source === 'panel'
+                              ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru subscription URL' })
+                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
+                          }
+                        >
+                          <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                          {t('common.open', { defaultValue: 'Open' })}
                         </Button>
                         {isCustom ? (
                           isEditing ? (

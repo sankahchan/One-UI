@@ -182,6 +182,7 @@ router.put(
 );
 router.delete('/users/:username', mieruController.deleteUser);
 router.get('/users/:username/export', mieruController.exportUser);
+router.get('/users/:username/subscription-url', mieruController.getUserSubscriptionUrl);
 router.get('/online', mieruController.getOnlineSnapshot);
 
 module.exports = router;

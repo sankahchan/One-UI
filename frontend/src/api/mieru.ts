@@ -105,6 +105,7 @@ export interface MieruOnlineSnapshot {
   users: Array<{
     username: string;
     online: boolean;
+    lastActiveAt?: string | null;
   }>;
   summary: {
     total: number;
@@ -169,6 +170,13 @@ export interface MieruUserExportResult {
   };
 }
 
+export interface MieruUserSubscriptionUrlResult {
+  username: string;
+  email: string;
+  subscriptionToken: string;
+  subscriptionUrl: string;
+}
+
 export const mieruApi = {
   getPolicy: async (): Promise<ApiResponse<MieruPolicy>> => apiClient.get('/mieru/policy'),
   getStatus: async (): Promise<ApiResponse<MieruStatus>> => apiClient.get('/mieru/status'),
@@ -201,7 +209,9 @@ export const mieruApi = {
     apiClient.delete(`/mieru/users/${encodeURIComponent(username)}`),
   getOnlineSnapshot: async (): Promise<ApiResponse<MieruOnlineSnapshot>> => apiClient.get('/mieru/online'),
   getUserExport: async (username: string): Promise<ApiResponse<MieruUserExportResult>> =>
-    apiClient.get(`/mieru/users/${encodeURIComponent(username)}/export`)
+    apiClient.get(`/mieru/users/${encodeURIComponent(username)}/export`),
+  getUserSubscriptionUrl: async (username: string): Promise<ApiResponse<MieruUserSubscriptionUrlResult>> =>
+    apiClient.get(`/mieru/users/${encodeURIComponent(username)}/subscription-url`)
 };
 
 export const getMieruPolicy = async (): Promise<MieruPolicy> => {
@@ -323,6 +333,14 @@ export const getMieruUserExport = async (username: string): Promise<MieruUserExp
   const response = await mieruApi.getUserExport(username);
   if (!response.data) {
     throw new Error(response.message || 'Unable to generate Mieru export');
+  }
+  return response.data;
+};
+
+export const getMieruUserSubscriptionUrl = async (username: string): Promise<MieruUserSubscriptionUrlResult> => {
+  const response = await mieruApi.getUserSubscriptionUrl(username);
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to generate Mieru subscription URL');
   }
   return response.data;
 };

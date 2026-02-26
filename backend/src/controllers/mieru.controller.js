@@ -181,6 +181,32 @@ async function exportUser(req, res, next) {
   }
 }
 
+async function getUserSubscriptionUrl(req, res, next) {
+  try {
+    const panelUser = await mieruManagerService.getPanelUserSubscription(req.params.username);
+    const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
+    const protocol = forwardedProto || req.protocol || 'http';
+    const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
+    const trimmedBaseUrl = String(baseUrl).replace(/\/+$/, '');
+
+    const subscriptionUrl = `${trimmedBaseUrl}/sub/${panelUser.subscriptionToken}?target=mieru`;
+
+    res.json(
+      ApiResponse.success(
+        {
+          username: panelUser.email,
+          email: panelUser.email,
+          subscriptionToken: panelUser.subscriptionToken,
+          subscriptionUrl
+        },
+        'Mieru subscription URL generated successfully'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getPolicy,
   getStatus,
@@ -194,5 +220,6 @@ module.exports = {
   updateUser,
   deleteUser,
   getOnlineSnapshot,
-  exportUser
+  exportUser,
+  getUserSubscriptionUrl
 };
