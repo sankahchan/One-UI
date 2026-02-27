@@ -138,6 +138,107 @@ export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
     storeUrl: {
       windows: 'https://github.com/2dust/v2rayN/releases/latest'
     }
+  },
+  {
+    id: 'clashvergerev',
+    name: 'Clash Verge Rev',
+    icon: '🖥️',
+    platforms: ['windows'],
+    description: 'Desktop client with Mieru support.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      windows: 'https://www.clashverge.dev/'
+    }
+  },
+  {
+    id: 'mihomoparty',
+    name: 'Mihomo Party',
+    icon: '🎉',
+    platforms: ['windows'],
+    description: 'Desktop client listed by Mieru project.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      windows: 'https://mihomo.party/'
+    }
+  },
+  {
+    id: 'nyamebox',
+    name: 'NyameBox',
+    icon: '🐱',
+    platforms: ['windows'],
+    description: 'Desktop client (NekoBox fork) listed by Mieru project.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      windows: 'https://qr243vbi.github.io/nekobox/#/'
+    }
+  },
+  {
+    id: 'clashmeta_android',
+    name: 'ClashMetaForAndroid',
+    icon: '🤖',
+    platforms: ['android'],
+    description: 'Android client listed by Mieru project.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://github.com/MetaCubeX/ClashMetaForAndroid'
+    }
+  },
+  {
+    id: 'clashmi',
+    name: 'ClashMi',
+    icon: '🌊',
+    platforms: ['android', 'ios'],
+    description: 'Cross-platform client listed by Mieru project.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://clashmi.app/',
+      ios: 'https://clashmi.app/'
+    }
+  },
+  {
+    id: 'exclave',
+    name: 'Exclave',
+    icon: '🧩',
+    platforms: ['android'],
+    description: 'Android client with Mieru support.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://github.com/dyhkwong/Exclave'
+    }
+  },
+  {
+    id: 'husi_mieru_plugin',
+    name: 'husi + mieru plugin',
+    icon: '🔌',
+    platforms: ['android'],
+    description: 'Install husi first, then add the mieru plugin.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://github.com/xchacha20-poly1305/husi'
+    }
+  },
+  {
+    id: 'karing',
+    name: 'Karing',
+    icon: '🛰️',
+    platforms: ['android', 'ios'],
+    description: 'Client app listed by Mieru project.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://karing.app/',
+      ios: 'https://karing.app/'
+    }
+  },
+  {
+    id: 'nekobox_mieru_plugin',
+    name: 'NekoBoxForAndroid + mieru plugin',
+    icon: '📦',
+    platforms: ['android'],
+    description: 'Install NekoBoxForAndroid and the official mieru plugin.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      android: 'https://github.com/MatsuriDayo/NekoBoxForAndroid'
+    }
   }
 ];
 
@@ -190,8 +291,9 @@ export function resolveSubscriptionApps(options: {
   platform: Platform;
   urls: SubscriptionUrls;
   metadata?: SubscriptionBrandingMetadata | null;
+  format?: FormatTab;
 }): ResolvedClientApp[] {
-  const { platform, urls, metadata } = options;
+  const { platform, urls, metadata, format } = options;
 
   const enabledIds = Array.isArray(metadata?.enabledApps) ? metadata?.enabledApps?.filter((id) => typeof id === 'string') : null;
   const builtin = BUILTIN_CLIENT_APPS.filter((app) => app.platforms.includes(platform));
@@ -215,13 +317,14 @@ export function resolveSubscriptionApps(options: {
     : [];
 
   const allApps: ClientAppDefinition[] = [...filteredBuiltin, ...custom];
+  const scopedApps = allApps.filter((app) => !format || !app.usesFormat || app.usesFormat === format);
 
   const formatUrl = (format: FormatTab | undefined): string => {
     const key = format || 'v2ray';
     return String((urls as any)[key] || '');
   };
 
-  return allApps.map((app) => {
+  return scopedApps.map((app) => {
     const manualUrl = formatUrl(app.usesFormat);
     const importUrl = buildImportUrl(app.urlScheme, manualUrl);
     const storeLink = app.storeUrl?.[platform] ? String(app.storeUrl?.[platform]) : '';

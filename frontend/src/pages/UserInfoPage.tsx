@@ -384,9 +384,10 @@ export const UserInfoPage = () => {
     return resolveSubscriptionApps({
       platform,
       urls,
-      metadata: brandingMetadata
+      metadata: brandingMetadata,
+      format: activeFormat
     });
-  }, [platform, urls, brandingMetadata]);
+  }, [platform, urls, brandingMetadata, activeFormat]);
 
   const heroStyle = useMemo(() => {
     return {
