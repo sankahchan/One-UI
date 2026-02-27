@@ -11,6 +11,7 @@ const ipTrackingService = require('./ipTracking.service');
 const deviceTrackingService = require('./deviceTracking.service');
 const connectionLogsService = require('./connectionLogs.service');
 const cloudflareService = require('./cloudflare.service');
+const { scheduleMieruSync } = require('../utils/mieruSyncQueue');
 const { shortFingerprint } = require('../utils/deviceFingerprint');
 const { normalizeClientIp } = require('../utils/network');
 const { NotFoundError, ValidationError } = require('../utils/errors');
@@ -625,6 +626,8 @@ function buildBulkEmail(prefix, domain, index, padding) {
 }
 
 async function reloadXrayIfEnabled(operation) {
+  scheduleMieruSync(operation ? `user.${operation}` : 'user.mutation');
+
   if (!env.XRAY_AUTO_RELOAD) {
     return;
   }

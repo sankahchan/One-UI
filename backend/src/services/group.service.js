@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const xrayManager = require('../xray/manager');
+const { scheduleMieruSync } = require('../utils/mieruSyncQueue');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 
 const BYTES_PER_GB = 1024 * 1024 * 1024;
@@ -300,6 +301,8 @@ function pickMinimumBigInt(values = []) {
 }
 
 async function reloadXrayIfEnabled(operation) {
+  scheduleMieruSync(operation ? `group.${operation}` : 'group.mutation');
+
   if (!env.XRAY_AUTO_RELOAD) {
     return;
   }
