@@ -691,21 +691,37 @@ class MieruManagerService {
       },
       orderBy: { id: 'asc' },
       select: {
+        id: true,
         email: true,
         password: true,
         dataLimit: true,
         uploadUsed: true,
         downloadUsed: true,
-        expireDate: true
+        expireDate: true,
+        ipLimit: true,
+        deviceLimit: true,
+        startOnFirstUse: true,
+        firstUsedAt: true,
+        createdAt: true
       }
     });
 
     return users.map((user) => ({
+      panelUserId: user.id,
       username: user.email,
       password: user.password,
       quotas: this.buildPanelUserQuotas(user),
       source: 'panel',
-      enabled: true
+      enabled: true,
+      dataLimitBytes: Number(BigInt(user.dataLimit || 0n)),
+      uploadUsedBytes: Number(BigInt(user.uploadUsed || 0n)),
+      downloadUsedBytes: Number(BigInt(user.downloadUsed || 0n)),
+      expireDate: user.expireDate || null,
+      ipLimit: Number.isInteger(user.ipLimit) ? user.ipLimit : 0,
+      deviceLimit: Number.isInteger(user.deviceLimit) ? user.deviceLimit : 0,
+      startOnFirstUse: Boolean(user.startOnFirstUse),
+      firstUsedAt: user.firstUsedAt || null,
+      createdAt: user.createdAt || null
     }));
   }
 
@@ -900,8 +916,17 @@ class MieruManagerService {
           enabled,
           configured: Boolean(configuredUser),
           online: Boolean(onlineByUsername.get(username)),
+          panelUserId: panelUser?.panelUserId || null,
+          dataLimitBytes: panelUser?.dataLimitBytes || null,
+          uploadUsedBytes: panelUser?.uploadUsedBytes || null,
+          downloadUsedBytes: panelUser?.downloadUsedBytes || null,
+          expireDate: panelUser?.expireDate || null,
+          ipLimit: Number.isInteger(panelUser?.ipLimit) ? panelUser.ipLimit : null,
+          deviceLimit: Number.isInteger(panelUser?.deviceLimit) ? panelUser.deviceLimit : null,
+          startOnFirstUse: panelUser?.startOnFirstUse === undefined ? null : Boolean(panelUser.startOnFirstUse),
+          firstUsedAt: panelUser?.firstUsedAt || null,
           updatedAt: customUser?.updatedAt || null,
-          createdAt: customUser?.createdAt || null
+          createdAt: customUser?.createdAt || panelUser?.createdAt || null
         };
       })
       .sort((a, b) => a.username.localeCompare(b.username));

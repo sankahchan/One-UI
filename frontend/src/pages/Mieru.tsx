@@ -37,6 +37,7 @@ import {
   useUpdateMieruProfile,
   useUpdateMieruUser
 } from '../hooks/useMieru';
+import { useResetTraffic, useUpdateUser } from '../hooks/useUsers';
 import { useToast } from '../hooks/useToast';
 import { copyTextToClipboard } from '../utils/clipboard';
 
@@ -71,6 +72,67 @@ const DEFAULT_USER_FORM: UserForm = {
   quotaDays: '',
   quotaMegabytes: ''
 };
+
+type PanelPolicyForm = {
+  dataLimitGb: string;
+  expiryDays: string;
+  ipLimit: string;
+  deviceLimit: string;
+  startOnFirstUse: boolean;
+};
+
+const DEFAULT_PANEL_POLICY_FORM: PanelPolicyForm = {
+  dataLimitGb: '',
+  expiryDays: '',
+  ipLimit: '0',
+  deviceLimit: '0',
+  startOnFirstUse: false
+};
+
+function bytesToGbString(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
+    return '';
+  }
+  const gb = bytes / 1024 ** 3;
+  if (!Number.isFinite(gb) || gb < 0) {
+    return '';
+  }
+  return gb.toFixed(2).replace(/\.00$/, '');
+}
+
+function formatUsageBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const rounded = value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
+  return `${rounded} ${units[unitIndex]}`;
+}
+
+function getExpiryDaysFromEntry(entry: MieruUserEntry): number {
+  if (entry.expireDate) {
+    const expireAt = Date.parse(String(entry.expireDate));
+    if (!Number.isNaN(expireAt)) {
+      const days = Math.max(1, Math.ceil((expireAt - Date.now()) / (1000 * 60 * 60 * 24)));
+      return days;
+    }
+  }
+
+  const quotaDays = entry.quotas?.find((quota) => Number.isInteger(quota?.days))?.days;
+  if (Number.isInteger(quotaDays) && (quotaDays ?? 0) > 0) {
+    return quotaDays as number;
+  }
+
+  return 30;
+}
 
 function parseQuotaPayload(form: UserForm): MieruQuota[] {
   const quotaDays = form.quotaDays.trim();
@@ -192,6 +254,8 @@ export const MieruPage: React.FC = () => {
   const deleteUserMutation = useDeleteMieruUser();
   const userExportMutation = useMieruUserExport();
   const userSubscriptionUrlMutation = useMieruUserSubscriptionUrl();
+  const updatePanelUserMutation = useUpdateUser();
+  const resetPanelTrafficMutation = useResetTraffic();
 
   const [showLogs, setShowLogs] = useState(false);
   const logsQuery = useMieruLogs(120, showLogs);
@@ -204,6 +268,8 @@ export const MieruPage: React.FC = () => {
   const [createForm, setCreateForm] = useState<UserForm>(DEFAULT_USER_FORM);
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<UserForm>(DEFAULT_USER_FORM);
+  const [panelEditTarget, setPanelEditTarget] = useState<number | null>(null);
+  const [panelPolicyForm, setPanelPolicyForm] = useState<PanelPolicyForm>(DEFAULT_PANEL_POLICY_FORM);
 
   useEffect(() => {
     if (!profileQuery.data || profileDirty) {
@@ -422,6 +488,113 @@ export const MieruPage: React.FC = () => {
       enabled: entry.enabled,
       ...getQuotaFields(entry.quotas)
     });
+  };
+
+  const onStartPanelPolicyEdit = (entry: MieruUserEntry) => {
+    if (!entry.panelUserId) {
+      return;
+    }
+
+    setPanelEditTarget(entry.panelUserId);
+    setPanelPolicyForm({
+      dataLimitGb: bytesToGbString(entry.dataLimitBytes),
+      expiryDays: String(getExpiryDaysFromEntry(entry)),
+      ipLimit: String(Number.isInteger(entry.ipLimit) ? entry.ipLimit : 0),
+      deviceLimit: String(Number.isInteger(entry.deviceLimit) ? entry.deviceLimit : 0),
+      startOnFirstUse: Boolean(entry.startOnFirstUse)
+    });
+  };
+
+  const onCancelPanelPolicyEdit = () => {
+    setPanelEditTarget(null);
+    setPanelPolicyForm(DEFAULT_PANEL_POLICY_FORM);
+  };
+
+  const onSavePanelPolicy = async () => {
+    if (!panelEditTarget) {
+      return;
+    }
+
+    try {
+      const dataLimitGb = Number.parseFloat(panelPolicyForm.dataLimitGb);
+      const expiryDays = Number.parseInt(panelPolicyForm.expiryDays, 10);
+      const ipLimit = Number.parseInt(panelPolicyForm.ipLimit || '0', 10);
+      const deviceLimit = Number.parseInt(panelPolicyForm.deviceLimit || '0', 10);
+
+      if (!Number.isFinite(dataLimitGb) || dataLimitGb < 0) {
+        throw new Error(t('mieru.panelPolicy.invalidDataLimit', { defaultValue: 'Data limit must be a non-negative number.' }));
+      }
+      if (!Number.isInteger(expiryDays) || expiryDays < 1) {
+        throw new Error(t('mieru.panelPolicy.invalidExpiry', { defaultValue: 'Expiry days must be at least 1.' }));
+      }
+      if (!Number.isInteger(ipLimit) || ipLimit < 0) {
+        throw new Error(t('mieru.panelPolicy.invalidIpLimit', { defaultValue: 'IP limit must be 0 or more.' }));
+      }
+      if (!Number.isInteger(deviceLimit) || deviceLimit < 0) {
+        throw new Error(t('mieru.panelPolicy.invalidDeviceLimit', { defaultValue: 'Device limit must be 0 or more.' }));
+      }
+
+      await updatePanelUserMutation.mutateAsync({
+        id: panelEditTarget,
+        data: {
+          dataLimit: dataLimitGb,
+          expiryDays,
+          ipLimit,
+          deviceLimit,
+          startOnFirstUse: panelPolicyForm.startOnFirstUse
+        }
+      });
+
+      await syncMutation.mutateAsync(`manual.mieru.panel.policy.${panelEditTarget}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mieru-users'] }),
+        queryClient.invalidateQueries({ queryKey: ['mieru-online'] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] }),
+        queryClient.invalidateQueries({ queryKey: ['user', panelEditTarget] })
+      ]);
+
+      onCancelPanelPolicyEdit();
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.panelPolicy.updated', { defaultValue: 'Panel user policy updated and synced to Mieru.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.panelPolicy.updateFailed', { defaultValue: 'Failed to update panel user policy.' })
+      );
+    }
+  };
+
+  const onResetPanelTraffic = async (entry: MieruUserEntry) => {
+    if (!entry.panelUserId) {
+      return;
+    }
+
+    if (!window.confirm(t('mieru.panelPolicy.resetTrafficConfirm', { defaultValue: `Reset traffic for "${entry.username}"?` }))) {
+      return;
+    }
+
+    try {
+      await resetPanelTrafficMutation.mutateAsync(entry.panelUserId);
+      await syncMutation.mutateAsync(`manual.mieru.panel.reset-traffic.${entry.panelUserId}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mieru-users'] }),
+        queryClient.invalidateQueries({ queryKey: ['mieru-online'] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] }),
+        queryClient.invalidateQueries({ queryKey: ['user', entry.panelUserId] })
+      ]);
+
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('mieru.panelPolicy.trafficReset', { defaultValue: 'User traffic reset and synced to Mieru.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('mieru.panelPolicy.trafficResetFailed', { defaultValue: 'Failed to reset user traffic.' })
+      );
+    }
   };
 
   const onUpdateUser = async () => {
@@ -882,6 +1055,9 @@ export const MieruPage: React.FC = () => {
               {users.map((entry) => {
                 const isEditing = editTarget === entry.username;
                 const isCustom = entry.source === 'custom';
+                const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
+                const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
+                const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
 
                 return (
                   <tr key={entry.username} className="text-sm">
@@ -944,25 +1120,108 @@ export const MieruPage: React.FC = () => {
                             className="w-28 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
                           />
                         </div>
+                      ) : isPanelEditing ? (
+                        <div className="grid min-w-[320px] grid-cols-2 gap-2">
+                          <input
+                            value={panelPolicyForm.dataLimitGb}
+                            onChange={(event) =>
+                              setPanelPolicyForm((previous) => ({ ...previous, dataLimitGb: event.target.value }))
+                            }
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            placeholder={t('users.dataLimitGb', { defaultValue: 'Data GB' })}
+                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                          <input
+                            value={panelPolicyForm.expiryDays}
+                            onChange={(event) =>
+                              setPanelPolicyForm((previous) => ({ ...previous, expiryDays: event.target.value }))
+                            }
+                            type="number"
+                            min={1}
+                            placeholder={t('users.expiryDays', { defaultValue: 'Expiry days' })}
+                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                          <input
+                            value={panelPolicyForm.ipLimit}
+                            onChange={(event) =>
+                              setPanelPolicyForm((previous) => ({ ...previous, ipLimit: event.target.value }))
+                            }
+                            type="number"
+                            min={0}
+                            placeholder={t('users.ipLimit', { defaultValue: 'IP limit' })}
+                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                          <input
+                            value={panelPolicyForm.deviceLimit}
+                            onChange={(event) =>
+                              setPanelPolicyForm((previous) => ({ ...previous, deviceLimit: event.target.value }))
+                            }
+                            type="number"
+                            min={0}
+                            placeholder={t('users.deviceLimit', { defaultValue: 'Device limit' })}
+                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                          <label className="col-span-2 inline-flex items-center gap-2 text-xs text-muted">
+                            <input
+                              type="checkbox"
+                              checked={panelPolicyForm.startOnFirstUse}
+                              onChange={(event) =>
+                                setPanelPolicyForm((previous) => ({
+                                  ...previous,
+                                  startOnFirstUse: event.target.checked
+                                }))
+                              }
+                              className="h-4 w-4 rounded border-line/70 bg-card/70 text-brand-500 focus:ring-brand-500/40"
+                            />
+                            {t('users.startOnFirstUse', { defaultValue: 'Start expiry on first connect' })}
+                          </label>
+                        </div>
                       ) : (
                         <div className="text-xs text-muted">
-                          {(() => {
-                            const quota = entry.quotas?.find(
-                              (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
-                            );
-                            if (!quota) {
-                              return t('common.notSet', { defaultValue: 'Not set' });
-                            }
-                            const daysText =
-                              Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
-                                ? `${quota.days}d`
-                                : '∞';
-                            const mbText =
-                              Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
-                                ? `${quota.megabytes}MB`
-                                : '∞';
-                            return `${daysText} / ${mbText}`;
-                          })()}
+                          {isPanel ? (
+                            <div className="space-y-1">
+                              <div>
+                                {t('users.dataLimitGb', { defaultValue: 'Data Limit' })}:{' '}
+                                <span className="text-foreground">{bytesToGbString(entry.dataLimitBytes) || '0'} GB</span>
+                              </div>
+                              <div>
+                                {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
+                                <span className="text-foreground">{formatUsageBytes(usedBytes)}</span>
+                              </div>
+                              <div>
+                                {t('users.expiryDays', { defaultValue: 'Expiry days' })}:{' '}
+                                <span className="text-foreground">{getExpiryDaysFromEntry(entry)}</span>
+                              </div>
+                              <div>
+                                {t('users.startOnFirstUse', { defaultValue: 'Start on first connect' })}:{' '}
+                                <span className="text-foreground">
+                                  {entry.startOnFirstUse
+                                    ? t('common.enabled', { defaultValue: 'Enabled' })
+                                    : t('common.disabled', { defaultValue: 'Disabled' })}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            (() => {
+                              const quota = entry.quotas?.find(
+                                (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
+                              );
+                              if (!quota) {
+                                return t('common.notSet', { defaultValue: 'Not set' });
+                              }
+                              const daysText =
+                                Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
+                                  ? `${quota.days}d`
+                                  : '∞';
+                              const mbText =
+                                Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
+                                  ? `${quota.megabytes}MB`
+                                  : '∞';
+                              return `${daysText} / ${mbText}`;
+                            })()
+                          )}
                         </div>
                       )}
                     </td>
@@ -1035,6 +1294,43 @@ export const MieruPage: React.FC = () => {
                           <ExternalLink className="mr-1 h-3.5 w-3.5" />
                           {t('common.open', { defaultValue: 'Open' })}
                         </Button>
+                        {isPanel ? (
+                          isPanelEditing ? (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => void onSavePanelPolicy()}
+                                loading={updatePanelUserMutation.isPending || syncMutation.isPending}
+                              >
+                                <Save className="mr-1 h-3.5 w-3.5" />
+                                {t('common.save', { defaultValue: 'Save' })}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={onCancelPanelPolicyEdit}>
+                                {t('common.cancel', { defaultValue: 'Cancel' })}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => onStartPanelPolicyEdit(entry)}
+                              >
+                                <Edit3 className="mr-1 h-3.5 w-3.5" />
+                                {t('users.editPolicy', { defaultValue: 'Edit Policy' })}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => void onResetPanelTraffic(entry)}
+                                loading={resetPanelTrafficMutation.isPending}
+                              >
+                                <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                                {t('users.resetTraffic', { defaultValue: 'Reset Traffic' })}
+                              </Button>
+                            </>
+                          )
+                        ) : null}
                         {isCustom ? (
                           isEditing ? (
                             <>

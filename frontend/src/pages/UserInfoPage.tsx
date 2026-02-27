@@ -15,7 +15,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/atoms/Button';
@@ -175,6 +175,40 @@ function sanitizeHttpUrl(value: string | null | undefined): string | null {
   }
 }
 
+function normalizeMieruSubscriptionUrl(input: string): string {
+  const raw = String(input || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(raw);
+    const target = parsed.searchParams.get('target');
+    if (target && target.toLowerCase() === 'mieru') {
+      parsed.searchParams.delete('target');
+      parsed.pathname = `${parsed.pathname.replace(/\/+$/, '')}/mieru`;
+      return parsed.toString();
+    }
+    return parsed.toString();
+  } catch {
+    const withoutTarget = raw.replace(/([?&])target=mieru(&?)/i, (_match, prefix, suffix) => {
+      if (prefix === '?' && suffix) {
+        return '?';
+      }
+      if (prefix === '&') {
+        return suffix ? '&' : '';
+      }
+      return '';
+    }).replace(/[?&]$/, '');
+
+    if (/\/mieru(?:[/?#]|$)/i.test(withoutTarget)) {
+      return withoutTarget;
+    }
+
+    return `${withoutTarget.replace(/\/+$/, '')}/mieru`;
+  }
+}
+
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -183,8 +217,10 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
 
 export const UserInfoPage = () => {
   const { token } = useParams<{ token: string }>();
+  const location = useLocation();
   const toast = useToast();
   const { t, i18n } = useTranslation();
+  const isMieruOnlyPage = /\/user\/[^/]+\/mieru\/?$/.test(location.pathname);
 
   const [platform, setPlatform] = useState<Platform>('android');
   const [activeFormat, setActiveFormat] = useState<FormatTab>('v2ray');
@@ -197,6 +233,21 @@ export const UserInfoPage = () => {
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
+
+  useEffect(() => {
+    if (isMieruOnlyPage) {
+      return;
+    }
+
+    const target = new URLSearchParams(location.search).get('target');
+    if (String(target || '').toLowerCase() !== 'mieru') {
+      return;
+    }
+
+    const nextPath = `${location.pathname.replace(/\/+$/, '')}/mieru`;
+    const nextUrl = `${nextPath}${location.hash || ''}`;
+    window.location.replace(nextUrl);
+  }, [isMieruOnlyPage, location.hash, location.pathname, location.search]);
 
   const apiUrl = import.meta.env.VITE_API_URL || '';
   const backendUrl = normalizeBackendUrl(apiUrl);
@@ -269,17 +320,18 @@ export const UserInfoPage = () => {
   const urls = useMemo(() => {
     const candidate = publicLinks?.data?.subscription?.urls || {};
     const fallbackBase = userInfo?.subscription?.url || '';
+    const fallbackMieru = fallbackBase ? `${fallbackBase.replace(/\/+$/, '')}/mieru` : '';
     return {
       v2ray: candidate.v2ray || (fallbackBase ? `${fallbackBase}?target=v2ray` : ''),
       clash: candidate.clash || (fallbackBase ? `${fallbackBase}?target=clash` : ''),
       singbox: candidate.singbox || (fallbackBase ? `${fallbackBase}?target=singbox` : ''),
       wireguard: candidate.wireguard || (fallbackBase ? `${fallbackBase}?target=wireguard` : ''),
-      mieru: candidate.mieru || (fallbackBase ? `${fallbackBase}?target=mieru` : '')
+      mieru: normalizeMieruSubscriptionUrl(candidate.mieru || fallbackMieru)
     };
   }, [publicLinks, userInfo?.subscription?.url]);
 
   const shareUrl = publicLinks?.data?.shareUrl || '';
-  const nodeLinks = publicLinks?.data?.links || [];
+  const allNodeLinks = useMemo(() => publicLinks?.data?.links || [], [publicLinks?.data?.links]);
   const activeLanguageCode = useMemo(() => {
     const normalized = String(i18n.resolvedLanguage || i18n.language || 'en')
       .toLowerCase()
@@ -295,8 +347,27 @@ export const UserInfoPage = () => {
       { key: 'wireguard', label: t('portal.formats.wireguard', { defaultValue: 'WireGuard' }) },
       { key: 'mieru', label: t('portal.formats.mieru', { defaultValue: 'Mieru' }) }
     ];
-    return entries.filter((entry) => Boolean(urls[entry.key]));
-  }, [t, urls]);
+    return entries.filter((entry) => {
+      if (!urls[entry.key]) {
+        return false;
+      }
+      if (isMieruOnlyPage) {
+        return entry.key === 'mieru';
+      }
+      return entry.key !== 'mieru';
+    });
+  }, [isMieruOnlyPage, t, urls]);
+
+  const nodeLinks = useMemo(() => {
+    return allNodeLinks.filter((link) => {
+      const protocol = String(link.protocol || '').toUpperCase();
+      const isMieruLink = protocol === 'MIERU';
+      if (isMieruOnlyPage) {
+        return isMieruLink;
+      }
+      return !isMieruLink;
+    });
+  }, [allNodeLinks, isMieruOnlyPage]);
 
   const getResetPeriodLabel = (period: string) => {
     const normalized = String(period || '').toUpperCase();
@@ -803,15 +874,26 @@ export const UserInfoPage = () => {
                 </div>
               </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
-                </Button>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {activeFormat === 'clash' ? (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
+                  </Button>
+                )}
 
                 {shareUrl ? (
                   <Button

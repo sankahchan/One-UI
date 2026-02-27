@@ -96,6 +96,15 @@ export interface MieruUserEntry {
   enabled: boolean;
   configured: boolean;
   online: boolean;
+  panelUserId?: number | null;
+  dataLimitBytes?: number | null;
+  uploadUsedBytes?: number | null;
+  downloadUsedBytes?: number | null;
+  expireDate?: string | null;
+  ipLimit?: number | null;
+  deviceLimit?: number | null;
+  startOnFirstUse?: boolean | null;
+  firstUsedAt?: string | null;
   updatedAt: string | null;
   createdAt: string | null;
 }

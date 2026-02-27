@@ -324,7 +324,7 @@ async function getSubscriptionInfo(req, res, next) {
       QRCode.toDataURL(`${subscriptionUrl}?target=clash`),
       QRCode.toDataURL(`${subscriptionUrl}?target=singbox`),
       QRCode.toDataURL(`${subscriptionUrl}?target=wireguard`),
-      QRCode.toDataURL(`${subscriptionUrl}?target=mieru`)
+      QRCode.toDataURL(`${subscriptionUrl}/mieru`)
     ]);
 
     const userWithInbounds = await prisma.user.findUnique({
@@ -375,7 +375,7 @@ async function getSubscriptionInfo(req, res, next) {
           clash: `${subscriptionUrl}?target=clash`,
           singbox: `${subscriptionUrl}?target=singbox`,
           wireguard: `${subscriptionUrl}?target=wireguard`,
-          mieru: `${subscriptionUrl}?target=mieru`
+          mieru: `${subscriptionUrl}/mieru`
         },
         qrCodes: {
           v2ray: v2rayQr,

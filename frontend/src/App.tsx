@@ -98,6 +98,7 @@ const AppRoutes: React.FC = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/user/:token" element={<UserInfoPage />} />
+          <Route path="/user/:token/mieru" element={<UserInfoPage />} />
 
           <Route
             path="/"
