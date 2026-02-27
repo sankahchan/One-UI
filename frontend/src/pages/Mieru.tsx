@@ -25,6 +25,7 @@ import {
   useCreateMieruUser,
   useDeleteMieruUser,
   useMieruLogs,
+  useMieruOnlineSnapshot,
   useMieruPolicy,
   useMieruProfile,
   useMieruStatus,
@@ -138,6 +139,39 @@ function getPanelHostCandidate(): string {
   return normalizeHostCandidate(window.location.hostname || '');
 }
 
+function formatRelativeAgo(iso: string | null | undefined): string {
+  if (!iso) {
+    return '-';
+  }
+
+  const parsed = Date.parse(String(iso));
+  if (Number.isNaN(parsed)) {
+    return '-';
+  }
+
+  const deltaMs = Math.max(0, Date.now() - parsed);
+  const seconds = Math.floor(deltaMs / 1000);
+  if (seconds < 5) {
+    return 'just now';
+  }
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export const MieruPage: React.FC = () => {
   const { t } = useTranslation();
   const toast = useToast();
@@ -146,6 +180,7 @@ export const MieruPage: React.FC = () => {
 
   const policyQuery = useMieruPolicy();
   const statusQuery = useMieruStatus();
+  const onlineQuery = useMieruOnlineSnapshot(Boolean(policyQuery.data?.enabled));
   const profileQuery = useMieruProfile();
   const usersQuery = useMieruUsers(true);
 
@@ -247,6 +282,7 @@ export const MieruPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-profile'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
+    void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
     if (showLogs) {
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
     }
@@ -536,8 +572,10 @@ export const MieruPage: React.FC = () => {
     }
   };
 
-  const onlineCount = usersQuery.data?.stats?.online || 0;
-  const totalCount = usersQuery.data?.stats?.total || 0;
+  const onlineSnapshot = onlineQuery.data || usersQuery.data?.onlineSnapshot || null;
+  const onlineCount = onlineSnapshot?.summary?.online ?? usersQuery.data?.stats?.online ?? 0;
+  const totalCount = onlineSnapshot?.summary?.total ?? usersQuery.data?.stats?.total ?? 0;
+  const onlineCheckedAgo = formatRelativeAgo(onlineSnapshot?.checkedAt || null);
   const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
 
   return (
@@ -619,6 +657,29 @@ export const MieruPage: React.FC = () => {
                 ? t('mieru.restartAlerting', { defaultValue: 'Alerting' })
                 : t('mieru.restartNormal', { defaultValue: 'Normal' })}
             </p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-line/70 bg-panel/45 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              {t('mieru.onlineSnapshot', { defaultValue: 'Online Snapshot' })}
+            </span>
+            <span className="text-sm text-foreground">
+              {t('mieru.lastChecked', { defaultValue: 'Last checked: {{ago}}', ago: onlineCheckedAgo })}
+            </span>
+            <Badge variant={onlineSnapshot?.commands?.users?.ok ? 'success' : 'warning'}>
+              {onlineSnapshot?.commands?.users?.ok
+                ? t('mieru.usersCmdOk', { defaultValue: 'Users command: OK' })
+                : t('mieru.usersCmdFail', { defaultValue: 'Users command: Error' })}
+            </Badge>
+            <Badge variant={onlineSnapshot?.commands?.connections?.ok ? 'success' : 'warning'}>
+              {onlineSnapshot?.commands?.connections?.ok
+                ? t('mieru.connectionsCmdOk', { defaultValue: 'Connections command: OK' })
+                : t('mieru.connectionsCmdFail', { defaultValue: 'Connections command: Error' })}
+            </Badge>
+            {onlineQuery.isFetching ? (
+              <span className="text-xs text-muted">{t('common.refreshing', { defaultValue: 'Refreshing...' })}</span>
+            ) : null}
           </div>
         </div>
       </Card>

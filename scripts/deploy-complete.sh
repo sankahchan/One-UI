@@ -30,6 +30,7 @@ if [[ "$SMOKE_GATE_ENABLED" == "true" ]]; then
   export SMOKE_ADMIN_PASSWORD
   ./scripts/smoke-core-api.sh
   ./scripts/smoke-myanmar-hardening.sh
+  ./scripts/smoke-mieru-autosync.sh
   echo "✅ Smoke gate passed"
 else
   echo "⏭️  Step 1.5: Smoke gate skipped (SMOKE_GATE_ENABLED=${SMOKE_GATE_ENABLED})"

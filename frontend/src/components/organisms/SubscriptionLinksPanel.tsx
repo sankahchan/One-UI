@@ -290,7 +290,17 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
 
                         <div className="mt-3 grid grid-cols-1 gap-2">
                           {app.importUrl ? (
-                            <Button className="w-full" onClick={() => { openDeepLinksWithFallback(launchUrls); }}>
+                            <Button
+                              className="w-full"
+                              onClick={() => {
+                                openDeepLinksWithFallback(launchUrls, {
+                                  onExhausted: () => {
+                                    void copyToClipboard(app.manualUrl, `manual-${app.id}`);
+                                    toast.warning('Warning', 'App handoff failed. URL copied for manual import.');
+                                  }
+                                });
+                              }}
+                            >
                               <Smartphone className="mr-2 h-4 w-4" />
                               One-Click
                             </Button>

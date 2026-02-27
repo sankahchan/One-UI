@@ -452,24 +452,76 @@ function escapeShellArg(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function isPermissionError(error) {
+  return ['EACCES', 'EPERM', 'EROFS'].includes(error?.code);
+}
+
 class MieruManagerService {
   constructor() {
     this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
+    this.hasExplicitStatePath = Boolean(String(process.env.MIERU_STATE_PATH || '').trim());
     this.statePath = String(process.env.MIERU_STATE_PATH || getSyncStateDefaultPath(this.configPath)).trim();
+    this.runtimeConfigFallbackPath = path.join(__dirname, '..', '..', 'runtime', 'mieru', 'server_config.json');
+    this.runtimeStateFallbackPath = getSyncStateDefaultPath(this.runtimeConfigFallbackPath);
     this.usersPathSegments = parsePathSegments(process.env.MIERU_USERS_JSON_PATH, 'users');
+  }
+
+  useRuntimeFallbackPaths(reason, error) {
+    const previousConfigPath = this.configPath;
+    const previousStatePath = this.statePath;
+    let changed = false;
+
+    if (this.configPath !== this.runtimeConfigFallbackPath) {
+      this.configPath = this.runtimeConfigFallbackPath;
+      changed = true;
+    }
+
+    if (this.statePath !== this.runtimeStateFallbackPath) {
+      this.statePath = this.runtimeStateFallbackPath;
+      changed = true;
+    }
+
+    if (changed) {
+      logger.warn('Mieru config path is not writable; falling back to runtime paths', {
+        reason,
+        error: sanitizeMultiline(error?.message || error?.code || 'permission denied', 240),
+        previousConfigPath,
+        previousStatePath,
+        fallbackConfigPath: this.configPath,
+        fallbackStatePath: this.statePath
+      });
+    }
+
+    return changed;
+  }
+
+  async readJsonDocument(filePath) {
+    const raw = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      exists: true,
+      parsed: isPlainObject(parsed) ? parsed : {},
+      raw
+    };
   }
 
   async loadCurrentConfig() {
     try {
-      const raw = await fs.readFile(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw);
-      return {
-        exists: true,
-        parsed: isPlainObject(parsed) ? parsed : {},
-        raw
-      };
+      return await this.readJsonDocument(this.configPath);
     } catch (error) {
       if (error.code === 'ENOENT') {
+        if (this.configPath !== this.runtimeConfigFallbackPath) {
+          try {
+            const fallbackDoc = await this.readJsonDocument(this.runtimeConfigFallbackPath);
+            this.useRuntimeFallbackPaths('load_config_missing_primary', { message: 'primary config missing' });
+            return fallbackDoc;
+          } catch (fallbackError) {
+            if (fallbackError.code !== 'ENOENT') {
+              throw fallbackError;
+            }
+          }
+        }
+
         return {
           exists: false,
           parsed: {},
@@ -477,35 +529,61 @@ class MieruManagerService {
         };
       }
 
+      if (isPermissionError(error) && this.useRuntimeFallbackPaths('load_config_permission', error)) {
+        return this.loadCurrentConfig();
+      }
+
       throw error;
     }
   }
 
-  async writeConfigAtomically(content) {
-    const directory = path.dirname(this.configPath);
+  async writeFileAtomically(targetPath, content) {
+    const directory = path.dirname(targetPath);
     await fs.mkdir(directory, { recursive: true });
 
-    const tempPath = `${this.configPath}.tmp-${process.pid}-${Date.now()}`;
+    const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
     await fs.writeFile(tempPath, content, 'utf8');
-    await fs.rename(tempPath, this.configPath);
+    await fs.rename(tempPath, targetPath);
+  }
+
+  async writeConfigAtomically(content) {
+    try {
+      await this.writeFileAtomically(this.configPath, content);
+    } catch (error) {
+      if (isPermissionError(error) && this.useRuntimeFallbackPaths('write_config_permission', error)) {
+        await this.writeFileAtomically(this.configPath, content);
+        return;
+      }
+      throw error;
+    }
   }
 
   async loadSyncState() {
     try {
-      const raw = await fs.readFile(this.statePath, 'utf8');
-      const parsed = JSON.parse(raw);
-      return {
-        exists: true,
-        parsed: isPlainObject(parsed) ? parsed : {},
-        raw
-      };
+      return await this.readJsonDocument(this.statePath);
     } catch (error) {
       if (error.code === 'ENOENT') {
+        if (this.statePath !== this.runtimeStateFallbackPath) {
+          try {
+            const fallbackDoc = await this.readJsonDocument(this.runtimeStateFallbackPath);
+            this.useRuntimeFallbackPaths('load_state_missing_primary', { message: 'primary state missing' });
+            return fallbackDoc;
+          } catch (fallbackError) {
+            if (fallbackError.code !== 'ENOENT') {
+              throw fallbackError;
+            }
+          }
+        }
+
         return {
           exists: false,
           parsed: {},
           raw: ''
         };
+      }
+
+      if (isPermissionError(error) && this.useRuntimeFallbackPaths('load_state_permission', error)) {
+        return this.loadSyncState();
       }
 
       throw error;
@@ -513,12 +591,15 @@ class MieruManagerService {
   }
 
   async writeStateAtomically(content) {
-    const directory = path.dirname(this.statePath);
-    await fs.mkdir(directory, { recursive: true });
-
-    const tempPath = `${this.statePath}.tmp-${process.pid}-${Date.now()}`;
-    await fs.writeFile(tempPath, content, 'utf8');
-    await fs.rename(tempPath, this.statePath);
+    try {
+      await this.writeFileAtomically(this.statePath, content);
+    } catch (error) {
+      if (isPermissionError(error) && this.useRuntimeFallbackPaths('write_state_permission', error)) {
+        await this.writeFileAtomically(this.statePath, content);
+        return;
+      }
+      throw error;
+    }
   }
 
   getDefaultProfile() {

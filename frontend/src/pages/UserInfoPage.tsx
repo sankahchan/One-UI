@@ -916,7 +916,19 @@ export const UserInfoPage = () => {
                     {importUrl ? (
                       <Button
                         className="w-full"
-                        onClick={() => openDeepLinksWithFallback(launchUrls)}
+                        onClick={() => {
+                          openDeepLinksWithFallback(launchUrls, {
+                            onExhausted: () => {
+                              void copyToClipboard(manualUrl, `manual-${app.id}`);
+                              toast.warning(
+                                t('common.warning', { defaultValue: 'Warning' }),
+                                t('portal.addToApp.importFallbackCopied', {
+                                  defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+                                })
+                              );
+                            }
+                          });
+                        }}
                       >
                         <Smartphone className="mr-2 h-4 w-4" />
                         {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}

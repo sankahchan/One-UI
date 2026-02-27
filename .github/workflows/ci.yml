@@ -253,6 +253,7 @@ jobs:
           ./scripts/bootstrap-local.sh
           ./scripts/smoke-core-api.sh
           ./scripts/smoke-myanmar-hardening.sh
+          ./scripts/smoke-mieru-autosync.sh
           ./scripts/smoke-xray-update-preflight.sh
 
   nightly-full-e2e:
