@@ -43,7 +43,11 @@ mute_time_intervals:
         times:
           - start_time: '00:00'
             end_time: '06:00'
-      - weekdays: ['saturday:sunday']
+      - weekdays: ['saturday']
+        times:
+          - start_time: '00:00'
+            end_time: '08:00'
+      - weekdays: ['sunday']
         times:
           - start_time: '00:00'
             end_time: '08:00'
