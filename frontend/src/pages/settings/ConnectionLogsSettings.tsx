@@ -3,7 +3,7 @@ import { Copy, RefreshCw, Save } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import apiClient, { API_URL } from '../../api/client';
+import apiClient, { API_URL, fetchWithAuthRetry } from '../../api/client';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
@@ -167,10 +167,9 @@ const AuditTrailPanel: React.FC = () => {
           params.set('level', level);
         }
 
-        const response = await fetch(`${API_URL}/logs/system/stream?${params.toString()}`, {
+        const response = await fetchWithAuthRetry(`${API_URL}/logs/system/stream?${params.toString()}`, {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${token}`,
             Accept: 'text/event-stream'
           },
           signal: abortController.signal,
@@ -249,7 +248,11 @@ const AuditTrailPanel: React.FC = () => {
         }
       } catch (error: any) {
         if (!abortController.signal.aborted && active) {
-          setStreamError(error?.message || 'Failed to connect to audit stream');
+          const errorMessage = error?.message || 'Failed to connect to audit stream';
+          setStreamError(errorMessage);
+          if (/session expired/i.test(errorMessage)) {
+            return;
+          }
           scheduleReconnect();
         }
       }
@@ -521,10 +524,9 @@ const XrayLiveLogsPanel: React.FC = () => {
           params.set('user', userFilter.trim());
         }
 
-        const response = await fetch(`${API_URL}/logs/xray/stream?${params.toString()}`, {
+        const response = await fetchWithAuthRetry(`${API_URL}/logs/xray/stream?${params.toString()}`, {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${token}`,
             Accept: 'text/event-stream'
           },
           signal: abortController.signal,
@@ -598,7 +600,11 @@ const XrayLiveLogsPanel: React.FC = () => {
         }
       } catch (error: any) {
         if (!abortController.signal.aborted && active) {
-          setStreamError(error?.message || 'Failed to connect to Xray logs stream');
+          const errorMessage = error?.message || 'Failed to connect to Xray logs stream';
+          setStreamError(errorMessage);
+          if (/session expired/i.test(errorMessage)) {
+            return;
+          }
           scheduleReconnect();
         }
       }

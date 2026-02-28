@@ -16,7 +16,7 @@ import {
   getUserActivity,
   killUser
 } from '../api/users';
-import { API_URL } from '../api/client';
+import { API_URL, fetchWithAuthRetry } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import type {
   ApiResponse,
@@ -178,10 +178,9 @@ export const useUserSessions = (
           interval: String(streamInterval)
         });
 
-        const response = await fetch(`${API_URL}/users/sessions/stream?${params.toString()}`, {
+        const response = await fetchWithAuthRetry(`${API_URL}/users/sessions/stream?${params.toString()}`, {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${token}`,
             Accept: 'text/event-stream'
           },
           signal: abortController.signal,
@@ -269,6 +268,9 @@ export const useUserSessions = (
           setStreamStatus('error');
           const errorMessage = error?.message || 'Failed to connect live stream';
           setStreamError(errorMessage);
+          if (/session expired/i.test(errorMessage)) {
+            return;
+          }
           scheduleReconnect(errorMessage);
         }
       }

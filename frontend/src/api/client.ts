@@ -7,6 +7,8 @@ type RetriableRequestConfig = AxiosRequestConfig & {
   _retry?: boolean;
 };
 
+type AuthenticatedFetchInput = RequestInfo | URL;
+
 const detectApiUrl = () => {
   const configured = import.meta.env.VITE_API_URL as string | undefined;
   if (configured && configured.trim()) {
@@ -27,6 +29,10 @@ const detectApiUrl = () => {
 };
 
 const API_URL = detectApiUrl();
+
+function getPanelBasePath(): string {
+  return (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
+}
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -91,12 +97,99 @@ async function refreshAccessToken(): Promise<string | null> {
   return authPayload.token;
 }
 
+async function getFreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
 function isAuthEndpoint(url?: string) {
   if (!url) {
     return false;
   }
 
   return url.includes('/auth/login') || url.includes('/auth/refresh');
+}
+
+function logoutAndRedirectToLogin(): void {
+  useAuthStore.getState().logout();
+
+  if (typeof window !== 'undefined') {
+    window.location.href = `${getPanelBasePath()}/login`;
+  }
+}
+
+function resolveRequestUrl(input: AuthenticatedFetchInput): string | undefined {
+  if (typeof input === 'string') {
+    return input;
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    return input.url;
+  }
+
+  return undefined;
+}
+
+function buildFetchHeaders(
+  input: AuthenticatedFetchInput,
+  headers: HeadersInit | undefined,
+  token: string | null | undefined
+): Headers {
+  const merged = new Headers();
+
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    input.headers.forEach((value, key) => {
+      merged.set(key, value);
+    });
+  }
+
+  new Headers(headers).forEach((value, key) => {
+    merged.set(key, value);
+  });
+
+  if (token) {
+    merged.set('Authorization', `Bearer ${token}`);
+  }
+
+  return merged;
+}
+
+async function fetchWithAuthRetry(input: AuthenticatedFetchInput, init: RequestInit = {}): Promise<Response> {
+  const requestUrl = resolveRequestUrl(input);
+
+  const executeFetch = async (token: string | null | undefined): Promise<Response> => (
+    fetch(input, {
+      ...init,
+      headers: buildFetchHeaders(input, init.headers, token)
+    })
+  );
+
+  let response = await executeFetch(useAuthStore.getState().token);
+  if (response.status !== 401 || isAuthEndpoint(requestUrl)) {
+    return response;
+  }
+
+  try {
+    const nextToken = await getFreshAccessToken();
+    if (nextToken) {
+      response = await executeFetch(nextToken);
+      return response;
+    }
+  } catch {
+    // Fall through to logout and redirect.
+  }
+
+  logoutAndRedirectToLogin();
+  throw new Error('Session expired. Please sign in again.');
 }
 
 apiClient.interceptors.request.use(
@@ -125,13 +218,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        if (!refreshPromise) {
-          refreshPromise = refreshAccessToken().finally(() => {
-            refreshPromise = null;
-          });
-        }
-
-        const nextToken = await refreshPromise;
+        const nextToken = await getFreshAccessToken();
         if (nextToken) {
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${nextToken}`;
@@ -141,11 +228,7 @@ apiClient.interceptors.response.use(
         // fall through to logout.
       }
 
-      useAuthStore.getState().logout();
-      if (typeof window !== 'undefined') {
-        const basePath = (import.meta.env.VITE_PANEL_PATH as string | undefined)?.replace(/\/+$/, '') || '';
-        window.location.href = `${basePath}/login`;
-      }
+      logoutAndRedirectToLogin();
       return Promise.reject(new Error('Session expired. Please sign in again.'));
     }
 
@@ -162,5 +245,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
-export { apiClient, API_URL, refreshAccessToken };
-
+export { apiClient, API_URL, fetchWithAuthRetry, refreshAccessToken };
