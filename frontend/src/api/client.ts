@@ -115,6 +115,18 @@ function isAuthEndpoint(url?: string) {
   return url.includes('/auth/login') || url.includes('/auth/refresh');
 }
 
+function isAbortLikeError(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+
+  if (axios.isAxiosError(error)) {
+    return error.code === 'ERR_CANCELED';
+  }
+
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 function logoutAndRedirectToLogin(): void {
   useAuthStore.getState().logout();
 
@@ -178,18 +190,33 @@ async function fetchWithAuthRetry(input: AuthenticatedFetchInput, init: RequestI
     return response;
   }
 
+  let nextToken: string | null = null;
   try {
-    const nextToken = await getFreshAccessToken();
-    if (nextToken) {
-      response = await executeFetch(nextToken);
-      return response;
-    }
+    nextToken = await getFreshAccessToken();
   } catch {
     // Fall through to logout and redirect.
   }
 
-  logoutAndRedirectToLogin();
-  throw new Error('Session expired. Please sign in again.');
+  if (!nextToken) {
+    logoutAndRedirectToLogin();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  try {
+    response = await executeFetch(nextToken);
+  } catch (error) {
+    if (isAbortLikeError(error)) {
+      throw error;
+    }
+    throw error;
+  }
+
+  if (response.status === 401) {
+    logoutAndRedirectToLogin();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  return response;
 }
 
 apiClient.interceptors.request.use(
@@ -217,19 +244,35 @@ apiClient.interceptors.response.use(
     if (statusCode === 401 && !originalRequest._retry && !isAuthEndpoint(originalRequest.url)) {
       originalRequest._retry = true;
 
+      let nextToken: string | null = null;
       try {
-        const nextToken = await getFreshAccessToken();
-        if (nextToken) {
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${nextToken}`;
-          return apiClient(originalRequest);
-        }
+        nextToken = await getFreshAccessToken();
       } catch {
         // fall through to logout.
       }
 
-      logoutAndRedirectToLogin();
-      return Promise.reject(new Error('Session expired. Please sign in again.'));
+      if (!nextToken) {
+        logoutAndRedirectToLogin();
+        return Promise.reject(new Error('Session expired. Please sign in again.'));
+      }
+
+      originalRequest.headers = originalRequest.headers || {};
+      originalRequest.headers.Authorization = `Bearer ${nextToken}`;
+
+      try {
+        return await apiClient(originalRequest);
+      } catch (retryError) {
+        if (isAbortLikeError(retryError)) {
+          return Promise.reject(retryError);
+        }
+
+        if (axios.isAxiosError(retryError) && retryError.response?.status === 401) {
+          logoutAndRedirectToLogin();
+          return Promise.reject(new Error('Session expired. Please sign in again.'));
+        }
+
+        return Promise.reject(retryError);
+      }
     }
 
     const body: any = error.response.data;
