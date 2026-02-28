@@ -190,7 +190,7 @@ class SubscriptionController {
         clash: `${subscriptionUrl}?target=clash`,
         singbox: `${subscriptionUrl}?target=singbox`,
         wireguard: `${subscriptionUrl}?target=wireguard`,
-        mieru: `${subscriptionUrl}/mieru`
+        mieru: `${subscriptionUrl}?target=mieru`
       };
 
       const [v2rayQr, clashQr, singboxQr, wireguardQr, mieruQr] = await Promise.all([

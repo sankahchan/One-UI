@@ -189,7 +189,7 @@ async function getUserSubscriptionUrl(req, res, next) {
     const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
     const trimmedBaseUrl = String(baseUrl).replace(/\/+$/, '');
 
-    const subscriptionUrl = `${trimmedBaseUrl}/user/${panelUser.subscriptionToken}/mieru`;
+    const subscriptionUrl = `${trimmedBaseUrl}/user/${panelUser.subscriptionToken}?target=mieru`;
 
     res.json(
       ApiResponse.success(
