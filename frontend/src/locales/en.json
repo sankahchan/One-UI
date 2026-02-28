@@ -1390,33 +1390,67 @@
             "v2ray": "V2Ray",
             "clash": "Clash",
             "singbox": "Sing-box",
-            "wireguard": "WireGuard"
+            "wireguard": "WireGuard",
+            "mieru": "Mieru"
         },
         "subscription": {
             "title": "Subscription",
             "description": "Copy the URL, scan the QR code, or use one-click import.",
+            "mieruTitle": "Mieru Access",
+            "mieruDescription": "Scan the QR code, copy the import URL, or launch a supported client.",
             "formatHint": {
                 "clash": "Clash / Meta clients",
                 "v2ray": "V2Ray subscription",
                 "singbox": "Sing-box subscription",
-                "wireguard": "WireGuard subscription"
+                "wireguard": "WireGuard subscription",
+                "mieru": "Mieru YAML profile"
             },
             "showLargeQr": "Show Large QR",
             "hideLargeQr": "Hide Large QR",
             "urlLabel": "Subscription URL",
+            "mieruUrlLabel": "Mieru Import URL",
             "downloadClashYaml": "Download Clash YAML",
+            "copyImportUrl": "Copy Import URL",
+            "openImportUrl": "Open Import URL",
             "copySharePage": "Copy Share Page",
+            "mieruQuickTipTitle": "Import tip",
             "quickTipTitle": "Quick tip",
-            "quickTipBody": "If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app."
+            "quickTipBody": "If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.",
+            "mieruQuickTipBody": "Use “One-Click Import” when your client supports it. Otherwise copy the Mieru URL and import it from inside the app.",
+            "stats": {
+                "validUntil": "Valid Until",
+                "daysRemaining": "Days Remaining",
+                "dataUsed": "Data Used",
+                "dataRemaining": "Data Remaining",
+                "unlimited": "Unlimited"
+            }
         },
         "addToApp": {
             "title": "Add To App",
             "description": "Choose your device and import with one tap.",
+            "mieruTitle": "Third Party Client Software",
+            "mieruDescription": "Install a compatible client, then import your Mieru URL with one click or manual copy.",
+            "copyFallback": "Copy URL fallback available",
             "platform": {
                 "android": "Android",
                 "ios": "iOS",
                 "desktop": "Desktop"
             },
+            "mieruGroups": {
+                "desktop": {
+                    "title": "Desktop",
+                    "subtitle": "Windows, macOS, Linux"
+                },
+                "android": {
+                    "title": "Android",
+                    "subtitle": "Phones and tablets"
+                },
+                "ios": {
+                    "title": "iOS",
+                    "subtitle": "iPhone and iPad"
+                }
+            },
+            "oneClickReady": "One-Click Ready",
             "oneClickImport": "One-Click Import",
             "copyUrl": "Copy URL",
             "getApp": "Get App"

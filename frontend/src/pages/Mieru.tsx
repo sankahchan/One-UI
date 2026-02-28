@@ -1273,12 +1273,12 @@ export const MieruPage: React.FC = () => {
                           disabled={!entry.configured || entry.source !== 'panel'}
                           title={
                             entry.source === 'panel'
-                              ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru subscription URL' })
+                              ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru import URL' })
                               : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
                           }
                         >
                           <Link className="mr-1 h-3.5 w-3.5" />
-                          Sub URL
+                          {t('mieru.copyImportUrl', { defaultValue: 'Copy Import URL' })}
                         </Button>
                         <Button
                           size="sm"
@@ -1288,12 +1288,12 @@ export const MieruPage: React.FC = () => {
                           disabled={!entry.configured || entry.source !== 'panel'}
                           title={
                             entry.source === 'panel'
-                              ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru subscription URL' })
+                              ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru page' })
                               : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
                           }
                         >
                           <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                          {t('common.open', { defaultValue: 'Open' })}
+                          {t('mieru.openPage', { defaultValue: 'Open Page' })}
                         </Button>
                         {isPanel ? (
                           isPanelEditing ? (

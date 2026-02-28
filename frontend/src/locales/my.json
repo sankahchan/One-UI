@@ -1126,33 +1126,67 @@
             "v2ray": "V2Ray",
             "clash": "Clash",
             "singbox": "Sing-box",
-            "wireguard": "WireGuard"
+            "wireguard": "WireGuard",
+            "mieru": "Mieru"
         },
         "subscription": {
             "title": "Subscription",
             "description": "URL ကို ကူးယူရန်၊ QR ကို scan လုပ်ရန်၊ သို့မဟုတ် one-click import ကို သုံးနိုင်ပါသည်။",
+            "mieruTitle": "Mieru Access",
+            "mieruDescription": "QR code ကို scan လုပ်ပါ၊ import URL ကို ကူးယူပါ၊ supported client ဖြင့်လည်း ဖွင့်နိုင်ပါသည်။",
             "formatHint": {
                 "clash": "Clash / Meta client များ",
                 "v2ray": "V2Ray subscription",
                 "singbox": "Sing-box subscription",
-                "wireguard": "WireGuard subscription"
+                "wireguard": "WireGuard subscription",
+                "mieru": "Mieru YAML profile"
             },
             "showLargeQr": "QR အကြီး ပြရန်",
             "hideLargeQr": "QR အကြီး ဖျောက်ရန်",
             "urlLabel": "Subscription URL",
+            "mieruUrlLabel": "Mieru Import URL",
             "downloadClashYaml": "Clash YAML ဒေါင်းလုဒ်",
+            "copyImportUrl": "Import URL ကူးရန်",
+            "openImportUrl": "Import URL ဖွင့်ရန်",
             "copySharePage": "Share စာမျက်နှာ ကူးရန်",
+            "mieruQuickTipTitle": "Import အကြံပြုချက်",
             "quickTipTitle": "အမြန် အကြံပြုချက်",
-            "quickTipBody": "Deep link နည်းဖြင့် import မရပါက subscription URL ကို ကူးယူပြီး app ထဲက “Import from URL” ကို အသုံးပြုပါ။"
+            "quickTipBody": "Deep link နည်းဖြင့် import မရပါက subscription URL ကို ကူးယူပြီး app ထဲက “Import from URL” ကို အသုံးပြုပါ။",
+            "mieruQuickTipBody": "Client က support လုပ်ပါက “One-Click Import” ကို သုံးပါ။ မရပါက Mieru URL ကို ကူးယူပြီး app ထဲမှ import လုပ်ပါ။",
+            "stats": {
+                "validUntil": "အသုံးပြုနိုင်သည့် နောက်ဆုံးရက်",
+                "daysRemaining": "ကျန်ရက်",
+                "dataUsed": "အသုံးပြုပြီး ဒေတာ",
+                "dataRemaining": "ကျန်ဒေတာ",
+                "unlimited": "အကန့်အသတ်မရှိ"
+            }
         },
         "addToApp": {
             "title": "App ထဲသို့ ထည့်ရန်",
             "description": "သင့်စက်အမျိုးအစားကို ရွေးပြီး တစ်ချက်နှိပ်၍ import လုပ်နိုင်ပါသည်။",
+            "mieruTitle": "Third Party Client Software",
+            "mieruDescription": "Compatible client ကို install လုပ်ပြီး Mieru URL ကို one-click သို့မဟုတ် manual copy ဖြင့် import လုပ်ပါ။",
+            "copyFallback": "Copy URL fallback ရနိုင်သည်",
             "platform": {
                 "android": "Android",
                 "ios": "iOS",
                 "desktop": "Desktop"
             },
+            "mieruGroups": {
+                "desktop": {
+                    "title": "Desktop",
+                    "subtitle": "Windows, macOS, Linux"
+                },
+                "android": {
+                    "title": "Android",
+                    "subtitle": "ဖုန်း နှင့် tablet"
+                },
+                "ios": {
+                    "title": "iOS",
+                    "subtitle": "iPhone နှင့် iPad"
+                }
+            },
+            "oneClickReady": "One-Click Ready",
             "oneClickImport": "တစ်ချက်နှိပ် Import",
             "copyUrl": "URL ကူးရန်",
             "getApp": "App ရယူရန်"

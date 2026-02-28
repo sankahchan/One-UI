@@ -146,6 +146,7 @@ export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
     platforms: ['windows'],
     description: 'Desktop client with Mieru support.',
     usesFormat: 'mieru',
+    urlScheme: 'clash://install-config?url={url}',
     storeUrl: {
       windows: 'https://www.clashverge.dev/'
     }
@@ -179,6 +180,7 @@ export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
     platforms: ['android'],
     description: 'Android client listed by Mieru project.',
     usesFormat: 'mieru',
+    urlScheme: 'clashmeta://install-config?url={url}',
     storeUrl: {
       android: 'https://github.com/MetaCubeX/ClashMetaForAndroid'
     }
@@ -224,6 +226,7 @@ export const BUILTIN_CLIENT_APPS: ClientAppDefinition[] = [
     platforms: ['android', 'ios'],
     description: 'Client app listed by Mieru project.',
     usesFormat: 'mieru',
+    urlScheme: 'karing://install-config?url={url}',
     storeUrl: {
       android: 'https://karing.app/',
       ios: 'https://karing.app/'
@@ -282,6 +285,11 @@ export function buildImportLaunchUrls(options: {
     const encoded = encodeURIComponent(manualUrl);
     launchUrls.push(`hiddify://install-config?url=${encoded}`);
     launchUrls.push(`hiddify://install-sub?url=${encoded}`);
+  }
+
+  if (appId === 'clashmeta_android' && manualUrl) {
+    const encoded = encodeURIComponent(manualUrl);
+    launchUrls.push(`clash://install-config?url=${encoded}`);
   }
 
   return uniqueNonEmpty(launchUrls);

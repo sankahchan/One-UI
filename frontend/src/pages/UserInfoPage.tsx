@@ -32,6 +32,7 @@ import {
   resolveSubscriptionApps,
   type FormatTab,
   type Platform,
+  type ResolvedClientApp,
   type SubscriptionBrandingMetadata
 } from '../lib/subscriptionApps';
 import { toMieruPageUrl } from '../lib/mieruSubscription';
@@ -180,6 +181,64 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(Math.max(parsed, min), max);
+}
+
+const MIERU_APP_GROUPS: Array<{
+  key: 'desktop' | 'android' | 'ios';
+  platform: Platform;
+  titleKey: string;
+  defaultTitle: string;
+  subtitleKey: string;
+  defaultSubtitle: string;
+  preferredIds: string[];
+}> = [
+  {
+    key: 'desktop',
+    platform: 'windows',
+    titleKey: 'portal.addToApp.mieruGroups.desktop.title',
+    defaultTitle: 'Desktop',
+    subtitleKey: 'portal.addToApp.mieruGroups.desktop.subtitle',
+    defaultSubtitle: 'Windows, macOS, Linux',
+    preferredIds: ['clashvergerev', 'mihomoparty', 'nyamebox']
+  },
+  {
+    key: 'android',
+    platform: 'android',
+    titleKey: 'portal.addToApp.mieruGroups.android.title',
+    defaultTitle: 'Android',
+    subtitleKey: 'portal.addToApp.mieruGroups.android.subtitle',
+    defaultSubtitle: 'Phones and tablets',
+    preferredIds: ['clashmeta_android', 'clashmi', 'exclave', 'husi_mieru_plugin', 'karing', 'nekobox_mieru_plugin']
+  },
+  {
+    key: 'ios',
+    platform: 'ios',
+    titleKey: 'portal.addToApp.mieruGroups.ios.title',
+    defaultTitle: 'iOS',
+    subtitleKey: 'portal.addToApp.mieruGroups.ios.subtitle',
+    defaultSubtitle: 'iPhone and iPad',
+    preferredIds: ['clashmi', 'karing']
+  }
+];
+
+function orderAppsByPreferredIds(apps: ResolvedClientApp[], preferredIds: string[]): ResolvedClientApp[] {
+  const order = new Map(preferredIds.map((id, index) => [id, index]));
+
+  return [...apps].sort((left, right) => {
+    const leftRank = order.get(left.id);
+    const rightRank = order.get(right.id);
+
+    if (leftRank !== undefined && rightRank !== undefined) {
+      return leftRank - rightRank;
+    }
+    if (leftRank !== undefined) {
+      return -1;
+    }
+    if (rightRank !== undefined) {
+      return 1;
+    }
+    return left.name.localeCompare(right.name);
+  });
 }
 
 export const UserInfoPage = () => {
@@ -437,6 +496,29 @@ export const UserInfoPage = () => {
       format: activeFormat
     });
   }, [platform, subscriptionUrls, brandingMetadata, activeFormat]);
+
+  const mieruAppGroups = useMemo(() => {
+    if (!isMieruOnlyPage) {
+      return [];
+    }
+
+    return MIERU_APP_GROUPS.map((group) => {
+      const apps = orderAppsByPreferredIds(
+        resolveSubscriptionApps({
+          platform: group.platform,
+          urls: subscriptionUrls,
+          metadata: brandingMetadata,
+          format: 'mieru'
+        }),
+        group.preferredIds
+      );
+
+      return {
+        ...group,
+        apps
+      };
+    }).filter((group) => group.apps.length > 0);
+  }, [brandingMetadata, isMieruOnlyPage, subscriptionUrls]);
 
   const heroStyle = useMemo(() => {
     return {
@@ -781,29 +863,41 @@ export const UserInfoPage = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-foreground">
-                {t('portal.subscription.title', { defaultValue: 'Subscription' })}
+                {isMieruOnlyPage
+                  ? t('portal.subscription.mieruTitle', { defaultValue: 'Mieru Access' })
+                  : t('portal.subscription.title', { defaultValue: 'Subscription' })}
               </h3>
               <p className="mt-1 text-sm text-muted">
-                {t('portal.subscription.description', {
-                  defaultValue: 'Copy the URL, scan the QR code, or use one-click import.'
-                })}
+                {isMieruOnlyPage
+                  ? t('portal.subscription.mieruDescription', {
+                      defaultValue: 'Scan the QR code, copy the import URL, or launch a supported client.'
+                    })
+                  : t('portal.subscription.description', {
+                      defaultValue: 'Copy the URL, scan the QR code, or use one-click import.'
+                    })}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {availableFormats.map((format) => (
-                <button
-                  key={format.key}
-                  onClick={() => setActiveFormat(format.key)}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    activeFormat === format.key
-                      ? 'bg-brand-500 text-white shadow-soft'
-                      : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
-                  }`}
-                >
-                  {format.label}
-                </button>
-              ))}
-            </div>
+            {isMieruOnlyPage ? (
+              <span className="inline-flex items-center rounded-full border border-brand-500/25 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-300">
+                {getFormatBadgeLabel('mieru')}
+              </span>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availableFormats.map((format) => (
+                  <button
+                    key={format.key}
+                    onClick={() => setActiveFormat(format.key)}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                      activeFormat === format.key
+                        ? 'bg-brand-500 text-white shadow-soft'
+                        : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
+                    }`}
+                  >
+                    {format.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -834,7 +928,9 @@ export const UserInfoPage = () => {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-muted">
-                  {t('portal.subscription.urlLabel', { defaultValue: 'Subscription URL' })}
+                  {isMieruOnlyPage
+                    ? t('portal.subscription.mieruUrlLabel', { defaultValue: 'Mieru Import URL' })
+                    : t('portal.subscription.urlLabel', { defaultValue: 'Subscription URL' })}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -852,48 +948,125 @@ export const UserInfoPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {activeFormat === 'clash' ? (
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
-                  </Button>
-                )}
+              {isMieruOnlyPage ? (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Button className="w-full" onClick={() => void copyToClipboard(selectedUrl, 'sub-mieru-primary')}>
+                      {copiedKey === 'sub-mieru-primary' ? (
+                        <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-100" />
+                      ) : (
+                        <Copy className="mr-2 h-4 w-4" />
+                      )}
+                      {t('portal.subscription.copyImportUrl', { defaultValue: 'Copy Import URL' })}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t('portal.subscription.openImportUrl', { defaultValue: 'Open Import URL' })}
+                    </Button>
+                    {shareUrl ? (
+                      <Button
+                        variant="secondary"
+                        className="w-full sm:col-span-2"
+                        onClick={() => void copyToClipboard(shareUrl, 'share')}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
+                      </Button>
+                    ) : null}
+                  </div>
 
-                {shareUrl ? (
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => void copyToClipboard(shareUrl, 'share')}
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
-                  </Button>
-                ) : null}
-              </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                        {t('portal.subscription.stats.validUntil', { defaultValue: 'Valid Until' })}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">
+                        {new Date(userInfo.expiry.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                        {t('portal.subscription.stats.daysRemaining', { defaultValue: 'Days Remaining' })}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">
+                        {userInfo.expiry.daysRemaining}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                        {t('portal.subscription.stats.dataUsed', { defaultValue: 'Data Used' })}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">
+                        {formatBytes(userInfo.usage.total)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                        {t('portal.subscription.stats.dataRemaining', { defaultValue: 'Data Remaining' })}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">
+                        {userInfo.usage.limit > 0
+                          ? formatBytes(Math.max(userInfo.usage.remaining, 0))
+                          : t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' })}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {activeFormat === 'clash' ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
+                    </Button>
+                  )}
+
+                  {shareUrl ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => void copyToClipboard(shareUrl, 'share')}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
+                    </Button>
+                  ) : null}
+                </div>
+              )}
 
               <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 text-sm text-muted">
                 <p className="font-semibold text-foreground">
-                  {t('portal.subscription.quickTipTitle', { defaultValue: 'Quick tip' })}
+                  {isMieruOnlyPage
+                    ? t('portal.subscription.mieruQuickTipTitle', { defaultValue: 'Import tip' })
+                    : t('portal.subscription.quickTipTitle', { defaultValue: 'Quick tip' })}
                 </p>
                 <p className="mt-1">
-                  {t('portal.subscription.quickTipBody', {
-                    defaultValue:
-                      'If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.'
-                  })}
+                  {isMieruOnlyPage
+                    ? t('portal.subscription.mieruQuickTipBody', {
+                        defaultValue:
+                          'Use “One-Click Import” when your client supports it. Otherwise copy the Mieru URL and import it from inside the app.'
+                      })
+                    : t('portal.subscription.quickTipBody', {
+                        defaultValue:
+                          'If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.'
+                      })}
                 </p>
               </div>
             </div>
@@ -918,131 +1091,255 @@ export const UserInfoPage = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-foreground">
-                {t('portal.addToApp.title', { defaultValue: 'Add To App' })}
+                {isMieruOnlyPage
+                  ? t('portal.addToApp.mieruTitle', { defaultValue: 'Third Party Client Software' })
+                  : t('portal.addToApp.title', { defaultValue: 'Add To App' })}
               </h3>
               <p className="mt-1 text-sm text-muted">
-                {t('portal.addToApp.description', { defaultValue: 'Choose your device and import with one tap.' })}
+                {isMieruOnlyPage
+                  ? t('portal.addToApp.mieruDescription', {
+                      defaultValue: 'Install a compatible client, then import your Mieru URL with one click or manual copy.'
+                    })
+                  : t('portal.addToApp.description', { defaultValue: 'Choose your device and import with one tap.' })}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {(['android', 'ios', 'windows'] as Platform[]).map((entry) => (
-                <button
-                  key={entry}
-                  onClick={() => setPlatform(entry)}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    platform === entry
-                      ? 'bg-brand-500 text-white shadow-soft'
-                      : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
-                  }`}
-                >
-                  {getPlatformLabel(entry)}
-                </button>
-              ))}
-            </div>
+            {isMieruOnlyPage ? (
+              <span className="rounded-full border border-line/70 bg-panel/55 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                {t('portal.addToApp.copyFallback', { defaultValue: 'Copy URL fallback available' })}
+              </span>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(['android', 'ios', 'windows'] as Platform[]).map((entry) => (
+                  <button
+                    key={entry}
+                    onClick={() => setPlatform(entry)}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                      platform === entry
+                        ? 'bg-brand-500 text-white shadow-soft'
+                        : 'border border-line/70 bg-card/70 text-muted hover:text-foreground'
+                    }`}
+                  >
+                    {getPlatformLabel(entry)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {appsForPlatform.map((app) => {
-              const usedFormat = app.usesFormat || 'v2ray';
-              const importUrl = app.importUrl;
-              const storeLink = app.storeLink;
-              const manualUrl = app.manualUrl || subscriptionUrls[usedFormat] || selectedUrl;
-              const launchUrls = buildImportLaunchUrls({
-                appId: app.id,
-                importUrl,
-                manualUrl
-              });
-
-              return (
-                <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/55 p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-line/70 bg-card text-2xl">
-                        {app.icon}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold text-foreground">{app.name}</p>
-                        <p className="mt-1 text-sm text-muted">
-                          {t(`portal.apps.${app.id}.description`, { defaultValue: app.description })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-xs font-semibold text-muted">
-                      {usedFormat.toUpperCase()}
-                    </span>
+          {isMieruOnlyPage ? (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              {mieruAppGroups.map((group) => (
+                <section key={group.key} className="rounded-3xl border border-line/70 bg-panel/55 p-5">
+                  <div className="border-b border-line/60 pb-4">
+                    <h4 className="text-base font-semibold text-foreground">
+                      {t(group.titleKey, { defaultValue: group.defaultTitle })}
+                    </h4>
+                    <p className="mt-1 text-sm text-muted">
+                      {t(group.subtitleKey, { defaultValue: group.defaultSubtitle })}
+                    </p>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-2">
-                    {importUrl ? (
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          openDeepLinksWithFallback(launchUrls, {
-                            onExhausted: () => {
-                              void copyToClipboard(manualUrl, `manual-${app.id}`);
-                              toast.warning(
-                                t('common.warning', { defaultValue: 'Warning' }),
-                                t('portal.addToApp.importFallbackCopied', {
-                                  defaultValue: 'App handoff failed. Subscription URL was copied instead.'
-                                })
-                              );
-                            }
-                          });
-                        }}
-                      >
-                        <Smartphone className="mr-2 h-4 w-4" />
-                        {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
-                      >
-                        <Copy className="mr-2 h-4 w-4" />
-                        {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                      </Button>
-                    )}
+                  <div className="mt-4 space-y-4">
+                    {group.apps.map((app) => {
+                      const usedFormat = app.usesFormat || 'v2ray';
+                      const importUrl = app.importUrl;
+                      const storeLink = app.storeLink;
+                      const manualUrl = app.manualUrl || subscriptionUrls[usedFormat] || selectedUrl;
+                      const launchUrls = buildImportLaunchUrls({
+                        appId: app.id,
+                        importUrl,
+                        manualUrl
+                      });
 
-                    <div className="flex gap-2">
-                      {storeLink ? (
-                        <a
-                          href={storeLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1"
+                      return (
+                        <div key={app.id} className="rounded-2xl border border-line/60 bg-card/50 p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-line/60 bg-panel/70 text-xl">
+                              {app.icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {storeLink ? (
+                                  <a
+                                    href={storeLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-base font-semibold text-foreground transition hover:text-brand-300 hover:underline"
+                                  >
+                                    {app.name}
+                                  </a>
+                                ) : (
+                                  <p className="text-base font-semibold text-foreground">{app.name}</p>
+                                )}
+                                {importUrl ? (
+                                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                                    {t('portal.addToApp.oneClickReady', { defaultValue: 'One-Click Ready' })}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-sm text-muted">
+                                {t(`portal.apps.${app.id}.description`, { defaultValue: app.description })}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {importUrl ? (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  openDeepLinksWithFallback(launchUrls, {
+                                    onExhausted: () => {
+                                      void copyToClipboard(manualUrl, `manual-${app.id}`);
+                                      toast.warning(
+                                        t('common.warning', { defaultValue: 'Warning' }),
+                                        t('portal.addToApp.importFallbackCopied', {
+                                          defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+                                        })
+                                      );
+                                    }
+                                  });
+                                }}
+                              >
+                                <Smartphone className="mr-2 h-4 w-4" />
+                                {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                              </Button>
+                            ) : null}
+
+                            <Button
+                              size="sm"
+                              variant={importUrl ? 'secondary' : 'primary'}
+                              onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
+                            >
+                              {copiedKey === `manual-${app.id}` ? (
+                                <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
+                              ) : (
+                                <Copy className="mr-2 h-4 w-4" />
+                              )}
+                              {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                            </Button>
+
+                            {storeLink ? (
+                              <a href={storeLink} target="_blank" rel="noopener noreferrer">
+                                <Button size="sm" variant="ghost">
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                                </Button>
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {appsForPlatform.map((app) => {
+                const usedFormat = app.usesFormat || 'v2ray';
+                const importUrl = app.importUrl;
+                const storeLink = app.storeLink;
+                const manualUrl = app.manualUrl || subscriptionUrls[usedFormat] || selectedUrl;
+                const launchUrls = buildImportLaunchUrls({
+                  appId: app.id,
+                  importUrl,
+                  manualUrl
+                });
+
+                return (
+                  <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/55 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-line/70 bg-card text-2xl">
+                          {app.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold text-foreground">{app.name}</p>
+                          <p className="mt-1 text-sm text-muted">
+                            {t(`portal.apps.${app.id}.description`, { defaultValue: app.description })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="rounded-full border border-line/70 bg-card/70 px-2.5 py-1 text-xs font-semibold text-muted">
+                        {usedFormat.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2">
+                      {importUrl ? (
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            openDeepLinksWithFallback(launchUrls, {
+                              onExhausted: () => {
+                                void copyToClipboard(manualUrl, `manual-${app.id}`);
+                                toast.warning(
+                                  t('common.warning', { defaultValue: 'Warning' }),
+                                  t('portal.addToApp.importFallbackCopied', {
+                                    defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+                                  })
+                                );
+                              }
+                            });
+                          }}
                         >
-                          <Button variant="secondary" className="w-full">
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
-                          </Button>
-                        </a>
+                          <Smartphone className="mr-2 h-4 w-4" />
+                          {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                        </Button>
                       ) : (
-                        <Button variant="secondary" className="w-full flex-1" disabled>
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                        <Button
+                          variant="secondary"
+                          className="w-full"
+                          onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
                         </Button>
                       )}
 
-                      <Button
-                        variant="ghost"
-                        className="px-4"
-                        onClick={() => void copyToClipboard(subscriptionUrls[usedFormat] || selectedUrl, `app-${app.id}`)}
-                        aria-label={t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                      >
-                        {copiedKey === `app-${app.id}` ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+                      <div className="flex gap-2">
+                        {storeLink ? (
+                          <a
+                            href={storeLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1"
+                          >
+                            <Button variant="secondary" className="w-full">
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                            </Button>
+                          </a>
+                        ) : (
+                          <Button variant="secondary" className="w-full flex-1" disabled>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          className="px-4"
+                          onClick={() => void copyToClipboard(subscriptionUrls[usedFormat] || selectedUrl, `app-${app.id}`)}
+                          aria-label={t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                        >
+                          {copiedKey === `app-${app.id}` ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
         {/* Individual node links */}
-        <Card className="space-y-4">
+        {!isMieruOnlyPage ? (
+          <Card className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-foreground">
@@ -1177,7 +1474,8 @@ export const UserInfoPage = () => {
               </ul>
             </div>
           </details>
-        </Card>
+          </Card>
+        ) : null}
 
         {/* Devices */}
         <Card className="space-y-4">
