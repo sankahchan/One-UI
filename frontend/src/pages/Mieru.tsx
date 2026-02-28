@@ -38,6 +38,7 @@ import {
   useUpdateMieruUser
 } from '../hooks/useMieru';
 import { useResetTraffic, useUpdateUser } from '../hooks/useUsers';
+import { toMieruPageUrl } from '../lib/mieruSubscription';
 import { useToast } from '../hooks/useToast';
 import { copyTextToClipboard } from '../utils/clipboard';
 
@@ -736,7 +737,7 @@ export const MieruPage: React.FC = () => {
   const onOpenSubscriptionUrl = async (username: string) => {
     try {
       const result = await userSubscriptionUrlMutation.mutateAsync(username);
-      window.open(result.subscriptionUrl, '_blank', 'noopener,noreferrer');
+      window.open(toMieruPageUrl(result.subscriptionUrl) || result.subscriptionUrl, '_blank', 'noopener,noreferrer');
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),

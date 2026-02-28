@@ -15,7 +15,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/atoms/Button';
@@ -34,6 +34,7 @@ import {
   type Platform,
   type SubscriptionBrandingMetadata
 } from '../lib/subscriptionApps';
+import { toMieruPageUrl } from '../lib/mieruSubscription';
 
 interface BrandingInfo {
   appName?: string;
@@ -175,40 +176,6 @@ function sanitizeHttpUrl(value: string | null | undefined): string | null {
   }
 }
 
-function normalizeMieruSubscriptionUrl(input: string): string {
-  const raw = String(input || '').trim();
-  if (!raw) {
-    return '';
-  }
-
-  try {
-    const parsed = new URL(raw);
-    const target = parsed.searchParams.get('target');
-    if (target && target.toLowerCase() === 'mieru') {
-      parsed.searchParams.delete('target');
-      parsed.pathname = `${parsed.pathname.replace(/\/+$/, '')}/mieru`;
-      return parsed.toString();
-    }
-    return parsed.toString();
-  } catch {
-    const withoutTarget = raw.replace(/([?&])target=mieru(&?)/i, (_match, prefix, suffix) => {
-      if (prefix === '?' && suffix) {
-        return '?';
-      }
-      if (prefix === '&') {
-        return suffix ? '&' : '';
-      }
-      return '';
-    }).replace(/[?&]$/, '');
-
-    if (/\/mieru(?:[/?#]|$)/i.test(withoutTarget)) {
-      return withoutTarget;
-    }
-
-    return `${withoutTarget.replace(/\/+$/, '')}/mieru`;
-  }
-}
-
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -218,6 +185,7 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
 export const UserInfoPage = () => {
   const { token } = useParams<{ token: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const toast = useToast();
   const { t, i18n } = useTranslation();
   const isMieruOnlyPage = /\/user\/[^/]+\/mieru\/?$/.test(location.pathname);
@@ -244,10 +212,15 @@ export const UserInfoPage = () => {
       return;
     }
 
-    const nextPath = `${location.pathname.replace(/\/+$/, '')}/mieru`;
-    const nextUrl = `${nextPath}${location.hash || ''}`;
-    window.location.replace(nextUrl);
-  }, [isMieruOnlyPage, location.hash, location.pathname, location.search]);
+    navigate(
+      {
+        pathname: `${location.pathname.replace(/\/+$/, '')}/mieru`,
+        search: '',
+        hash: location.hash
+      },
+      { replace: true }
+    );
+  }, [isMieruOnlyPage, location.hash, location.pathname, location.search, navigate]);
 
   const apiUrl = import.meta.env.VITE_API_URL || '';
   const backendUrl = normalizeBackendUrl(apiUrl);
@@ -317,20 +290,25 @@ export const UserInfoPage = () => {
   const accentColor = sanitizeHexColor(branding?.accentColor) || '#22d3ee';
   const primaryColor = sanitizeHexColor(branding?.primaryColor) || '#3b82f6';
 
-  const urls = useMemo(() => {
+  const subscriptionUrls = useMemo(() => {
     const candidate = publicLinks?.data?.subscription?.urls || {};
     const fallbackBase = userInfo?.subscription?.url || '';
-    const fallbackMieru = fallbackBase ? `${fallbackBase.replace(/\/+$/, '')}/mieru` : '';
     return {
       v2ray: candidate.v2ray || (fallbackBase ? `${fallbackBase}?target=v2ray` : ''),
       clash: candidate.clash || (fallbackBase ? `${fallbackBase}?target=clash` : ''),
       singbox: candidate.singbox || (fallbackBase ? `${fallbackBase}?target=singbox` : ''),
       wireguard: candidate.wireguard || (fallbackBase ? `${fallbackBase}?target=wireguard` : ''),
-      mieru: normalizeMieruSubscriptionUrl(candidate.mieru || fallbackMieru)
+      mieru: candidate.mieru || (fallbackBase ? `${fallbackBase}?target=mieru` : '')
     };
   }, [publicLinks, userInfo?.subscription?.url]);
+  const mieruPageUrl = useMemo(() => toMieruPageUrl(subscriptionUrls.mieru), [subscriptionUrls.mieru]);
+  const shareUrl = useMemo(() => {
+    if (!isMieruOnlyPage) {
+      return publicLinks?.data?.shareUrl || '';
+    }
 
-  const shareUrl = publicLinks?.data?.shareUrl || '';
+    return mieruPageUrl || toMieruPageUrl(publicLinks?.data?.shareUrl || '');
+  }, [isMieruOnlyPage, mieruPageUrl, publicLinks?.data?.shareUrl]);
   const allNodeLinks = useMemo(() => publicLinks?.data?.links || [], [publicLinks?.data?.links]);
   const activeLanguageCode = useMemo(() => {
     const normalized = String(i18n.resolvedLanguage || i18n.language || 'en')
@@ -348,7 +326,7 @@ export const UserInfoPage = () => {
       { key: 'mieru', label: t('portal.formats.mieru', { defaultValue: 'Mieru' }) }
     ];
     return entries.filter((entry) => {
-      if (!urls[entry.key]) {
+      if (!subscriptionUrls[entry.key]) {
         return false;
       }
       if (isMieruOnlyPage) {
@@ -356,7 +334,7 @@ export const UserInfoPage = () => {
       }
       return entry.key !== 'mieru';
     });
-  }, [isMieruOnlyPage, t, urls]);
+  }, [isMieruOnlyPage, subscriptionUrls, t]);
 
   const nodeLinks = useMemo(() => {
     return allNodeLinks.filter((link) => {
@@ -416,7 +394,7 @@ export const UserInfoPage = () => {
     }
   }, [activeFormat, availableFormats]);
 
-  const selectedUrl = urls[activeFormat] || '';
+  const selectedUrl = subscriptionUrls[activeFormat] || '';
   const devices = devicesResponse?.data?.devices || [];
   const devicesSummary = devicesResponse?.data || null;
 
@@ -454,11 +432,11 @@ export const UserInfoPage = () => {
   const appsForPlatform = useMemo(() => {
     return resolveSubscriptionApps({
       platform,
-      urls,
+      urls: subscriptionUrls,
       metadata: brandingMetadata,
       format: activeFormat
     });
-  }, [platform, urls, brandingMetadata, activeFormat]);
+  }, [platform, subscriptionUrls, brandingMetadata, activeFormat]);
 
   const heroStyle = useMemo(() => {
     return {
@@ -969,7 +947,7 @@ export const UserInfoPage = () => {
               const usedFormat = app.usesFormat || 'v2ray';
               const importUrl = app.importUrl;
               const storeLink = app.storeLink;
-              const manualUrl = app.manualUrl || urls[usedFormat] || selectedUrl;
+              const manualUrl = app.manualUrl || subscriptionUrls[usedFormat] || selectedUrl;
               const launchUrls = buildImportLaunchUrls({
                 appId: app.id,
                 importUrl,
@@ -1050,7 +1028,7 @@ export const UserInfoPage = () => {
                       <Button
                         variant="ghost"
                         className="px-4"
-                        onClick={() => void copyToClipboard(urls[usedFormat] || selectedUrl, `app-${app.id}`)}
+                        onClick={() => void copyToClipboard(subscriptionUrls[usedFormat] || selectedUrl, `app-${app.id}`)}
                         aria-label={t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
                       >
                         {copiedKey === `app-${app.id}` ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
