@@ -84,9 +84,7 @@ class SingboxFormat {
     );
 
     outbounds.push(
-      { type: 'direct', tag: 'direct' },
-      { type: 'block', tag: 'block' },
-      { type: 'dns', tag: 'dns-out' }
+      { type: 'direct', tag: 'direct' }
     );
 
     const config = {
@@ -108,22 +106,14 @@ class SingboxFormat {
             detour: 'direct'
           }
         ],
-        rules: [
-          {
-            geosite: 'cn',
-            server: 'local'
-          }
-        ],
-        strategy: 'ipv4_only'
+        rules: []
       },
       inbounds: [
         {
           type: 'mixed',
           tag: 'mixed-in',
           listen: '127.0.0.1',
-          listen_port: 2080,
-          sniff: true,
-          sniff_override_destination: true
+          listen_port: 2080
         }
       ],
       outbounds,
@@ -131,15 +121,11 @@ class SingboxFormat {
         rules: [
           {
             protocol: 'dns',
-            outbound: 'dns-out'
+            action: 'hijack-dns'
           },
           {
-            geosite: ['category-ads-all'],
-            outbound: 'block'
-          },
-          {
-            geosite: 'cn',
-            geoip: 'cn',
+            ip_is_private: true,
+            action: 'route',
             outbound: 'direct'
           }
         ],
