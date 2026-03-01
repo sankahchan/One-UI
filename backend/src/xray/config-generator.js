@@ -44,6 +44,16 @@ function uniqueList(values) {
   return Array.from(new Set(values));
 }
 
+function requiresServerTlsCertificate(inbound = {}) {
+  const protocol = String(inbound.protocol || '').toUpperCase();
+  const security = String(inbound.security || '').toUpperCase();
+  return protocol === 'TROJAN' || security === 'TLS';
+}
+
+function isPanelSslEnabled() {
+  return parseBooleanFlag(process.env.SSL_ENABLED, false);
+}
+
 class XrayConfigGenerator {
   constructor() {
     this.configPath = process.env.XRAY_CONFIG_PATH || '/etc/xray/config.json';
@@ -345,6 +355,17 @@ class XrayConfigGenerator {
         ...inbound,
         userInbounds: effectiveUserInbounds
       };
+
+      if (requiresServerTlsCertificate(effectiveInbound) && !isPanelSslEnabled()) {
+        logger.warn('Skipping TLS inbound because panel SSL is disabled', {
+          inboundId: inbound.id,
+          tag: inbound.tag,
+          port: inbound.port,
+          protocol: inbound.protocol,
+          security: inbound.security
+        });
+        continue;
+      }
 
       let inboundConfig;
 

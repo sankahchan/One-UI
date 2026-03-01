@@ -83,8 +83,24 @@ function parseFallbacks(rawFallbacks) {
   return source.map(normalizeFallbackEntry).filter(Boolean);
 }
 
+function resolveTlsCertificatePaths() {
+  const rawCertPath = String(process.env.SSL_CERT_PATH || '').trim();
+  const rawKeyPath = String(process.env.SSL_KEY_PATH || '').trim();
+  const certPath = rawCertPath
+    ? /\.(pem|crt|cer)$/i.test(rawCertPath)
+      ? rawCertPath
+      : `${rawCertPath.replace(/\/+$/, '')}/fullchain.pem`
+    : '/certs/fullchain.pem';
+
+  return {
+    certificateFile: certPath,
+    keyFile: rawKeyPath || '/certs/key.pem'
+  };
+}
+
 module.exports = {
   parseJsonArray,
   parseAlpn,
-  parseFallbacks
+  parseFallbacks,
+  resolveTlsCertificatePaths
 };

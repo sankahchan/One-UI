@@ -772,6 +772,12 @@ function shouldProbeInboundTcpEndpoint(inbound) {
   return true;
 }
 
+function requiresServerTlsCertificate(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  const security = String(inbound?.security || '').toUpperCase();
+  return protocol === 'TROJAN' || security === 'TLS';
+}
+
 /**
  * Resolve the host to use when probing xray inbound ports.
  * In Docker the backend container lives on a bridge network while xray uses
@@ -2618,6 +2624,7 @@ class UserService {
       const endpointTarget = endpoint.host && endpoint.port > 0 ? `${endpoint.host}:${endpoint.port}` : null;
       const endpointProbe = endpointTarget ? endpointProbeByTarget.get(endpointTarget) : null;
       const probeHost = resolveXrayProbeHost();
+      const tlsInboundBlockedByPanelSsl = requiresServerTlsCertificate(inbound) && !env.SSL_ENABLED;
       const localProbeFailedButEndpointReachable =
         !portProbe?.reachable &&
         Boolean(endpointProbe?.reachable) &&
@@ -2635,15 +2642,25 @@ class UserService {
             ? `Port ${port} is not reachable locally${portProbe?.error ? ` (${portProbe.error})` : ''}.`
             : `Port ${port} is not reachable via ${probeHost}${portProbe?.error ? ` (${portProbe.error})` : ''}.`;
 
-      pushCheck({
-        id: `inbound:${inbound.id}:port`,
-        label: `Inbound ${keyLabel} port`,
-        status: portCheckStatus,
-        details: portCheckDetails,
-        recommendedAction: portCheckStatus === 'PASS'
-          ? null
-          : `Ensure inbound "${keyLabel}" is enabled and open TCP ${port} on host firewall/cloud security groups.`
-      });
+      if (tlsInboundBlockedByPanelSsl) {
+        pushCheck({
+          id: `inbound:${inbound.id}:port`,
+          label: `Inbound ${keyLabel} port`,
+          status: 'FAIL',
+          details: `TLS inbound "${keyLabel}" is not deployed because panel SSL is disabled and no server certificate/key is configured.`,
+          recommendedAction: `Enable SSL and install a valid certificate for "${keyLabel}", or disable/remove this TLS inbound.`
+        });
+      } else {
+        pushCheck({
+          id: `inbound:${inbound.id}:port`,
+          label: `Inbound ${keyLabel} port`,
+          status: portCheckStatus,
+          details: portCheckDetails,
+          recommendedAction: portCheckStatus === 'PASS'
+            ? null
+            : `Ensure inbound "${keyLabel}" is enabled and open TCP ${port} on host firewall/cloud security groups.`
+        });
+      }
 
       if (shouldProbeInboundTcpEndpoint(inbound)) {
         if (!endpoint.host || !endpoint.port) {
@@ -2661,6 +2678,14 @@ class UserService {
             status: 'FAIL',
             details: `Endpoint host "${endpoint.host}" is invalid.`,
             recommendedAction: `Fix serverAddress for inbound "${keyLabel}" to a valid domain or public IP.`
+          });
+        } else if (tlsInboundBlockedByPanelSsl) {
+          pushCheck({
+            id: `inbound:${inbound.id}:endpoint`,
+            label: `Inbound ${keyLabel} advertised endpoint`,
+            status: 'FAIL',
+            details: `${endpointTarget} is not reachable because inbound "${keyLabel}" was skipped while panel SSL is disabled.`,
+            recommendedAction: `Enable SSL with a valid certificate for "${keyLabel}", or disable/remove this TLS inbound.`
           });
         } else {
           pushCheck({

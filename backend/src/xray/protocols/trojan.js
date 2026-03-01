@@ -1,4 +1,4 @@
-const { parseAlpn, parseFallbacks } = require('./shared');
+const { parseAlpn, parseFallbacks, resolveTlsCertificatePaths } = require('./shared');
 
 function buildXhttpSettings(inbound) {
   const settings = {
@@ -63,11 +63,12 @@ class TrojanProtocol {
     };
 
     // TLS is mandatory for Trojan
+    const tlsCertificates = resolveTlsCertificatePaths();
     config.streamSettings.tlsSettings = {
       serverName: inbound.serverName,
       certificates: [{
-        certificateFile: process.env.SSL_CERT_FILE || '/certs/fullchain.pem',
-        keyFile: process.env.SSL_KEY_FILE || '/certs/key.pem'
+        certificateFile: tlsCertificates.certificateFile,
+        keyFile: tlsCertificates.keyFile
       }],
       alpn: parseAlpn(inbound.alpn)
     };
