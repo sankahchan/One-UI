@@ -750,6 +750,13 @@ function resolveInboundEndpoint(inbound) {
     return parseEndpointHostPort(endpoint, Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 51820);
   }
 
+  if (protocol === 'DOKODEMO_DOOR') {
+    return {
+      host: resolvePublicProbeHost() || normalizeEndpointHost(inbound?.serverAddress),
+      port: Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 0
+    };
+  }
+
   return {
     host: normalizeEndpointHost(inbound?.serverAddress),
     port: Number.isInteger(fallbackPort) && fallbackPort > 0 ? fallbackPort : 0
@@ -770,6 +777,49 @@ function shouldProbeInboundTcpEndpoint(inbound) {
   }
 
   return true;
+}
+
+function isDokodemoUdpOnly(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  const dokodemoNetwork = String(inbound?.dokodemoNetwork || '').toLowerCase();
+  return protocol === 'DOKODEMO_DOOR' && dokodemoNetwork && !dokodemoNetwork.includes('tcp');
+}
+
+function isDokodemoTcpForward(inbound) {
+  const protocol = String(inbound?.protocol || '').toUpperCase();
+  const dokodemoNetwork = String(inbound?.dokodemoNetwork || '').toLowerCase();
+  return protocol === 'DOKODEMO_DOOR' && (!dokodemoNetwork || dokodemoNetwork.includes('tcp'));
+}
+
+function resolvePublicProbeHost() {
+  const candidates = [
+    process.env.SUBSCRIPTION_URL,
+    process.env.APP_URL,
+    process.env.PUBLIC_BASE_URL,
+    env.SUBSCRIPTION_URL
+  ];
+
+  for (const candidate of candidates) {
+    const raw = String(candidate || '').trim();
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const host = normalizeEndpointHost(parsed.hostname);
+      if (host) {
+        return host;
+      }
+    } catch {
+      const host = normalizeEndpointHost(raw);
+      if (host) {
+        return host;
+      }
+    }
+  }
+
+  return '';
 }
 
 function requiresServerTlsCertificate(inbound) {
@@ -2557,6 +2607,7 @@ class UserService {
     const uniquePorts = Array.from(
       new Set(
         enabledRelations
+          .filter((row) => row.inbound && !isDokodemoUdpOnly(row.inbound) && String(row.inbound.protocol || '').toUpperCase() !== 'WIREGUARD')
           .map((row) => Number.parseInt(String(row.inbound?.port || ''), 10))
           .filter((port) => Number.isInteger(port) && port > 0)
       )
@@ -2625,10 +2676,18 @@ class UserService {
       const endpointProbe = endpointTarget ? endpointProbeByTarget.get(endpointTarget) : null;
       const probeHost = resolveXrayProbeHost();
       const tlsInboundBlockedByPanelSsl = requiresServerTlsCertificate(inbound) && !env.SSL_ENABLED;
+      const dokodemoUdpOnly = isDokodemoUdpOnly(inbound);
+      const dokodemoTcpForward = isDokodemoTcpForward(inbound);
       const localProbeFailedButEndpointReachable =
         !portProbe?.reachable &&
         Boolean(endpointProbe?.reachable) &&
         (portProbe?.error === 'ECONNREFUSED' || portProbe?.error === 'timeout');
+      const dokodemoForwardProbeLimited =
+        dokodemoTcpForward &&
+        !portProbe?.reachable &&
+        !endpointProbe?.reachable &&
+        (portProbe?.error === 'ECONNREFUSED' || portProbe?.error === 'timeout' || !portProbe) &&
+        (endpointProbe?.error === 'ECONNREFUSED' || endpointProbe?.error === 'timeout' || !endpointProbe);
       const portCheckStatus = portProbe?.reachable || localProbeFailedButEndpointReachable ? 'PASS' : 'FAIL';
       const portCheckDetails = portProbe?.reachable
         ? isLoopbackHost(probeHost)
@@ -2642,13 +2701,29 @@ class UserService {
             ? `Port ${port} is not reachable locally${portProbe?.error ? ` (${portProbe.error})` : ''}.`
             : `Port ${port} is not reachable via ${probeHost}${portProbe?.error ? ` (${portProbe.error})` : ''}.`;
 
-      if (tlsInboundBlockedByPanelSsl) {
+      if (dokodemoUdpOnly) {
         pushCheck({
           id: `inbound:${inbound.id}:port`,
           label: `Inbound ${keyLabel} port`,
-          status: 'FAIL',
+          status: 'WARN',
+          details: `UDP-only inbound "${keyLabel}" uses port ${port}; TCP port probe was skipped.`,
+          recommendedAction: `Validate UDP ${port} on host firewall/cloud security groups and confirm clients can reach inbound "${keyLabel}".`
+        });
+      } else if (tlsInboundBlockedByPanelSsl) {
+        pushCheck({
+          id: `inbound:${inbound.id}:port`,
+          label: `Inbound ${keyLabel} port`,
+          status: 'WARN',
           details: `TLS inbound "${keyLabel}" is not deployed because panel SSL is disabled and no server certificate/key is configured.`,
           recommendedAction: `Enable SSL and install a valid certificate for "${keyLabel}", or disable/remove this TLS inbound.`
+        });
+      } else if (dokodemoForwardProbeLimited) {
+        pushCheck({
+          id: `inbound:${inbound.id}:port`,
+          label: `Inbound ${keyLabel} port`,
+          status: 'WARN',
+          details: `TCP forward inbound "${keyLabel}" could not be verified from the panel container. This is common when dokodemo-door listeners run in a different Docker/network namespace.`,
+          recommendedAction: `Validate TCP ${port} from the VPS host or an external client and confirm inbound "${keyLabel}" is still listening.`
         });
       } else {
         pushCheck({
@@ -2683,9 +2758,17 @@ class UserService {
           pushCheck({
             id: `inbound:${inbound.id}:endpoint`,
             label: `Inbound ${keyLabel} advertised endpoint`,
-            status: 'FAIL',
+            status: 'WARN',
             details: `${endpointTarget} is not reachable because inbound "${keyLabel}" was skipped while panel SSL is disabled.`,
             recommendedAction: `Enable SSL with a valid certificate for "${keyLabel}", or disable/remove this TLS inbound.`
+          });
+        } else if (dokodemoForwardProbeLimited) {
+          pushCheck({
+            id: `inbound:${inbound.id}:endpoint`,
+            label: `Inbound ${keyLabel} advertised endpoint`,
+            status: 'WARN',
+            details: `${endpointTarget} could not be verified from the panel container. Dokodemo TCP forwards can still work even when this probe times out.`,
+            recommendedAction: `Test ${endpointTarget} from the VPS host or an external client and confirm the forwarding target for "${keyLabel}" is correct.`
           });
         } else {
           pushCheck({
