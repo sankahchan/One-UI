@@ -809,6 +809,19 @@
         "userCount": "အသုံးပြုသူများ",
         "assignedCount": "{{count}} ခု သတ်မှတ်ထား",
         "onlineTotal": "{{online}} အွန်လိုင်း / {{total}} စုစုပေါင်း",
+        "health": {
+            "label": "အခြေအနေ",
+            "open": "ဖွင့်ထားသည်",
+            "closed": "ပိတ်ထားသည်",
+            "disabled": "ပိတ်ထားသည်",
+            "unknown": "မသိရသေး",
+            "unassigned": "အသုံးပြုသူ မရှိ",
+            "checkedLabel": "စစ်ဆေးချိန်",
+            "neverChecked": "မစစ်ဆေးရသေး",
+            "checkedSeconds": "{{count}} စက္ကန့် ခန့်က",
+            "checkedMinutes": "{{count}} မိနစ် ခန့်က",
+            "unassignedDetail": "ဒီ inbound ကို deploy လုပ်ရန် active user အနည်းဆုံး တစ်ယောက် သတ်မှတ်ပါ။"
+        },
         "randomPort": "ကျပန်း",
         "randomPortTitle": "လွတ်နေသော Port ကို ကျပန်း သတ်မှတ်ရန်",
         "actionMenu": {

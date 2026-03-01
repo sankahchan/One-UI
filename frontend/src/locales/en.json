@@ -809,6 +809,19 @@
         "userCount": "Users",
         "assignedCount": "{{count}} assigned",
         "onlineTotal": "{{online}} online / {{total}} total",
+        "health": {
+            "label": "Health",
+            "open": "Open",
+            "closed": "Closed",
+            "disabled": "Disabled",
+            "unknown": "Unknown",
+            "unassigned": "No Users",
+            "checkedLabel": "Checked",
+            "neverChecked": "never checked",
+            "checkedSeconds": "{{count}}s ago",
+            "checkedMinutes": "{{count}}m ago",
+            "unassignedDetail": "Assign at least one active user to deploy this inbound."
+        },
         "randomPort": "Random",
         "randomPortTitle": "Assign random free port",
         "actionMenu": {

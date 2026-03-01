@@ -83,10 +83,11 @@ type MyanmarPackResponseData = {
 
 type InboundHealthSummaryItem = {
   inboundId: number;
-  status: 'open' | 'closed' | 'unknown' | 'disabled';
+  status: 'open' | 'closed' | 'unknown' | 'disabled' | 'unassigned';
   reachable: boolean;
   durationMs: number;
   error?: string | null;
+  assignedUsers?: number;
   target?: string;
   lastCheckedAt?: string;
 };
@@ -1539,6 +1540,11 @@ export const Inbounds: React.FC = () => {
           label: t('inbounds.health.closed', { defaultValue: 'Closed' }),
           className: 'border-red-400/50 bg-red-500/10 text-red-300'
         };
+      case 'unassigned':
+        return {
+          label: t('inbounds.health.unassigned', { defaultValue: 'No Users' }),
+          className: 'border-amber-400/50 bg-amber-500/10 text-amber-300'
+        };
       case 'disabled':
         return {
           label: t('inbounds.health.disabled', { defaultValue: 'Disabled' }),
@@ -1575,6 +1581,16 @@ export const Inbounds: React.FC = () => {
       defaultValue: '{{count}}m ago',
       count: elapsedMinutes
     });
+  };
+
+  const getInboundHealthSecondaryText = (inboundHealth?: InboundHealthSummaryItem) => {
+    if (inboundHealth?.status === 'unassigned') {
+      return t('inbounds.health.unassignedDetail', {
+        defaultValue: 'Assign at least one active user to deploy this inbound.'
+      });
+    }
+
+    return `${t('inbounds.health.checkedLabel', { defaultValue: 'Checked' })} ${formatHealthCheckedAgo(inboundHealth?.lastCheckedAt)}`;
   };
 
   const confirmTitle = confirmState?.type === 'bulk-delete'
@@ -2052,7 +2068,7 @@ export const Inbounds: React.FC = () => {
                     const isExpanded = expandedInboundIds.includes(inbound.id);
                     const inboundHealth = inboundHealthById.get(inbound.id);
                     const inboundHealthMeta = getInboundHealthMeta(inboundHealth?.status);
-                    const inboundHealthChecked = formatHealthCheckedAgo(inboundHealth?.lastCheckedAt);
+                    const inboundHealthSecondaryText = getInboundHealthSecondaryText(inboundHealth);
 
                     return (
                       <React.Fragment key={inbound.id}>
@@ -2119,7 +2135,7 @@ export const Inbounds: React.FC = () => {
                                 {inboundHealthMeta.label}
                               </span>
                               <p className="text-xs text-muted">
-                                {t('inbounds.health.checkedLabel', { defaultValue: 'Checked' })} {inboundHealthChecked}
+                                {inboundHealthSecondaryText}
                               </p>
                             </div>
                           </td>
@@ -2278,7 +2294,7 @@ export const Inbounds: React.FC = () => {
               const onlineClients = clients.filter((client) => onlineUuidSet.has(client.uuid)).length;
               const inboundHealth = inboundHealthById.get(inbound.id);
               const inboundHealthMeta = getInboundHealthMeta(inboundHealth?.status);
-              const inboundHealthChecked = formatHealthCheckedAgo(inboundHealth?.lastCheckedAt);
+              const inboundHealthSecondaryText = getInboundHealthSecondaryText(inboundHealth);
               return (
                 <Card key={`mobile-${inbound.id}`} className="transition-shadow hover:shadow-lg">
                   <div className="space-y-3">
@@ -2311,7 +2327,7 @@ export const Inbounds: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-xs text-muted">
-                      {t('inbounds.health.checkedLabel', { defaultValue: 'Checked' })} {inboundHealthChecked}
+                      {inboundHealthSecondaryText}
                     </p>
 
                     <div className="flex flex-wrap gap-2 border-t border-line/70 pt-3">

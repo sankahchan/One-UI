@@ -18,6 +18,14 @@ const PROTOCOL_DEFAULTS = {
 const RANDOM_PORT_MIN_DEFAULT = 20000;
 const RANDOM_PORT_MAX_DEFAULT = 60000;
 const RANDOM_PORT_ATTEMPTS = 256;
+const PROTOCOLS_REQUIRING_ACTIVE_USERS = new Set([
+  'HTTP',
+  'SHADOWSOCKS',
+  'SOCKS',
+  'TROJAN',
+  'VLESS',
+  'VMESS'
+]);
 
 const ALLOWED_FIELDS = new Set([
   'port',
@@ -125,6 +133,33 @@ function normalizeEndpointHost(hostname = '') {
     .replace(/\/.*$/, '')
     .replace(/^\[|\]$/g, '')
     .trim();
+}
+
+function requiresActiveUsersForRuntime(inbound = {}) {
+  return PROTOCOLS_REQUIRING_ACTIVE_USERS.has(String(inbound.protocol || '').toUpperCase());
+}
+
+function countEffectiveAssignedUsers(inbound = {}) {
+  const userIds = new Set();
+
+  for (const relation of inbound.userInbounds || []) {
+    const userId = Number.parseInt(String(relation?.user?.id || ''), 10);
+    if (Number.isInteger(userId) && userId > 0) {
+      userIds.add(userId);
+    }
+  }
+
+  for (const relation of inbound.groupInbounds || []) {
+    const groupUsers = relation?.group?.users || [];
+    for (const groupUser of groupUsers) {
+      const userId = Number.parseInt(String(groupUser?.user?.id || ''), 10);
+      if (Number.isInteger(userId) && userId > 0) {
+        userIds.add(userId);
+      }
+    }
+  }
+
+  return userIds.size;
 }
 
 function probeTcpEndpoint(host, port, timeoutMs = 1800) {
@@ -2034,7 +2069,50 @@ class InboundService {
         enabled: true,
         protocol: true,
         port: true,
-        serverAddress: true
+        serverAddress: true,
+        userInbounds: {
+          where: {
+            enabled: true,
+            user: {
+              status: 'ACTIVE'
+            }
+          },
+          select: {
+            user: {
+              select: {
+                id: true
+              }
+            }
+          }
+        },
+        groupInbounds: {
+          where: {
+            enabled: true,
+            group: {
+              isDisabled: false
+            }
+          },
+          select: {
+            group: {
+              select: {
+                users: {
+                  where: {
+                    user: {
+                      status: 'ACTIVE'
+                    }
+                  },
+                  select: {
+                    user: {
+                      select: {
+                        id: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: { port: 'asc' }
     });
@@ -2046,6 +2124,7 @@ class InboundService {
         const host = normalizeEndpointHost(inbound.serverAddress);
         const port = Number.parseInt(String(inbound.port || ''), 10);
         const target = host && Number.isInteger(port) ? `${host}:${port}` : '';
+        const assignedUsers = countEffectiveAssignedUsers(inbound);
 
         if (!inbound.enabled) {
           return {
@@ -2054,6 +2133,20 @@ class InboundService {
             reachable: false,
             durationMs: 0,
             error: 'inbound-disabled',
+            assignedUsers,
+            target,
+            lastCheckedAt: checkedAt
+          };
+        }
+
+        if (requiresActiveUsersForRuntime(inbound) && assignedUsers === 0) {
+          return {
+            inboundId: inbound.id,
+            status: 'unassigned',
+            reachable: false,
+            durationMs: 0,
+            error: 'no-active-users',
+            assignedUsers,
             target,
             lastCheckedAt: checkedAt
           };
@@ -2066,6 +2159,7 @@ class InboundService {
             reachable: false,
             durationMs: 0,
             error: 'udp-protocol',
+            assignedUsers,
             target,
             lastCheckedAt: checkedAt
           };
@@ -2079,6 +2173,7 @@ class InboundService {
           reachable: probe.reachable,
           durationMs: probe.durationMs,
           error: probe.error || null,
+          assignedUsers,
           target,
           lastCheckedAt: checkedAt
         };
