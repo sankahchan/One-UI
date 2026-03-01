@@ -147,6 +147,24 @@ function normalizeQuotaEntries(entries) {
   return normalized;
 }
 
+function getQuotaMetric(quotas, key) {
+  if (!Array.isArray(quotas)) {
+    return null;
+  }
+
+  const quota = quotas.find((entry) => Number.isInteger(entry?.[key]));
+  const value = quota?.[key];
+  return Number.isInteger(value) ? Number(value) : null;
+}
+
+function megabytesToBytes(megabytes) {
+  if (!Number.isFinite(megabytes) || megabytes <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round(megabytes * 1024 * 1024));
+}
+
 function normalizeSubscriptionToken(value) {
   const token = String(value || '').trim().toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(token)) {
@@ -1549,6 +1567,22 @@ class MieruManagerService {
     const { customUser, configuredUser } = await this.getCustomUserPublicRecordByToken(token);
     const exportPayload = await this.getUserExport(customUser.name);
     const quotas = normalizeQuotaEntries(configuredUser.quotas || customUser.quotas);
+    const configuredQuotaMegabytes = getQuotaMetric(configuredUser.quotas, 'megabytes');
+    const originalQuotaMegabytes = getQuotaMetric(customUser.quotas, 'megabytes');
+    const effectiveQuotaMegabytes = Math.max(
+      configuredQuotaMegabytes || 0,
+      originalQuotaMegabytes || 0
+    );
+    const limitBytes = megabytesToBytes(effectiveQuotaMegabytes);
+    const remainingBytes = configuredQuotaMegabytes === null
+      ? limitBytes
+      : megabytesToBytes(configuredQuotaMegabytes);
+    const usedBytes = limitBytes > 0
+      ? Math.max(0, limitBytes - Math.min(remainingBytes, limitBytes))
+      : 0;
+    const usagePercent = limitBytes > 0
+      ? Math.round((usedBytes / limitBytes) * 10000) / 100
+      : 0;
 
     return {
       username: customUser.name,
@@ -1556,6 +1590,15 @@ class MieruManagerService {
       ...(quotas.length > 0 ? { quotas } : {}),
       createdAt: customUser.createdAt || null,
       updatedAt: customUser.updatedAt || null,
+      usage: {
+        limitBytes,
+        totalUsedBytes: usedBytes,
+        remainingBytes: limitBytes > 0 ? Math.max(0, Math.min(remainingBytes, limitBytes)) : 0,
+        uploadBytes: 0,
+        downloadBytes: 0,
+        percent: usagePercent,
+        derivedFromQuota: true
+      },
       profile: exportPayload.profile,
       subscriptionToken: customUser.subscriptionToken
     };

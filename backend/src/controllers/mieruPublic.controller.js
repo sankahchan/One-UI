@@ -58,6 +58,7 @@ async function getInfo(req, res, next) {
             createdAt: info.createdAt,
             updatedAt: info.updatedAt
           },
+          usage: info.usage || null,
           profile: info.profile,
           subscription: {
             url: subscriptionUrl,

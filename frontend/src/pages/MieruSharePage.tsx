@@ -23,6 +23,16 @@ interface ShareQuota {
   megabytes?: number;
 }
 
+interface MieruShareUsage {
+  limitBytes: number;
+  totalUsedBytes: number;
+  remainingBytes: number;
+  uploadBytes: number;
+  downloadBytes: number;
+  percent: number;
+  derivedFromQuota?: boolean;
+}
+
 interface MieruShareInfo {
   user: {
     username: string;
@@ -31,6 +41,7 @@ interface MieruShareInfo {
     createdAt: string | null;
     updatedAt: string | null;
   };
+  usage?: MieruShareUsage | null;
   profile: {
     server: string;
     portRange: string;
@@ -116,13 +127,50 @@ function formatTimestamp(value: string | null): string {
   return parsed.toLocaleString();
 }
 
-function getQuotaValue(quotas: ShareQuota[], key: 'days' | 'megabytes'): string {
+function getQuotaMetric(quotas: ShareQuota[], key: 'days' | 'megabytes'): number | null {
   const quota = quotas.find((entry) => Number.isInteger(entry?.[key]));
   const value = quota?.[key];
   if (!Number.isInteger(value)) {
+    return null;
+  }
+  return Number(value);
+}
+
+function formatQuotaDays(quotas: ShareQuota[]): string {
+  const days = getQuotaMetric(quotas, 'days');
+  return days === null ? 'Unlimited' : String(days);
+}
+
+function formatQuotaGigabytes(quotas: ShareQuota[]): string {
+  const megabytes = getQuotaMetric(quotas, 'megabytes');
+  if (megabytes === null) {
     return 'Unlimited';
   }
-  return String(value);
+
+  const gb = megabytes / 1024;
+  if (!Number.isFinite(gb)) {
+    return 'Unlimited';
+  }
+
+  return gb.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const rounded = value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
+  return `${rounded} ${units[unitIndex]}`;
 }
 
 export const MieruSharePage = () => {
@@ -238,8 +286,11 @@ export const MieruSharePage = () => {
   }
 
   const { user } = infoQuery.data;
-  const quotaDays = getQuotaValue(user.quotas, 'days');
-  const quotaMegabytes = getQuotaValue(user.quotas, 'megabytes');
+  const quotaDays = formatQuotaDays(user.quotas);
+  const quotaGigabytes = formatQuotaGigabytes(user.quotas);
+  const usage = infoQuery.data.usage;
+  const usagePercent = Math.min(Math.max(Number(usage?.percent || 0), 0), 100);
+  const usageLimitLabel = usage && usage.limitBytes > 0 ? formatBytes(usage.limitBytes) : '∞';
 
   return (
     <div className="min-h-screen bg-panel px-4 py-8 text-foreground sm:px-6">
@@ -296,6 +347,43 @@ export const MieruSharePage = () => {
               </span>
             </div>
 
+            <div className="rounded-2xl border border-line/70 bg-panel/50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">
+                  {t('portal.hero.dataUsage', { defaultValue: 'Data Usage' })}
+                </p>
+                <p className="text-base font-semibold text-foreground sm:text-lg">
+                  {formatBytes(usage?.totalUsedBytes)} / {usageLimitLabel}
+                </p>
+              </div>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-line/40">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    usagePercent >= 90
+                      ? 'bg-gradient-to-r from-rose-500 to-red-400'
+                      : usagePercent >= 70
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-400'
+                      : 'bg-gradient-to-r from-brand-500 to-cyan-400'
+                  }`}
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <div className="mt-3 grid gap-3 text-xs text-muted sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line/60 bg-card/55 px-3 py-2">
+                  <span>{t('portal.subscription.stats.dataUsed', { defaultValue: 'Data Used' })}</span>
+                  <span className="font-medium text-foreground">{formatBytes(usage?.totalUsedBytes)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line/60 bg-card/55 px-3 py-2">
+                  <span>{t('portal.subscription.stats.dataRemaining', { defaultValue: 'Data Remaining' })}</span>
+                  <span className="font-medium text-foreground">
+                    {usage && usage.limitBytes > 0
+                      ? formatBytes(usage.remainingBytes)
+                      : t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted">
@@ -305,9 +393,9 @@ export const MieruSharePage = () => {
               </div>
               <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted">
-                  {t('mieru.quotaMegabytes', { defaultValue: 'Quota MB' })}
+                  {t('mieru.quotaGigabytes', { defaultValue: 'Quota GB' })}
                 </p>
-                <p className="mt-1 text-lg font-semibold text-foreground">{quotaMegabytes}</p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{quotaGigabytes}</p>
               </div>
               <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted">
