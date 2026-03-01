@@ -818,13 +818,15 @@
             "unassigned": "No Users",
             "sslDisabled": "SSL Off",
             "udpOnly": "UDP",
+            "forwarded": "Forward",
             "checkedLabel": "Checked",
             "neverChecked": "never checked",
             "checkedSeconds": "{{count}}s ago",
             "checkedMinutes": "{{count}}m ago",
             "unassignedDetail": "Assign at least one active user to deploy this inbound.",
             "sslDisabledDetail": "TLS inbound is skipped until panel SSL is configured.",
-            "udpOnlyDetail": "UDP inbound; TCP health probe skipped."
+            "udpOnlyDetail": "UDP inbound; TCP health probe skipped.",
+            "forwardedDetail": "TCP forward inbound; probe from the panel container may be unreliable."
         },
         "randomPort": "Random",
         "randomPortTitle": "Assign random free port",

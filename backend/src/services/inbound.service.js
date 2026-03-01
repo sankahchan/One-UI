@@ -152,6 +152,12 @@ function isDokodemoUdpOnly(inbound = {}) {
   return protocol === 'DOKODEMO_DOOR' && network && !network.includes('tcp');
 }
 
+function isDokodemoTcpForward(inbound = {}) {
+  const protocol = String(inbound.protocol || '').toUpperCase();
+  const network = String(inbound.dokodemoNetwork || '').toLowerCase();
+  return protocol === 'DOKODEMO_DOOR' && (!network || network.includes('tcp'));
+}
+
 function resolvePublicProbeHost() {
   const candidates = [
     process.env.SUBSCRIPTION_URL,
@@ -2246,13 +2252,14 @@ class InboundService {
         }
 
         const probe = await probeTcpEndpoint(host, port, safeTimeout);
+        const forwardedProbeLimited = isDokodemoTcpForward(inbound) && !probe.reachable;
 
         return {
           inboundId: inbound.id,
-          status: probe.reachable ? 'open' : 'closed',
+          status: probe.reachable ? 'open' : forwardedProbeLimited ? 'forwarded' : 'closed',
           reachable: probe.reachable,
           durationMs: probe.durationMs,
-          error: probe.error || null,
+          error: forwardedProbeLimited ? 'forward-probe-unreliable' : probe.error || null,
           assignedUsers,
           target,
           lastCheckedAt: checkedAt

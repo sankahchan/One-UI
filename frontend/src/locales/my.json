@@ -818,13 +818,15 @@
             "unassigned": "အသုံးပြုသူ မရှိ",
             "sslDisabled": "SSL မရှိ",
             "udpOnly": "UDP",
+            "forwarded": "Forward",
             "checkedLabel": "စစ်ဆေးချိန်",
             "neverChecked": "မစစ်ဆေးရသေး",
             "checkedSeconds": "{{count}} စက္ကန့် ခန့်က",
             "checkedMinutes": "{{count}} မိနစ် ခန့်က",
             "unassignedDetail": "ဒီ inbound ကို deploy လုပ်ရန် active user အနည်းဆုံး တစ်ယောက် သတ်မှတ်ပါ။",
             "sslDisabledDetail": "Panel SSL မပြင်ဆင်ရသေးသောကြောင့် TLS inbound ကို မဖွင့်ထားပါ။",
-            "udpOnlyDetail": "UDP inbound ဖြစ်သောကြောင့် TCP health probe ကို မလုပ်ပါ။"
+            "udpOnlyDetail": "UDP inbound ဖြစ်သောကြောင့် TCP health probe ကို မလုပ်ပါ။",
+            "forwardedDetail": "TCP forward inbound ဖြစ်သောကြောင့် panel container မှ probe စစ်ခြင်းသည် မတိကျနိုင်ပါ။"
         },
         "randomPort": "ကျပန်း",
         "randomPortTitle": "လွတ်နေသော Port ကို ကျပန်း သတ်မှတ်ရန်",

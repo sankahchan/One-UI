@@ -83,7 +83,7 @@ type MyanmarPackResponseData = {
 
 type InboundHealthSummaryItem = {
   inboundId: number;
-  status: 'open' | 'closed' | 'unknown' | 'disabled' | 'unassigned' | 'ssl-disabled' | 'udp-only';
+  status: 'open' | 'closed' | 'unknown' | 'disabled' | 'unassigned' | 'ssl-disabled' | 'udp-only' | 'forwarded';
   reachable: boolean;
   durationMs: number;
   error?: string | null;
@@ -1555,6 +1555,11 @@ export const Inbounds: React.FC = () => {
           label: t('inbounds.health.udpOnly', { defaultValue: 'UDP' }),
           className: 'border-sky-400/50 bg-sky-500/10 text-sky-300'
         };
+      case 'forwarded':
+        return {
+          label: t('inbounds.health.forwarded', { defaultValue: 'Forward' }),
+          className: 'border-sky-400/50 bg-sky-500/10 text-sky-300'
+        };
       case 'disabled':
         return {
           label: t('inbounds.health.disabled', { defaultValue: 'Disabled' }),
@@ -1609,6 +1614,12 @@ export const Inbounds: React.FC = () => {
     if (inboundHealth?.status === 'udp-only') {
       return t('inbounds.health.udpOnlyDetail', {
         defaultValue: 'UDP inbound; TCP health probe skipped.'
+      });
+    }
+
+    if (inboundHealth?.status === 'forwarded') {
+      return t('inbounds.health.forwardedDetail', {
+        defaultValue: 'TCP forward inbound; probe from the panel container may be unreliable.'
       });
     }
 
