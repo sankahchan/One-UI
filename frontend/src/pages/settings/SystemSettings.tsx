@@ -36,6 +36,7 @@ import {
 import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru, useSyncMieruUsers, useUpdateMieru } from '../../hooks/useMieru';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
+import { Input } from '../../components/atoms/Input';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { copyTextToClipboard } from '../../utils/clipboard';
@@ -86,6 +87,7 @@ const SystemSettings: React.FC = () => {
   const [selectedSnapshotId, setSelectedSnapshotId] = useState('');
   const [guidedRolloutRunning, setGuidedRolloutRunning] = useState(false);
   const [showMieruLogs, setShowMieruLogs] = useState(false);
+  const [mieruUpdateVersion, setMieruUpdateVersion] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description?: string;
@@ -183,6 +185,12 @@ const SystemSettings: React.FC = () => {
     || runFullUpdateMutation.isPending
     || runRollbackMutation.isPending
     || runRuntimeDoctorMutation.isPending;
+  const normalizedMieruUpdateVersion = mieruUpdateVersion.trim();
+  const mieruUpdateVersionValid = normalizedMieruUpdateVersion.length === 0
+    || /^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?$/.test(normalizedMieruUpdateVersion);
+  const mieruUpdateVersionError = normalizedMieruUpdateVersion.length > 0 && !mieruUpdateVersionValid
+    ? t('systemSettings.toast.mieruUpdateVersionInvalid', { defaultValue: 'Use a version like 3.28.0' })
+    : undefined;
 
   useEffect(() => {
     if (!xrayConfigSnapshots.length) {
@@ -330,10 +338,21 @@ const SystemSettings: React.FC = () => {
       return;
     }
 
+    if (!mieruUpdateVersionValid) {
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.mieruUpdateVersionInvalid', { defaultValue: 'Use a version like 3.28.0' })
+      );
+      return;
+    }
+
+    const targetVersion = normalizedMieruUpdateVersion.replace(/^v/i, '');
+
     const confirmed = await requestConfirm({
       title: t('systemSettings.toast.mieruUpdateConfirmTitle', { defaultValue: 'Update Mieru sidecar?' }),
       description: t('systemSettings.toast.mieruUpdateConfirmBody', {
-        defaultValue: 'Update the Mieru sidecar to the latest release? This rebuilds and recreates the container.'
+        defaultValue: 'Update the Mieru sidecar to {{target}}? This rebuilds and recreates the container.',
+        target: targetVersion || t('systemSettings.toast.mieruUpdateLatestLabel', { defaultValue: 'the latest release' })
       }),
       confirmLabel: t('systemSettings.toast.mieruUpdateConfirmAction', { defaultValue: 'Update Mieru' }),
       tone: 'primary'
@@ -344,7 +363,8 @@ const SystemSettings: React.FC = () => {
     }
 
     try {
-      const result = await updateMieruMutation.mutateAsync(undefined);
+      const result = await updateMieruMutation.mutateAsync(targetVersion || undefined);
+      setMieruUpdateVersion('');
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
         result.message || t('systemSettings.toast.mieruUpdateSuccess', { defaultValue: 'Mieru updated successfully.' })
@@ -986,7 +1006,26 @@ const SystemSettings: React.FC = () => {
           </p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-5">
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,20rem)_1fr]">
+          <div>
+            <Input
+              label={t('systemSettings.toast.mieruUpdateVersionLabel', { defaultValue: 'Target Version' })}
+              value={mieruUpdateVersion}
+              onChange={(event) => setMieruUpdateVersion(event.target.value)}
+              placeholder={t('systemSettings.toast.mieruUpdateVersionPlaceholder', { defaultValue: 'Leave blank for latest' })}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={!mieruPolicy?.enabled || updateMieruMutation.isPending}
+              error={mieruUpdateVersionError}
+            />
+            <p className="ml-1 mt-1 text-xs text-gray-600 dark:text-gray-400">
+              {t('systemSettings.toast.mieruUpdateVersionHint', {
+                defaultValue: 'Set an exact release like 3.28.0. Leave blank to update to the latest release.'
+              })}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
           <Button
             variant="secondary"
             onClick={refreshMieruStatus}
@@ -1019,7 +1058,7 @@ const SystemSettings: React.FC = () => {
               void handleUpdateMieru();
             }}
             loading={updateMieruMutation.isPending}
-            disabled={!mieruPolicy?.enabled || !mieruPolicy?.updateScriptConfigured}
+            disabled={!mieruPolicy?.enabled || !mieruPolicy?.updateScriptConfigured || !mieruUpdateVersionValid}
           >
             Update Mieru
           </Button>
@@ -1033,6 +1072,7 @@ const SystemSettings: React.FC = () => {
           >
             Restart Mieru
           </Button>
+          </div>
         </div>
 
         {showMieruLogs ? (
