@@ -76,6 +76,7 @@ const env = cleanEnv(process.env, {
   XRAY_DEPLOYMENT: str({ default: '' }),
   XRAY_API_SERVER: str({ default: '' }),
   XRAY_API_CLI_TIMEOUT_MS: num({ default: 7000 }),
+  XRAY_HOST: str({ default: '' }),
   XRAY_API_LISTEN: str({ default: '127.0.0.1' }),
   XRAY_API_ADDRESS: str({ default: '127.0.0.1' }),
   XRAY_AUTO_RELOAD: bool({ default: false }),

@@ -772,6 +772,34 @@ function shouldProbeInboundTcpEndpoint(inbound) {
   return true;
 }
 
+/**
+ * Resolve the host to use when probing xray inbound ports.
+ * In Docker the backend container lives on a bridge network while xray uses
+ * host networking, so 127.0.0.1 inside the container does not reach xray.
+ * Set XRAY_HOST (e.g. "host.docker.internal") to override.
+ */
+function resolveXrayProbeHost() {
+  const explicit = String(env.XRAY_HOST || '').trim();
+  if (explicit) {
+    return explicit;
+  }
+  try {
+    const parsed = new URL(String(env.XRAY_API_URL || ''));
+    const hostname = parsed.hostname;
+    if (hostname && hostname !== '127.0.0.1' && hostname !== 'localhost') {
+      return hostname;
+    }
+  } catch {
+    // ignore
+  }
+  return '127.0.0.1';
+}
+
+function isLoopbackHost(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
+}
+
 function probeLocalTcpPort(port, timeoutMs = 1200) {
   return new Promise((resolve) => {
     const parsedPort = Number.parseInt(String(port || ''), 10);
@@ -805,7 +833,7 @@ function probeLocalTcpPort(port, timeoutMs = 1200) {
     socket.once('connect', () => finalize(true, null));
     socket.once('timeout', () => finalize(false, 'timeout'));
     socket.once('error', (error) => finalize(false, error?.code || error?.message || 'connect-error'));
-    socket.connect(parsedPort, '127.0.0.1');
+    socket.connect(parsedPort, resolveXrayProbeHost());
   });
 }
 
@@ -2589,15 +2617,30 @@ class UserService {
       const endpoint = resolveInboundEndpoint(inbound);
       const endpointTarget = endpoint.host && endpoint.port > 0 ? `${endpoint.host}:${endpoint.port}` : null;
       const endpointProbe = endpointTarget ? endpointProbeByTarget.get(endpointTarget) : null;
+      const probeHost = resolveXrayProbeHost();
+      const localProbeFailedButEndpointReachable =
+        !portProbe?.reachable &&
+        Boolean(endpointProbe?.reachable) &&
+        (portProbe?.error === 'ECONNREFUSED' || portProbe?.error === 'timeout');
+      const portCheckStatus = portProbe?.reachable || localProbeFailedButEndpointReachable ? 'PASS' : 'FAIL';
+      const portCheckDetails = portProbe?.reachable
+        ? isLoopbackHost(probeHost)
+          ? `Port ${port} is listening locally (${portProbe.durationMs}ms).`
+          : `Port ${port} is reachable via ${probeHost} (${portProbe.durationMs}ms).`
+        : localProbeFailedButEndpointReachable
+          ? isLoopbackHost(probeHost)
+            ? `Loopback probe for port ${port} failed${portProbe?.error ? ` (${portProbe.error})` : ''}, but ${endpointTarget} is reachable from the server. This is expected when the backend and Xray run in different Docker network namespaces.`
+            : `Probe via ${probeHost} failed for port ${port}${portProbe?.error ? ` (${portProbe.error})` : ''}, but ${endpointTarget} is reachable from the server.`
+          : isLoopbackHost(probeHost)
+            ? `Port ${port} is not reachable locally${portProbe?.error ? ` (${portProbe.error})` : ''}.`
+            : `Port ${port} is not reachable via ${probeHost}${portProbe?.error ? ` (${portProbe.error})` : ''}.`;
 
       pushCheck({
         id: `inbound:${inbound.id}:port`,
         label: `Inbound ${keyLabel} port`,
-        status: portProbe?.reachable ? 'PASS' : 'FAIL',
-        details: portProbe?.reachable
-          ? `Port ${port} is listening locally (${portProbe.durationMs}ms).`
-          : `Port ${port} is not reachable locally${portProbe?.error ? ` (${portProbe.error})` : ''}.`,
-        recommendedAction: portProbe?.reachable
+        status: portCheckStatus,
+        details: portCheckDetails,
+        recommendedAction: portCheckStatus === 'PASS'
           ? null
           : `Ensure inbound "${keyLabel}" is enabled and open TCP ${port} on host firewall/cloud security groups.`
       });
