@@ -33,6 +33,9 @@ const Settings = lazy(() => import('./pages/Settings').then((module) => ({ defau
 const UserInfoPage = lazy(() =>
   import('./pages/UserInfoPage').then((module) => ({ default: module.UserInfoPage }))
 );
+const MieruSharePage = lazy(() =>
+  import('./pages/MieruSharePage').then((module) => ({ default: module.MieruSharePage }))
+);
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -70,6 +73,7 @@ const detectRuntimePanelBasePath = () => {
     'inbounds',
     'mieru',
     'settings',
+    'mieru-share',
     'user',
     'sub',
     'api',
@@ -99,6 +103,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/user/:token" element={<UserInfoPage />} />
           <Route path="/user/:token/mieru" element={<UserInfoPage />} />
+          <Route path="/mieru-share/:token/page" element={<MieruSharePage />} />
 
           <Route
             path="/"

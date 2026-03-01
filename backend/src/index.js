@@ -21,6 +21,7 @@ const inboundRoutes = require('./routes/inbound.routes');
 const systemRoutes = require('./routes/system.routes');
 const xrayRoutes = require('./routes/xray.routes');
 const mieruRoutes = require('./routes/mieru.routes');
+const mieruPublicRoutes = require('./routes/mieruPublic.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 const sslRoutes = require('./routes/ssl.routes');
 const portalRoutes = require('./routes/portal.routes');
@@ -193,10 +194,12 @@ if (panelPath) {
 }
 app.use('/sub', subscriptionRoutes);
 app.use('/user', userInfoRoutes);
+app.use('/mieru-share', mieruPublicRoutes);
 app.use('/dns-query', dohRoutes);
 if (panelPath) {
   app.use(`${panelPath}/sub`, subscriptionRoutes);
   app.use(`${panelPath}/user`, userInfoRoutes);
+  app.use(`${panelPath}/mieru-share`, mieruPublicRoutes);
   app.use(`${panelPath}/dns-query`, dohRoutes);
 }
 

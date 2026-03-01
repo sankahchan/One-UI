@@ -4,6 +4,18 @@ const mieruRuntimeService = require('../services/mieruRuntime.service');
 const mieruSyncService = require('../services/mieruSync.service');
 const mieruManagerService = require('../services/mieruManager.service');
 
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
+  const forwardedHost = String(req.get('x-forwarded-host') || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = forwardedHost || req.get('host');
+  return `${protocol}://${host}`;
+}
+
+function getPanelPrefix(req) {
+  return String(req.baseUrl || '').replace(/\/api\/mieru$/, '');
+}
+
 async function getPolicy(_req, res, next) {
   try {
     const policy = mieruRuntimeService.getPolicy();
@@ -183,21 +195,26 @@ async function exportUser(req, res, next) {
 
 async function getUserSubscriptionUrl(req, res, next) {
   try {
-    const panelUser = await mieruManagerService.getPanelUserSubscription(req.params.username);
-    const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
-    const protocol = forwardedProto || req.protocol || 'http';
-    const baseUrl = process.env.APP_URL || process.env.SUBSCRIPTION_URL || `${protocol}://${req.get('host')}`;
-    const trimmedBaseUrl = String(baseUrl).replace(/\/+$/, '');
-
-    const subscriptionUrl = `${trimmedBaseUrl}/user/${panelUser.subscriptionToken}?target=mieru`;
+    const user = await mieruManagerService.getUserSubscription(req.params.username);
+    const origin = getRequestOrigin(req).replace(/\/+$/, '');
+    const panelPrefix = getPanelPrefix(req);
+    const basePath = `${origin}${panelPrefix}`;
+    const subscriptionUrl = user.source === 'custom'
+      ? `${basePath}/mieru-share/${user.subscriptionToken}?target=mieru`
+      : `${basePath}/user/${user.subscriptionToken}?target=mieru`;
+    const pageUrl = user.source === 'custom'
+      ? `${basePath}/mieru-share/${user.subscriptionToken}/page`
+      : `${basePath}/user/${user.subscriptionToken}/mieru`;
 
     res.json(
       ApiResponse.success(
         {
-          username: panelUser.email,
-          email: panelUser.email,
-          subscriptionToken: panelUser.subscriptionToken,
-          subscriptionUrl
+          source: user.source,
+          username: user.username,
+          email: user.email,
+          subscriptionToken: user.subscriptionToken,
+          subscriptionUrl,
+          pageUrl
         },
         'Mieru subscription URL generated successfully'
       )

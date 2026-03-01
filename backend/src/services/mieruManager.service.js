@@ -6,6 +6,7 @@ const prisma = require('../config/database');
 const logger = require('../config/logger');
 const mieruRuntimeService = require('./mieruRuntime.service');
 const mieruSyncService = require('./mieruSync.service');
+const cryptoService = require('./crypto.service');
 const { ConflictError, NotFoundError, ValidationError } = require('../utils/errors');
 
 function parsePathSegments(value, fallback = 'users') {
@@ -146,6 +147,14 @@ function normalizeQuotaEntries(entries) {
   return normalized;
 }
 
+function normalizeSubscriptionToken(value) {
+  const token = String(value || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    return null;
+  }
+  return token;
+}
+
 function normalizeCustomUsers(entries) {
   if (!Array.isArray(entries)) {
     return [];
@@ -169,6 +178,7 @@ function normalizeCustomUsers(entries) {
       password,
       enabled,
       ...(quotas.length > 0 ? { quotas } : {}),
+      ...(normalizeSubscriptionToken(entry?.subscriptionToken) ? { subscriptionToken: normalizeSubscriptionToken(entry?.subscriptionToken) } : {}),
       createdAt: entry?.createdAt || null,
       updatedAt: entry?.updatedAt || null
     });
@@ -882,6 +892,25 @@ class MieruManagerService {
     };
   }
 
+  async saveCustomUsersState(customUsers, metadata, configDocument, updatedAt = new Date().toISOString()) {
+    const normalizedCustomUsers = normalizeCustomUsers(customUsers);
+    const nextSyncState = {
+      ...metadata,
+      managedBy: 'one-ui',
+      schemaVersion: Math.max(Number.parseInt(String(metadata.schemaVersion || '1'), 10) || 1, 2),
+      customUsers: normalizedCustomUsers,
+      updatedAt
+    };
+
+    await this.writeStateAtomically(`${JSON.stringify(nextSyncState, null, 2)}\n`);
+    if (isPlainObject(configDocument?.oneUiSync)) {
+      const sanitizedConfig = sanitizeConfigDocument(configDocument);
+      await this.writeConfigAtomically(`${JSON.stringify(sanitizedConfig, null, 2)}\n`);
+    }
+
+    return normalizedCustomUsers;
+  }
+
   mergeUsers({ panelUsers, customUsers, configuredUsers, onlineByUsername = new Map() }) {
     const panelByUsername = new Map(panelUsers.map((user) => [user.username, user]));
     const customByUsername = new Map(customUsers.map((user) => [user.name, user]));
@@ -1020,6 +1049,7 @@ class MieruManagerService {
         password,
         enabled,
         ...(quotas.length > 0 ? { quotas } : {}),
+        subscriptionToken: cryptoService.generateSubscriptionToken(),
         createdAt: now,
         updatedAt: now
       }
@@ -1420,7 +1450,38 @@ class MieruManagerService {
     };
   }
 
-  async getPanelUserSubscription(username) {
+  async ensureCustomUserSubscription(username) {
+    const normalizedUsername = normalizeUsername(username);
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
+    const customUsers = normalizeCustomUsers(metadata.customUsers);
+    const targetIndex = customUsers.findIndex((entry) => entry.name === normalizedUsername);
+
+    if (targetIndex === -1) {
+      throw new NotFoundError('No custom Mieru user found for this username');
+    }
+
+    const current = customUsers[targetIndex];
+    if (current.subscriptionToken) {
+      return current;
+    }
+
+    const updatedAt = new Date().toISOString();
+    const nextUser = {
+      ...current,
+      subscriptionToken: cryptoService.generateSubscriptionToken(),
+      updatedAt
+    };
+    const nextCustomUsers = [...customUsers];
+    nextCustomUsers[targetIndex] = nextUser;
+    await this.saveCustomUsersState(nextCustomUsers, metadata, configState.parsed, updatedAt);
+    return nextUser;
+  }
+
+  async getUserSubscription(username) {
     const normalizedUsername = normalizeUsername(username);
     const panelUser = await prisma.user.findUnique({
       where: { email: normalizedUsername },
@@ -1431,11 +1492,73 @@ class MieruManagerService {
       }
     });
 
-    if (!panelUser) {
-      throw new NotFoundError('No panel user found for this Mieru username');
+    if (panelUser) {
+      return {
+        source: 'panel',
+        username: panelUser.email,
+        email: panelUser.email,
+        subscriptionToken: panelUser.subscriptionToken
+      };
     }
 
-    return panelUser;
+    const customUser = await this.ensureCustomUserSubscription(normalizedUsername);
+
+    return {
+      source: 'custom',
+      username: customUser.name,
+      email: customUser.name,
+      subscriptionToken: customUser.subscriptionToken
+    };
+  }
+
+  async getCustomUserPublicRecordByToken(token) {
+    const normalizedToken = normalizeSubscriptionToken(token);
+    if (!normalizedToken) {
+      throw new ValidationError('Invalid Mieru share token');
+    }
+
+    const [configState, syncState] = await Promise.all([
+      this.loadCurrentConfig(),
+      this.loadSyncState()
+    ]);
+    const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
+    const customUsers = normalizeCustomUsers(metadata.customUsers);
+    const customUser = customUsers.find((entry) => entry.subscriptionToken === normalizedToken);
+
+    if (!customUser) {
+      throw new NotFoundError('Mieru share link not found');
+    }
+
+    const configuredUser = this.getConfiguredUsers(configState.parsed).find((entry) => entry.name === customUser.name);
+    if (!configuredUser) {
+      throw new NotFoundError('Mieru user not found in current config');
+    }
+
+    return {
+      customUser,
+      configuredUser
+    };
+  }
+
+  async getCustomUserExportByToken(token) {
+    const { customUser } = await this.getCustomUserPublicRecordByToken(token);
+    return this.getUserExport(customUser.name);
+  }
+
+  async getCustomUserPublicInfoByToken(token) {
+    const { customUser, configuredUser } = await this.getCustomUserPublicRecordByToken(token);
+    const exportPayload = await this.getUserExport(customUser.name);
+    const quotas = normalizeQuotaEntries(configuredUser.quotas || customUser.quotas);
+
+    return {
+      username: customUser.name,
+      enabled: Boolean(customUser.enabled),
+      ...(quotas.length > 0 ? { quotas } : {}),
+      createdAt: customUser.createdAt || null,
+      updatedAt: customUser.updatedAt || null,
+      profile: exportPayload.profile,
+      subscriptionToken: customUser.subscriptionToken
+    };
   }
 }
 

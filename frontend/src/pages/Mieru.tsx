@@ -737,7 +737,7 @@ export const MieruPage: React.FC = () => {
   const onOpenSubscriptionUrl = async (username: string) => {
     try {
       const result = await userSubscriptionUrlMutation.mutateAsync(username);
-      window.open(toMieruPageUrl(result.subscriptionUrl) || result.subscriptionUrl, '_blank', 'noopener,noreferrer');
+      window.open(result.pageUrl || toMieruPageUrl(result.subscriptionUrl) || result.subscriptionUrl, '_blank', 'noopener,noreferrer');
     } catch (error: any) {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
@@ -1058,6 +1058,7 @@ export const MieruPage: React.FC = () => {
                 const isCustom = entry.source === 'custom';
                 const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
                 const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
+                const supportsSubscriptionUrl = entry.configured && entry.source !== 'config';
                 const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
 
                 return (
@@ -1270,11 +1271,11 @@ export const MieruPage: React.FC = () => {
                           variant="secondary"
                           onClick={() => void onCopySubscriptionUrl(entry.username)}
                           loading={userSubscriptionUrlMutation.isPending}
-                          disabled={!entry.configured || entry.source !== 'panel'}
+                          disabled={!supportsSubscriptionUrl}
                           title={
-                            entry.source === 'panel'
+                            supportsSubscriptionUrl
                               ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru import URL' })
-                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
+                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
                           }
                         >
                           <Link className="mr-1 h-3.5 w-3.5" />
@@ -1285,11 +1286,11 @@ export const MieruPage: React.FC = () => {
                           variant="secondary"
                           onClick={() => void onOpenSubscriptionUrl(entry.username)}
                           loading={userSubscriptionUrlMutation.isPending}
-                          disabled={!entry.configured || entry.source !== 'panel'}
+                          disabled={!supportsSubscriptionUrl}
                           title={
-                            entry.source === 'panel'
+                            supportsSubscriptionUrl
                               ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru page' })
-                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel users only' })
+                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
                           }
                         >
                           <ExternalLink className="mr-1 h-3.5 w-3.5" />

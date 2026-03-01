@@ -180,10 +180,12 @@ export interface MieruUserExportResult {
 }
 
 export interface MieruUserSubscriptionUrlResult {
+  source: 'panel' | 'custom';
   username: string;
   email: string;
   subscriptionToken: string;
   subscriptionUrl: string;
+  pageUrl: string;
 }
 
 export const mieruApi = {
