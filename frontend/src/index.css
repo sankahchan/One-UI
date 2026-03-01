@@ -8,12 +8,12 @@
   color-scheme: light;
   font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
 
-  --color-app: 210 33% 98%;
-  --color-surface: 0 0% 100%;
+  --color-app: 218 28% 96%;
+  --color-surface: 210 30% 99%;
   --color-card: 0 0% 100%;
-  --color-foreground: 222 47% 11%;
-  --color-muted: 216 16% 41%;
-  --color-border: 214 32% 89%;
+  --color-foreground: 222 50% 10%;
+  --color-muted: 220 15% 30%;
+  --color-border: 217 23% 80%;
 
   --glow-a: 211 100% 62%;
   --glow-b: 171 79% 43%;
@@ -86,21 +86,21 @@ body::before {
 }
 
 a {
-  color: hsl(221 83% 53%);
+  color: hsl(221 76% 44%);
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: hsl(221 83% 58%);
+  color: hsl(221 82% 50%);
 }
 
 @layer components {
   .glass {
-    @apply border border-line/50 bg-card/60 backdrop-blur-lg;
+    @apply border border-line/70 bg-card/85 backdrop-blur-lg dark:border-line/50 dark:bg-card/60;
   }
 
   .glass-card {
-    @apply relative border border-line/60 bg-card/[0.70] backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.7)] transition-all duration-300;
+    @apply relative border border-line/70 bg-card/[0.92] backdrop-blur-xl shadow-[0_18px_44px_-28px_rgba(15,23,42,0.32),0_10px_24px_-20px_rgba(15,23,42,0.2)] dark:border-line/60 dark:bg-card/[0.70] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.7)] transition-all duration-300;
   }
   
   .glass-card::before {
@@ -118,7 +118,7 @@ a:hover {
   }
 
   .glass-panel {
-    @apply border-r border-line/60 bg-card/85 backdrop-blur-xl shadow-[4px_0_24px_-4px_rgba(0,0,0,0.3)];
+    @apply border-r border-line/70 bg-card/[0.94] backdrop-blur-xl shadow-[4px_0_24px_-8px_rgba(15,23,42,0.16)] dark:border-line/60 dark:bg-card/85 dark:shadow-[4px_0_24px_-4px_rgba(0,0,0,0.3)];
   }
 
   .mobile-shell {
