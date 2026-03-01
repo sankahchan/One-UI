@@ -104,7 +104,9 @@ const SystemSettings: React.FC = () => {
 
   const xrayStatusQuery = useXrayStatus();
   const mieruPolicyQuery = useMieruPolicy();
-  const mieruReleaseIntelQuery = useMieruReleaseIntel();
+  const mieruReleaseIntelQuery = useMieruReleaseIntel(
+    Boolean(mieruPolicyQuery.data?.enabled && mieruPolicyQuery.data?.updateScriptConfigured)
+  );
   const mieruStatusQuery = useMieruStatus();
   const mieruLogsQuery = useMieruLogs(120, showMieruLogs);
   const restartMieruMutation = useRestartMieru();
@@ -974,7 +976,7 @@ const SystemSettings: React.FC = () => {
         <Card>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mieru Sidecar (Option 2)</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mieru Sidecar</h3>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               External runtime integration for GPL-safe deployment. Managed as an isolated sidecar.
             </p>
@@ -1029,7 +1031,7 @@ const SystemSettings: React.FC = () => {
           </p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,20rem)_1fr]">
+        <div className="mt-4 grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,20rem)_1fr]">
           <div>
             <div className="space-y-1.5">
               <label className="ml-1 block text-sm font-medium text-muted">
@@ -1094,53 +1096,63 @@ const SystemSettings: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-          <Button
-            variant="secondary"
-            onClick={refreshMieruStatus}
-            loading={mieruStatusQuery.isFetching}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh Status
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void handleSyncMieruUsers();
-            }}
-            loading={syncMieruUsersMutation.isPending}
-            disabled={!mieruPolicy?.enabled}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Sync Users
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowMieruLogs((previous) => !previous)}
-            disabled={!mieruPolicy?.enabled}
-          >
-            {showMieruLogs ? 'Hide Logs' : 'Show Logs'}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              void handleUpdateMieru();
-            }}
-            loading={updateMieruMutation.isPending}
-            disabled={!mieruPolicy?.enabled || !mieruPolicy?.updateScriptConfigured || !mieruUpdateVersionValid}
-          >
-            Update Mieru
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void handleRestartMieru();
-            }}
-            loading={restartMieruMutation.isPending}
-            disabled={!mieruPolicy?.enabled}
-          >
-            Restart Mieru
-          </Button>
+          <div className="grid grid-cols-1 items-start gap-2 self-start sm:grid-cols-2 xl:grid-cols-5">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={refreshMieruStatus}
+              loading={mieruStatusQuery.isFetching}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Status
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void handleSyncMieruUsers();
+              }}
+              loading={syncMieruUsersMutation.isPending}
+              disabled={!mieruPolicy?.enabled}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Sync Users
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowMieruLogs((previous) => !previous)}
+              disabled={!mieruPolicy?.enabled}
+            >
+              {showMieruLogs ? 'Hide Logs' : 'Show Logs'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                void handleUpdateMieru();
+              }}
+              loading={updateMieruMutation.isPending}
+              disabled={!mieruPolicy?.enabled || !mieruPolicy?.updateScriptConfigured || !mieruUpdateVersionValid}
+            >
+              Update Mieru
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void handleRestartMieru();
+              }}
+              loading={restartMieruMutation.isPending}
+              disabled={!mieruPolicy?.enabled}
+            >
+              Restart Mieru
+            </Button>
           </div>
         </div>
 

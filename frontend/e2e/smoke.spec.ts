@@ -408,6 +408,31 @@ test.describe('One-UI smoke flows', () => {
     await expect(page.getByRole('heading', { name: 'Send Test Notification' })).toBeVisible();
   });
 
+  test('mieru settings card keeps compact action buttons', async ({ page }) => {
+    await loginUi(page, adminSession);
+
+    await page.goto('/settings?tab=system');
+
+    const mieruCard = page.locator('#mieru-sidecar');
+    await expect(mieruCard.getByRole('heading', { name: 'Mieru Sidecar' })).toBeVisible();
+    await expect(mieruCard.getByText('Option 2')).toHaveCount(0);
+
+    const actionButtons = [
+      mieruCard.getByRole('button', { name: 'Refresh Status' }),
+      mieruCard.getByRole('button', { name: 'Sync Users' }),
+      mieruCard.getByRole('button', { name: /Show Logs|Hide Logs/ }),
+      mieruCard.getByRole('button', { name: 'Update Mieru' }),
+      mieruCard.getByRole('button', { name: 'Restart Mieru' })
+    ];
+
+    for (const button of actionButtons) {
+      await expect(button).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThan(0);
+      expect(box?.height ?? 0).toBeLessThan(64);
+    }
+  });
+
   test('desktop and mobile navigation buttons are clickable', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 900 });
     await loginUi(page, adminSession);

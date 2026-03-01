@@ -52,10 +52,11 @@ export const useMieruStatus = () => {
   });
 };
 
-export const useMieruReleaseIntel = () => {
+export const useMieruReleaseIntel = (enabled = true) => {
   return useQuery<MieruReleaseIntel>({
     queryKey: ['mieru-release-intel'],
     queryFn: () => getMieruReleaseIntel(false),
+    enabled,
     staleTime: 5 * 60 * 1000
   });
 };
