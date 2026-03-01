@@ -7,6 +7,7 @@ import {
   getMieruLogs,
   getMieruProfile,
   getMieruPolicy,
+  getMieruReleaseIntel,
   getMieruStatus,
   getMieruUserExport,
   getMieruUserSubscriptionUrl,
@@ -23,6 +24,7 @@ import {
   type MieruOnlineSnapshot,
   type MieruProfile,
   type MieruPolicy,
+  type MieruReleaseIntel,
   type MieruRestartResult,
   type MieruSyncResult,
   type MieruStatus,
@@ -47,6 +49,14 @@ export const useMieruStatus = () => {
     queryFn: getMieruStatus,
     refetchInterval: 15_000,
     staleTime: 5_000
+  });
+};
+
+export const useMieruReleaseIntel = () => {
+  return useQuery<MieruReleaseIntel>({
+    queryKey: ['mieru-release-intel'],
+    queryFn: () => getMieruReleaseIntel(false),
+    staleTime: 5 * 60 * 1000
   });
 };
 
@@ -81,6 +91,7 @@ export const useUpdateMieru = () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-release-intel'] });
     }
   });
 };

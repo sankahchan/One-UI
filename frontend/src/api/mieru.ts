@@ -68,6 +68,29 @@ export interface MieruUpdateResult {
   status: MieruStatus;
 }
 
+export interface MieruReleaseEntry {
+  id: number | string;
+  tagName: string | null;
+  version: string | null;
+  name: string;
+  publishedAt: string | null;
+  prerelease: boolean;
+  draft: boolean;
+  url: string | null;
+}
+
+export interface MieruReleaseIntel {
+  repository: string;
+  source: 'github';
+  fetchedAt: string;
+  currentVersion: string | null;
+  channels: {
+    latest: MieruReleaseEntry | null;
+    stable: MieruReleaseEntry | null;
+  };
+  recent: MieruReleaseEntry[];
+}
+
 export interface MieruSyncResult {
   enabled: boolean;
   autoSync: boolean;
@@ -202,6 +225,8 @@ export interface MieruUserSubscriptionUrlResult {
 export const mieruApi = {
   getPolicy: async (): Promise<ApiResponse<MieruPolicy>> => apiClient.get('/mieru/policy'),
   getStatus: async (): Promise<ApiResponse<MieruStatus>> => apiClient.get('/mieru/status'),
+  getReleases: async (params: { force?: boolean } = {}): Promise<ApiResponse<MieruReleaseIntel>> =>
+    apiClient.get('/mieru/releases', { params }),
   restart: async (): Promise<ApiResponse<MieruRestartResult>> => apiClient.post('/mieru/restart'),
   update: async (payload: { version?: string } = {}): Promise<ApiResponse<MieruUpdateResult>> => apiClient.post('/mieru/update', payload),
   syncUsers: async (reason?: string): Promise<ApiResponse<MieruSyncResult>> =>
@@ -257,6 +282,14 @@ export const getMieruStatus = async (): Promise<MieruStatus> => {
   const response = await mieruApi.getStatus();
   if (!response.data) {
     throw new Error(response.message || 'Unable to fetch Mieru status');
+  }
+  return response.data;
+};
+
+export const getMieruReleaseIntel = async (force = false): Promise<MieruReleaseIntel> => {
+  const response = await mieruApi.getReleases(force ? { force: true } : {});
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to fetch Mieru releases');
   }
   return response.data;
 };

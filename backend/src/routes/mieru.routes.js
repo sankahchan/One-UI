@@ -11,6 +11,18 @@ router.use(requireBearerAuth, authenticate, authorize('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/policy', mieruController.getPolicy);
 router.get('/status', mieruController.getStatus);
+router.get(
+  '/releases',
+  [
+    query('force')
+      .optional()
+      .isBoolean()
+      .withMessage('force must be boolean')
+      .toBoolean()
+  ],
+  validate,
+  mieruController.getReleases
+);
 router.get('/profile', mieruController.getProfile);
 router.post('/restart', mieruController.restart);
 router.post(

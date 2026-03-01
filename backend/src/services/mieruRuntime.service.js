@@ -129,6 +129,10 @@ class MieruRuntimeService {
     this.manualRestartCommand = String(process.env.MIERU_RESTART_COMMAND || '').trim();
     this.manualLogPath = String(process.env.MIERU_LOG_PATH || '').trim();
     this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
+    this.releaseIntelRepo = String(process.env.MIERU_RELEASE_REPO || 'enfein/mieru').trim() || 'enfein/mieru';
+    this.releaseIntelTtlMs = parsePositiveInt(process.env.MIERU_RELEASE_CACHE_TTL_MS, 10 * 60 * 1000, 30_000, 24 * 60 * 60 * 1000);
+    this.releaseIntelTimeoutMs = parsePositiveInt(process.env.MIERU_RELEASE_TIMEOUT_MS, 10_000, 1_000, 60_000);
+    this.releaseIntelCache = null;
 
     this.restartAlertThreshold = parsePositiveInt(process.env.MIERU_RESTART_ALERT_THRESHOLD, 3, 1, 1000);
     this.restartAlertWindowMs = parsePositiveInt(process.env.MIERU_RESTART_ALERT_WINDOW_SECONDS, 600, 60, 86_400) * 1000;
@@ -257,6 +261,63 @@ class MieruRuntimeService {
     const tempPath = `${this.configPath}.tmp-${process.pid}-${Date.now()}`;
     await fs.writeFile(tempPath, content, 'utf8');
     await fs.rename(tempPath, this.configPath);
+  }
+
+  normalizeVersion(value) {
+    return String(value || '').trim().replace(/^v/i, '');
+  }
+
+  mapReleaseEntry(release) {
+    const version = this.normalizeVersion(release?.tag_name || release?.name || '');
+    return {
+      id: release?.id ?? release?.tag_name ?? version,
+      tagName: release?.tag_name || version || null,
+      version: version || release?.tag_name || null,
+      name: release?.name || release?.tag_name || version || 'unknown',
+      publishedAt: release?.published_at || null,
+      prerelease: Boolean(release?.prerelease),
+      draft: Boolean(release?.draft),
+      url: release?.html_url || null
+    };
+  }
+
+  async httpGetJson(url, timeoutMs = this.releaseIntelTimeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'One-UI Mieru Updater',
+          'X-GitHub-Api-Version': '2022-11-28'
+        },
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new ValidationError(`GitHub releases request failed with status ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+
+      throw new ValidationError(sanitizeMultiline(error.message || 'Failed to fetch Mieru releases', 280));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  findStableRelease(releases = []) {
+    return releases.find((release) => !release.draft && !release.prerelease) || null;
+  }
+
+  findLatestRelease(releases = []) {
+    return releases.find((release) => !release.draft) || null;
   }
 
   async stripLegacySyncMetadataFromConfig() {
@@ -676,6 +737,43 @@ class MieruRuntimeService {
       checkedAt: new Date().toISOString(),
       detail: containerState.detail
     };
+  }
+
+  async getReleaseIntel({ forceRefresh = false } = {}) {
+    const now = Date.now();
+    if (!forceRefresh && this.releaseIntelCache && now - this.releaseIntelCache.fetchedAtMs < this.releaseIntelTtlMs) {
+      return this.releaseIntelCache.payload;
+    }
+
+    const releases = await this.httpGetJson(`https://api.github.com/repos/${this.releaseIntelRepo}/releases?per_page=12`);
+    if (!Array.isArray(releases)) {
+      throw new ValidationError('Unexpected GitHub releases response');
+    }
+
+    const latest = this.findLatestRelease(releases);
+    const stable = this.findStableRelease(releases);
+    const status = await this.getStatus();
+    const payload = {
+      repository: this.releaseIntelRepo,
+      source: 'github',
+      fetchedAt: new Date().toISOString(),
+      currentVersion: status.version || null,
+      channels: {
+        latest: latest ? this.mapReleaseEntry(latest) : null,
+        stable: stable ? this.mapReleaseEntry(stable) : null
+      },
+      recent: releases
+        .filter((release) => !release.draft)
+        .slice(0, 8)
+        .map((release) => this.mapReleaseEntry(release))
+    };
+
+    this.releaseIntelCache = {
+      fetchedAtMs: now,
+      payload
+    };
+
+    return payload;
   }
 
   async restart() {

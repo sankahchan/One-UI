@@ -34,6 +34,17 @@ async function getStatus(_req, res, next) {
   }
 }
 
+async function getReleases(req, res, next) {
+  try {
+    const intel = await mieruRuntimeService.getReleaseIntel({
+      forceRefresh: req.query.force === true || String(req.query.force || '').toLowerCase() === 'true'
+    });
+    res.json(ApiResponse.success(intel, 'Mieru release intelligence'));
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function restart(req, res, next) {
   try {
     const result = await mieruRuntimeService.restart();
@@ -248,6 +259,7 @@ async function getUserSubscriptionUrl(req, res, next) {
 module.exports = {
   getPolicy,
   getStatus,
+  getReleases,
   restart,
   update,
   getLogs,

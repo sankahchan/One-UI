@@ -33,7 +33,7 @@ import {
   useXrayUpdatePreflight,
   useXrayUpdatePolicy
 } from '../../hooks/useXray';
-import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru, useSyncMieruUsers, useUpdateMieru } from '../../hooks/useMieru';
+import { useMieruLogs, useMieruPolicy, useMieruReleaseIntel, useMieruStatus, useRestartMieru, useSyncMieruUsers, useUpdateMieru } from '../../hooks/useMieru';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
@@ -104,6 +104,7 @@ const SystemSettings: React.FC = () => {
 
   const xrayStatusQuery = useXrayStatus();
   const mieruPolicyQuery = useMieruPolicy();
+  const mieruReleaseIntelQuery = useMieruReleaseIntel();
   const mieruStatusQuery = useMieruStatus();
   const mieruLogsQuery = useMieruLogs(120, showMieruLogs);
   const restartMieruMutation = useRestartMieru();
@@ -140,6 +141,7 @@ const SystemSettings: React.FC = () => {
   const stats = systemStats?.data;
   const xrayStatus = xrayStatusQuery.data;
   const mieruPolicy = mieruPolicyQuery.data;
+  const mieruReleaseIntel = mieruReleaseIntelQuery.data;
   const mieruStatus = mieruStatusQuery.data;
   const mieruLogs = mieruLogsQuery.data;
   const xrayConfig = xrayConfigQuery.data;
@@ -155,6 +157,21 @@ const SystemSettings: React.FC = () => {
   const rollbackBackups = useMemo(
     () => xrayRollbackBackupsQuery.data ?? [],
     [xrayRollbackBackupsQuery.data]
+  );
+  const mieruRecentReleases = useMemo(
+    () => {
+      const latestVersion = String(mieruReleaseIntel?.channels.latest?.version || '').trim();
+      const seen = new Set<string>();
+      return (mieruReleaseIntel?.recent || []).filter((release) => {
+        const version = String(release.version || '').trim();
+        if (!version || version === latestVersion || seen.has(version)) {
+          return false;
+        }
+        seen.add(version);
+        return true;
+      });
+    },
+    [mieruReleaseIntel?.channels.latest?.version, mieruReleaseIntel?.recent]
   );
   const updateRuntimeMode = xrayUpdatePolicy?.mode || xrayUpdatePreflight?.mode || 'docker';
   const updatePreflightBlocked = xrayUpdatePreflightQuery.isLoading || !xrayUpdatePreflight?.ready;
@@ -186,11 +203,17 @@ const SystemSettings: React.FC = () => {
     || runRollbackMutation.isPending
     || runRuntimeDoctorMutation.isPending;
   const normalizedMieruUpdateVersion = mieruUpdateVersion.trim();
+  const normalizedSelectedMieruVersion = normalizedMieruUpdateVersion.replace(/^v/i, '');
   const mieruUpdateVersionValid = normalizedMieruUpdateVersion.length === 0
     || /^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?$/.test(normalizedMieruUpdateVersion);
   const mieruUpdateVersionError = normalizedMieruUpdateVersion.length > 0 && !mieruUpdateVersionValid
     ? t('systemSettings.toast.mieruUpdateVersionInvalid', { defaultValue: 'Use a version like 3.28.0' })
     : undefined;
+  const selectedMieruReleaseOption = normalizedSelectedMieruVersion.length === 0
+    ? '__latest__'
+    : mieruRecentReleases.some((release) => release.version === normalizedSelectedMieruVersion)
+    ? normalizedSelectedMieruVersion
+    : '__custom__';
 
   useEffect(() => {
     if (!xrayConfigSnapshots.length) {
@@ -346,7 +369,7 @@ const SystemSettings: React.FC = () => {
       return;
     }
 
-    const targetVersion = normalizedMieruUpdateVersion.replace(/^v/i, '');
+    const targetVersion = normalizedSelectedMieruVersion;
 
     const confirmed = await requestConfirm({
       title: t('systemSettings.toast.mieruUpdateConfirmTitle', { defaultValue: 'Update Mieru sidecar?' }),
@@ -1008,6 +1031,52 @@ const SystemSettings: React.FC = () => {
 
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,20rem)_1fr]">
           <div>
+            <div className="space-y-1.5">
+              <label className="ml-1 block text-sm font-medium text-muted">
+                {t('systemSettings.toast.mieruUpdateReleaseLabel', { defaultValue: 'Recent Releases' })}
+              </label>
+              <select
+                className="w-full rounded-xl border border-line/60 bg-card/60 px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-300 backdrop-blur-md focus:border-brand-500/60 focus:bg-card/90 focus:ring-4 focus:ring-brand-500/10 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)] sm:text-base"
+                value={selectedMieruReleaseOption}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === '__latest__') {
+                    setMieruUpdateVersion('');
+                    return;
+                  }
+                  if (value === '__custom__') {
+                    return;
+                  }
+                  setMieruUpdateVersion(value);
+                }}
+                disabled={!mieruPolicy?.enabled || updateMieruMutation.isPending || mieruReleaseIntelQuery.isLoading}
+              >
+                <option value="__latest__">
+                  {t('systemSettings.toast.mieruUpdateLatestOption', {
+                    defaultValue: 'Latest release{{version}}',
+                    version: mieruReleaseIntel?.channels.latest?.version ? ` (${mieruReleaseIntel.channels.latest.version})` : ''
+                  })}
+                </option>
+                {mieruRecentReleases.map((release) => (
+                  <option key={String(release.id)} value={release.version || ''}>
+                    {release.version}
+                    {release.prerelease ? ` ${t('systemSettings.toast.mieruUpdatePrereleaseSuffix', { defaultValue: '(pre-release)' })}` : ''}
+                  </option>
+                ))}
+                {selectedMieruReleaseOption === '__custom__' ? (
+                  <option value="__custom__">
+                    {t('systemSettings.toast.mieruUpdateCustomOption', { defaultValue: 'Custom version' })}
+                  </option>
+                ) : null}
+              </select>
+            </div>
+            <p className="ml-1 mt-1 text-xs text-gray-600 dark:text-gray-400">
+              {mieruReleaseIntelQuery.isLoading
+                ? t('systemSettings.toast.mieruUpdateReleasesLoading', { defaultValue: 'Loading recent Mieru releases...' })
+                : mieruReleaseIntelQuery.error
+                ? t('systemSettings.toast.mieruUpdateReleasesFailed', { defaultValue: 'Recent releases are unavailable right now. You can still type a version manually.' })
+                : t('systemSettings.toast.mieruUpdateReleaseHint', { defaultValue: 'Pick a recent official release or leave Latest selected.' })}
+            </p>
             <Input
               label={t('systemSettings.toast.mieruUpdateVersionLabel', { defaultValue: 'Target Version' })}
               value={mieruUpdateVersion}
