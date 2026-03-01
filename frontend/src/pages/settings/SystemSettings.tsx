@@ -968,7 +968,9 @@ const SystemSettings: React.FC = () => {
           </Button>
         </div>
         <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-          `Reload Config` validates and reapplies generated config without hard restart. Use `Restart Xray` for binary/runtime issues.
+          {xrayStatus?.mode === 'docker'
+            ? '`Reload Config` validates and reapplies generated config. Docker deployments use a controlled Xray restart.'
+            : '`Reload Config` validates and reapplies generated config without hard restart. Use `Restart Xray` for binary/runtime issues.'}
         </p>
       </Card>
 

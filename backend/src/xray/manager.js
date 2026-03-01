@@ -55,6 +55,10 @@ class XrayManager {
     this.snapshotRetention = parsePositiveInt(process.env.XRAY_CONFIG_SNAPSHOT_RETENTION, 20, 1, 500);
   }
 
+  serializeConfig(config) {
+    return JSON.stringify(config, null, 2);
+  }
+
   async hasCommand(command) {
     try {
       await execPromise(`command -v ${command} >/dev/null 2>&1`);
@@ -416,6 +420,14 @@ class XrayManager {
     await this.start();
   }
 
+  supportsHotReload(runtime) {
+    if (!this.hotReloadEnabled) {
+      return false;
+    }
+
+    return runtime?.mode === 'systemd' || runtime?.mode === 'local';
+  }
+
   async hotReloadProcess() {
     const runtime = await this.resolveRuntimeStatus();
 
@@ -467,12 +479,16 @@ class XrayManager {
     }
 
     if (normalizedMethod === 'hot') {
-      if (!this.hotReloadEnabled) {
+      const runtime = await this.resolveRuntimeStatus();
+      if (!this.supportsHotReload(runtime)) {
         await this.restartProcess();
         return {
           requestedMethod: 'hot',
           effectiveMethod: 'restart',
-          fallbackUsed: true
+          fallbackUsed: false,
+          reason: runtime?.mode === 'docker'
+            ? 'docker-runtime-does-not-support-hot-reload'
+            : 'hot-reload-disabled'
         };
       }
 
@@ -520,19 +536,43 @@ class XrayManager {
     throw new Error('Invalid apply method');
   }
 
-  async applyGeneratedConfig({ applyMethod = 'hot', createSnapshot = true } = {}) {
+  async applyGeneratedConfig({ applyMethod = 'hot', createSnapshot = true, skipRuntimeIfUnchanged = false } = {}) {
     const previousConfigRaw = await this.readCurrentConfigRaw();
     let generatedConfig = null;
     let snapshot = null;
 
     try {
+      generatedConfig = await configGenerator.generateConfig();
+      const generatedConfigRaw = this.serializeConfig(generatedConfig);
+      const runtime = await this.resolveRuntimeStatus();
+      const configChanged = String(previousConfigRaw || '') !== generatedConfigRaw;
+
+      if (!configChanged && skipRuntimeIfUnchanged && runtime.running) {
+        let confDir = null;
+        if (this.confDirEnabled) {
+          confDir = await configGenerator.saveConfigDirectory(generatedConfig, this.confDirPath);
+        }
+
+        return {
+          config: generatedConfig,
+          snapshot: null,
+          apply: {
+            requestedMethod: applyMethod,
+            effectiveMethod: 'none',
+            fallbackUsed: false,
+            skipped: true,
+            reason: 'config-unchanged'
+          },
+          confDir
+        };
+      }
+
       if (createSnapshot) {
         snapshot = await this.createSnapshotFromRaw(previousConfigRaw, {
           reason: 'before-apply'
         });
       }
 
-      generatedConfig = await configGenerator.generateConfig();
       await configGenerator.saveConfig(generatedConfig);
       let confDir = null;
       if (this.confDirEnabled) {
@@ -780,14 +820,42 @@ class XrayManager {
 
   async reloadConfig() {
     const result = await this.applyGeneratedConfig({ applyMethod: 'hot' });
+    let message = 'Xray config applied with hot reload';
+
+    if (result.apply?.effectiveMethod === 'restart') {
+      message = result.apply?.reason === 'docker-runtime-does-not-support-hot-reload'
+        ? 'Xray config applied with controlled restart for docker runtime'
+        : 'Xray config applied with restart fallback';
+    } else if (result.apply?.effectiveMethod === 'none') {
+      message = 'Xray config already current; no runtime restart was needed';
+    }
 
     return {
       success: true,
-      message: 'Xray config applied with hot reload',
+      message,
       inbounds: result.config.inbounds.length,
       configPath: this.configPath,
       apply: result.apply,
       snapshotId: result.snapshot?.id || null,
+      confDir: result.confDir || null
+    };
+  }
+
+  async initializeConfig() {
+    const result = await this.applyGeneratedConfig({
+      applyMethod: 'hot',
+      createSnapshot: false,
+      skipRuntimeIfUnchanged: true
+    });
+
+    return {
+      success: true,
+      message: result.apply?.effectiveMethod === 'none'
+        ? 'Xray config already current on startup'
+        : 'Xray config applied during startup',
+      apply: result.apply,
+      inbounds: result.config.inbounds.length,
+      configPath: this.configPath,
       confDir: result.confDir || null
     };
   }

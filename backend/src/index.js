@@ -280,7 +280,7 @@ async function startServer() {
     // Initialize Xray config
     logger.info('Initializing Xray configuration...');
     try {
-      await xrayManager.reloadConfig();
+      await xrayManager.initializeConfig();
       logger.info('Xray configuration initialized');
     } catch (error) {
       logger.error('Failed to initialize Xray configuration:', error);
