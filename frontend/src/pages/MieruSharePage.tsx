@@ -173,6 +173,7 @@ export const MieruSharePage = () => {
     })).filter((group) => group.apps.length > 0),
     [subscriptionUrl]
   );
+  const activeGroup = groupedApps.find((group) => group.platform === preferredPlatform) || groupedApps[0] || null;
 
   const copyToClipboard = async (value: string, key: string) => {
     const copied = await copyTextToClipboard(value);
@@ -236,7 +237,7 @@ export const MieruSharePage = () => {
     );
   }
 
-  const { user, profile } = infoQuery.data;
+  const { user } = infoQuery.data;
   const quotaDays = getQuotaValue(user.quotas, 'days');
   const quotaMegabytes = getQuotaValue(user.quotas, 'megabytes');
 
@@ -340,54 +341,6 @@ export const MieruSharePage = () => {
             </Card>
 
             <Card className="space-y-4">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">
-                  {t('mieru.profile', { defaultValue: 'Server Profile' })}
-                </h2>
-                <p className="mt-1 text-sm text-muted">
-                  {t('portal.subscription.profileHint', { defaultValue: 'These settings are embedded in the generated Mieru profile.' })}
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.serverHost', { defaultValue: 'Server Host / IP' })}
-                  </p>
-                  <p className="mt-1 break-all text-sm font-medium text-foreground">{profile.server || 'Not set'}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.portRange', { defaultValue: 'Port Range' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{profile.portRange}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.transport', { defaultValue: 'Transport' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{profile.transport}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.udp', { defaultValue: 'Enable UDP' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {profile.udp
-                      ? t('common.enabled', { defaultValue: 'Enabled' })
-                      : t('common.disabled', { defaultValue: 'Disabled' })}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.multiplexing', { defaultValue: 'Multiplexing' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{profile.multiplexing}</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">
@@ -400,79 +353,77 @@ export const MieruSharePage = () => {
                   </p>
                 </div>
                 <div className="inline-flex rounded-2xl border border-line/70 bg-panel/45 p-1">
-                  {(['android', 'ios', 'windows'] as Platform[]).map((entry) => (
+                  {groupedApps.map((group) => (
                     <button
-                      key={entry}
+                      key={group.key}
                       type="button"
-                      onClick={() => setPreferredPlatform(entry)}
+                      onClick={() => setPreferredPlatform(group.platform)}
                       className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                        preferredPlatform === entry
+                        activeGroup?.platform === group.platform
                           ? 'bg-brand-500 text-white'
                           : 'text-muted hover:text-foreground'
                       }`}
                     >
-                      {entry}
+                      {group.title}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {groupedApps.map((group) => (
-                  <div key={group.key} className={preferredPlatform === group.platform ? '' : 'opacity-80'}>
-                    <div className="mb-3 flex items-center gap-3">
-                      <Smartphone className="h-4 w-4 text-brand-400" />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{group.title}</p>
-                        <p className="text-xs text-muted">{group.subtitle}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      {group.apps.map((app) => (
-                        <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/45 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">{app.name}</p>
-                              <p className="mt-1 text-xs text-muted">{app.description}</p>
-                            </div>
-                            <span className="text-lg" aria-hidden="true">{app.icon}</span>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {app.importUrl ? (
-                              <Button size="sm" onClick={() => onOneClickImport(app)}>
-                                <QrCode className="mr-1 h-3.5 w-3.5" />
-                                {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
-                              </Button>
-                            ) : null}
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => void copyToClipboard(app.manualUrl || subscriptionUrl, `app-${app.id}`)}
-                            >
-                              <Copy className="mr-1 h-3.5 w-3.5" />
-                              {copiedKey === `app-${app.id}`
-                                ? t('common.copied', { defaultValue: 'Copied' })
-                                : t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                            </Button>
-                            {app.storeLink ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
-                              >
-                                <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                                {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
+              {activeGroup ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="h-4 w-4 text-brand-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{activeGroup.title}</p>
+                      <p className="text-xs text-muted">{activeGroup.subtitle}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {activeGroup.apps.map((app) => (
+                      <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/45 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{app.name}</p>
+                            <p className="mt-1 text-xs text-muted">{app.description}</p>
+                          </div>
+                          <span className="text-lg" aria-hidden="true">{app.icon}</span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {app.importUrl ? (
+                            <Button size="sm" onClick={() => onOneClickImport(app)}>
+                              <QrCode className="mr-1 h-3.5 w-3.5" />
+                              {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void copyToClipboard(app.manualUrl || subscriptionUrl, `app-${app.id}`)}
+                          >
+                            <Copy className="mr-1 h-3.5 w-3.5" />
+                            {copiedKey === `app-${app.id}`
+                              ? t('common.copied', { defaultValue: 'Copied' })
+                              : t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                          </Button>
+                          {app.storeLink ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
+                            >
+                              <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                              {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </Card>
           </div>
         </div>
