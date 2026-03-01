@@ -11,13 +11,16 @@ const prisma = require('../config/database');
 const validate = require('../middleware/validator');
 
 const clientDetector = require('../subscription/utils/client-detector');
+const subscriptionController = require('../controllers/subscription.controller');
+const rateLimit = require('../middleware/rateLimit');
 
 const router = express.Router();
 const DIRECT_TARGETS = new Set(['v2ray', 'clash', 'singbox', 'wireguard', 'mieru']);
 
 /**
  * Catch proxy clients (Hiddify, Clash, etc.) that hit /user/:token
- * and redirect them to /sub/:token so they get a proper subscription config.
+ * and serve the subscription directly (no redirect) so clients that
+ * don't follow 307 redirects still work.
  */
 router.get('/:token', (req, res, next) => {
   const { token } = req.params;
@@ -28,21 +31,12 @@ router.get('/:token', (req, res, next) => {
   const requestedTarget = String(req.query?.target || '').trim().toLowerCase();
   const forceDirectSubscription = DIRECT_TARGETS.has(requestedTarget);
 
-  if (forceDirectSubscription) {
-    const basePath = req.baseUrl.replace(/\/user$/, '/sub');
-    const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-    return res.redirect(307, `${basePath}/${token}${query}`);
-  }
-
   const userAgent = req.headers['user-agent'] || '';
   const detectedFormat = clientDetector.detect(userAgent);
   const isProxyClient = detectedFormat !== 'v2ray' || /(?:clash|singbox|sing-box|sfa|sfi|hiddify|shadowrocket|v2ray|v2rayn|v2rayng|quantumult|surge|stash|wireguard)/i.test(userAgent);
 
-  if (isProxyClient) {
-    // Rewrite the path from /user/:token to /sub/:token
-    const basePath = req.baseUrl.replace(/\/user$/, '/sub');
-    const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-    return res.redirect(307, `${basePath}/${token}${query}`);
+  if (forceDirectSubscription || isProxyClient) {
+    return subscriptionController.getSubscription.call(subscriptionController, req, res, next);
   }
 
   return next();
