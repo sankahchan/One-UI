@@ -33,7 +33,7 @@ import {
   useXrayUpdatePreflight,
   useXrayUpdatePolicy
 } from '../../hooks/useXray';
-import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru, useSyncMieruUsers } from '../../hooks/useMieru';
+import { useMieruLogs, useMieruPolicy, useMieruStatus, useRestartMieru, useSyncMieruUsers, useUpdateMieru } from '../../hooks/useMieru';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
@@ -105,6 +105,7 @@ const SystemSettings: React.FC = () => {
   const mieruStatusQuery = useMieruStatus();
   const mieruLogsQuery = useMieruLogs(120, showMieruLogs);
   const restartMieruMutation = useRestartMieru();
+  const updateMieruMutation = useUpdateMieru();
   const syncMieruUsersMutation = useSyncMieruUsers();
   const xrayConfigQuery = useXrayConfig(showConfigPreview);
   const restartXrayMutation = useRestartXray();
@@ -310,6 +311,48 @@ const SystemSettings: React.FC = () => {
       toast.error(
         t('common.error', { defaultValue: 'Error' }),
         error?.message || t('systemSettings.toast.mieruRestartFailed', { defaultValue: 'Failed to restart Mieru sidecar.' })
+      );
+    }
+  };
+
+  const handleUpdateMieru = async () => {
+    if (!mieruPolicy?.enabled) {
+      return;
+    }
+
+    if (mieruPolicy.mode !== 'docker') {
+      toast.warning(
+        t('common.warning', { defaultValue: 'Warning' }),
+        t('systemSettings.toast.mieruUpdateManualMode', {
+          defaultValue: 'Scripted Mieru updates are only available in docker mode. Use your host update workflow.'
+        })
+      );
+      return;
+    }
+
+    const confirmed = await requestConfirm({
+      title: t('systemSettings.toast.mieruUpdateConfirmTitle', { defaultValue: 'Update Mieru sidecar?' }),
+      description: t('systemSettings.toast.mieruUpdateConfirmBody', {
+        defaultValue: 'Update the Mieru sidecar to the latest release? This rebuilds and recreates the container.'
+      }),
+      confirmLabel: t('systemSettings.toast.mieruUpdateConfirmAction', { defaultValue: 'Update Mieru' }),
+      tone: 'primary'
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await updateMieruMutation.mutateAsync(undefined);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        result.message || t('systemSettings.toast.mieruUpdateSuccess', { defaultValue: 'Mieru updated successfully.' })
+      );
+    } catch (error: any) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('systemSettings.toast.mieruUpdateFailed', { defaultValue: 'Failed to update Mieru sidecar.' })
       );
     }
   };
@@ -935,7 +978,15 @@ const SystemSettings: React.FC = () => {
           <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">{mieruStatus.detail}</p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
+        {mieruPolicy?.enabled && mieruPolicy.mode === 'docker' && !mieruPolicy.updateScriptConfigured ? (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
+            {t('systemSettings.toast.mieruUpdateScriptMissing', {
+              defaultValue: 'Mieru web updates are unavailable until scripts/update-mieru.sh is installed on the server.'
+            })}
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-5">
           <Button
             variant="secondary"
             onClick={refreshMieruStatus}
@@ -964,6 +1015,16 @@ const SystemSettings: React.FC = () => {
           </Button>
           <Button
             variant="primary"
+            onClick={() => {
+              void handleUpdateMieru();
+            }}
+            loading={updateMieruMutation.isPending}
+            disabled={!mieruPolicy?.enabled || !mieruPolicy?.updateScriptConfigured}
+          >
+            Update Mieru
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => {
               void handleRestartMieru();
             }}

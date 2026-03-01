@@ -13,6 +13,7 @@ import {
   listMieruUsers,
   restartMieru,
   syncMieruUsers,
+  updateMieru,
   updateMieruProfile,
   updateMieruUser,
   type MieruCustomUserDeleteResult,
@@ -25,6 +26,7 @@ import {
   type MieruRestartResult,
   type MieruSyncResult,
   type MieruStatus,
+  type MieruUpdateResult,
   type MieruUserExportResult,
   type MieruUserSubscriptionUrlResult,
   type MieruUsersResult
@@ -62,6 +64,19 @@ export const useRestartMieru = () => {
 
   return useMutation<MieruRestartResult>({
     mutationFn: restartMieru,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
+    }
+  });
+};
+
+export const useUpdateMieru = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<MieruUpdateResult, Error, string | undefined>({
+    mutationFn: (version) => updateMieru(version),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });

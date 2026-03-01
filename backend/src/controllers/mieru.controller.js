@@ -50,6 +50,27 @@ async function restart(req, res, next) {
   }
 }
 
+async function update(req, res, next) {
+  try {
+    const version = req.body?.version ? String(req.body.version).trim() : undefined;
+    const result = await mieruRuntimeService.update({
+      version
+    });
+
+    logger.info('Mieru sidecar update requested', {
+      adminId: req.admin?.id,
+      username: req.admin?.username,
+      role: req.admin?.role,
+      requestedVersion: version || null,
+      resolvedVersion: result.status?.version || null
+    });
+
+    res.json(ApiResponse.success(result, result.message || 'Mieru sidecar updated'));
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getLogs(req, res, next) {
   try {
     const lineCount = Number.parseInt(String(req.query.lines || 120), 10);
@@ -228,6 +249,7 @@ module.exports = {
   getPolicy,
   getStatus,
   restart,
+  update,
   getLogs,
   sync,
   getProfile,

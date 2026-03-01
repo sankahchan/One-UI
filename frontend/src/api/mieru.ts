@@ -10,6 +10,8 @@ export interface MieruPolicy {
   healthUrl: string | null;
   manualRestartCommandConfigured: boolean;
   manualLogPathConfigured: boolean;
+  updateScriptConfigured: boolean;
+  updateScriptPath: string | null;
 }
 
 export interface MieruHealthStatus {
@@ -54,6 +56,15 @@ export interface MieruLogs {
 export interface MieruRestartResult {
   success: boolean;
   message: string;
+  status: MieruStatus;
+}
+
+export interface MieruUpdateResult {
+  success: boolean;
+  message: string;
+  requestedVersion?: string | null;
+  scriptPath?: string | null;
+  outputTail?: string | null;
   status: MieruStatus;
 }
 
@@ -192,6 +203,7 @@ export const mieruApi = {
   getPolicy: async (): Promise<ApiResponse<MieruPolicy>> => apiClient.get('/mieru/policy'),
   getStatus: async (): Promise<ApiResponse<MieruStatus>> => apiClient.get('/mieru/status'),
   restart: async (): Promise<ApiResponse<MieruRestartResult>> => apiClient.post('/mieru/restart'),
+  update: async (payload: { version?: string } = {}): Promise<ApiResponse<MieruUpdateResult>> => apiClient.post('/mieru/update', payload),
   syncUsers: async (reason?: string): Promise<ApiResponse<MieruSyncResult>> =>
     apiClient.post('/mieru/sync', reason ? { reason } : {}),
   getLogs: async (params: { lines?: number } = {}): Promise<ApiResponse<MieruLogs>> =>
@@ -235,7 +247,9 @@ export const getMieruPolicy = async (): Promise<MieruPolicy> => {
     composeFilePath: '/opt/one-ui/docker-compose.yml',
     healthUrl: null,
     manualRestartCommandConfigured: false,
-    manualLogPathConfigured: false
+    manualLogPathConfigured: false,
+    updateScriptConfigured: false,
+    updateScriptPath: null
   };
 };
 
@@ -251,6 +265,14 @@ export const restartMieru = async (): Promise<MieruRestartResult> => {
   const response = await mieruApi.restart();
   if (!response.data) {
     throw new Error(response.message || 'Unable to restart Mieru sidecar');
+  }
+  return response.data;
+};
+
+export const updateMieru = async (version?: string): Promise<MieruUpdateResult> => {
+  const response = await mieruApi.update(version ? { version } : {});
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to update Mieru sidecar');
   }
   return response.data;
 };

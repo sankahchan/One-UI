@@ -1,3 +1,4 @@
+const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
@@ -5,6 +6,9 @@ const { spawn, spawnSync } = require('child_process');
 const logger = require('../config/logger');
 const { getBotManager } = require('../telegram/bot');
 const { ValidationError } = require('../utils/errors');
+
+const ONE_UI_ROOT = '/opt/one-ui';
+const LEGACY_ROOT = '/opt/xray-panel';
 
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') {
@@ -47,6 +51,20 @@ function sanitizeMultiline(text, maxLength = 1200) {
     return '';
   }
   return String(text).replace(/\s+$/g, '').slice(0, maxLength);
+}
+
+function sanitizeOutputTail(stdout = '', stderr = '', maxLines = 24, maxLength = 1200) {
+  const combined = [stdout, stderr]
+    .filter((entry) => entry && String(entry).trim().length > 0)
+    .join('\n')
+    .trim();
+
+  if (!combined) {
+    return '';
+  }
+
+  const lines = combined.split('\n');
+  return sanitizeMultiline(lines.slice(Math.max(0, lines.length - maxLines)).join('\n'), maxLength);
 }
 
 function normalizeLineCount(value, fallback = 120) {
@@ -105,6 +123,7 @@ class MieruRuntimeService {
 
     this.healthUrl = String(process.env.MIERU_HEALTH_URL || '').trim();
     this.commandTimeoutMs = parsePositiveInt(process.env.MIERU_COMMAND_TIMEOUT_MS, 7000, 1000, 120000);
+    this.updateTimeoutMs = parsePositiveInt(process.env.MIERU_UPDATE_TIMEOUT_MS, 20 * 60 * 1000, 60_000, 60 * 60 * 1000);
 
     this.manualVersionCommand = String(process.env.MIERU_VERSION_COMMAND || 'mita version || mieru version').trim();
     this.manualRestartCommand = String(process.env.MIERU_RESTART_COMMAND || '').trim();
@@ -121,6 +140,8 @@ class MieruRuntimeService {
   }
 
   getPolicy() {
+    const updateScriptPath = this.resolveUpdateScriptPath();
+
     return {
       enabled: this.enabled,
       mode: this.mode,
@@ -131,10 +152,37 @@ class MieruRuntimeService {
       configPath: this.configPath || null,
       manualRestartCommandConfigured: Boolean(this.manualRestartCommand),
       manualLogPathConfigured: Boolean(this.manualLogPath),
+      updateScriptConfigured: Boolean(updateScriptPath),
+      updateScriptPath,
       restartAlertThreshold: this.restartAlertThreshold,
       restartAlertWindowSeconds: Math.floor(this.restartAlertWindowMs / 1000),
       restartAlertCooldownSeconds: Math.floor(this.restartAlertCooldownMs / 1000)
     };
+  }
+
+  resolveUpdateScriptPath() {
+    const candidates = [
+      process.env.MIERU_UPDATE_SCRIPT,
+      path.join(ONE_UI_ROOT, 'scripts/update-mieru.sh'),
+      path.join(LEGACY_ROOT, 'scripts/update-mieru.sh'),
+      path.resolve(process.cwd(), '../scripts/update-mieru.sh'),
+      path.resolve(process.cwd(), 'scripts/update-mieru.sh'),
+      path.resolve(__dirname, '../../..', 'scripts/update-mieru.sh')
+    ]
+      .filter(Boolean)
+      .map((candidate) => path.resolve(String(candidate)));
+
+    for (const candidate of candidates) {
+      try {
+        if (fsSync.existsSync(candidate)) {
+          return candidate;
+        }
+      } catch (_error) {
+        continue;
+      }
+    }
+
+    return null;
   }
 
   runCommand(command, args = [], timeoutMs = this.commandTimeoutMs) {
@@ -691,6 +739,61 @@ class MieruRuntimeService {
     return {
       success: true,
       message: 'Mieru sidecar restarted successfully.',
+      status
+    };
+  }
+
+  async update(options = {}) {
+    if (!this.enabled) {
+      throw new ValidationError('Mieru integration is disabled. Set MIERU_ENABLED=true first.');
+    }
+
+    if (this.mode !== 'docker') {
+      throw new ValidationError('Scripted Mieru updates are only available in docker mode. Use your host update workflow.');
+    }
+
+    await this.runStartupGuard();
+
+    if (!detectDockerAvailable()) {
+      throw new ValidationError('Docker daemon is unavailable. Cannot update Mieru sidecar.');
+    }
+
+    const scriptPath = this.resolveUpdateScriptPath();
+    if (!scriptPath) {
+      throw new ValidationError('Mieru update script not found. Expected scripts/update-mieru.sh on the server.');
+    }
+
+    const requestedVersion = typeof options.version === 'string' && options.version.trim().length > 0
+      ? options.version.trim().replace(/^v/i, '')
+      : null;
+
+    const args = [scriptPath];
+    if (requestedVersion) {
+      args.push('--version', requestedVersion);
+    } else {
+      args.push('--latest');
+    }
+    args.push('--yes');
+
+    const result = await this.runCommand('bash', args, this.updateTimeoutMs);
+    if (!result.ok) {
+      throw new ValidationError(
+        sanitizeOutputTail(result.stdout, result.stderr) || 'Failed to update Mieru sidecar.'
+      );
+    }
+
+    const status = await this.getStatus();
+    const outputTail = sanitizeOutputTail(result.stdout, result.stderr);
+    const resolvedVersion = status.version || requestedVersion;
+
+    return {
+      success: true,
+      message: resolvedVersion
+        ? `Mieru updated successfully to ${resolvedVersion}.`
+        : 'Mieru updated successfully.',
+      requestedVersion,
+      scriptPath,
+      outputTail: outputTail || null,
       status
     };
   }

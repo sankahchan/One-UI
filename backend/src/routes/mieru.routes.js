@@ -13,6 +13,20 @@ router.get('/policy', mieruController.getPolicy);
 router.get('/status', mieruController.getStatus);
 router.get('/profile', mieruController.getProfile);
 router.post('/restart', mieruController.restart);
+router.post(
+  '/update',
+  [
+    body('version')
+      .optional()
+      .trim()
+      .isString()
+      .withMessage('version must be a string')
+      .matches(/^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?$/)
+      .withMessage('version must look like 3.28.0')
+  ],
+  validate,
+  mieruController.update
+);
 router.put(
   '/profile',
   [
