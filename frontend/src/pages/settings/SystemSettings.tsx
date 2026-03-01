@@ -216,6 +216,7 @@ const SystemSettings: React.FC = () => {
     : mieruRecentReleases.some((release) => release.version === normalizedSelectedMieruVersion)
     ? normalizedSelectedMieruVersion
     : '__custom__';
+  const xrayApplyConfigLabel = xrayStatus?.mode === 'docker' ? 'Apply Config (Restart Xray)' : 'Reload Config';
 
   useEffect(() => {
     if (!xrayConfigSnapshots.length) {
@@ -953,7 +954,7 @@ const SystemSettings: React.FC = () => {
             disabled={restartXrayMutation.isPending}
           >
             <FileCode2 className="mr-2 h-4 w-4" />
-            Reload Config
+            {xrayApplyConfigLabel}
           </Button>
           <Button
             variant="danger"
@@ -969,7 +970,7 @@ const SystemSettings: React.FC = () => {
         </div>
         <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
           {xrayStatus?.mode === 'docker'
-            ? '`Reload Config` validates and reapplies generated config. Docker deployments use a controlled Xray restart.'
+            ? '`Apply Config (Restart Xray)` validates and reapplies generated config. Docker deployments use a controlled Xray restart.'
             : '`Reload Config` validates and reapplies generated config without hard restart. Use `Restart Xray` for binary/runtime issues.'}
         </p>
       </Card>
