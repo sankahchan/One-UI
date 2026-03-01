@@ -403,8 +403,24 @@ ensure_supported_os() {
   ok "OS check passed: ${PRETTY_NAME}"
 }
 
+wait_for_apt_lock() {
+  local max_wait=60
+  local waited=0
+  while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+    if [ "$waited" -eq 0 ]; then
+      info "Waiting for another package manager to finish..."
+    fi
+    sleep 2
+    waited=$((waited + 2))
+    if [ "$waited" -ge "$max_wait" ]; then
+      fail "Timed out waiting for dpkg lock after ${max_wait}s. Kill the other process or try again later."
+    fi
+  done
+}
+
 install_dependencies() {
   info "Installing dependencies..."
+  wait_for_apt_lock
   apt-get update -qq
 
   # Install base dependencies first (these rarely fail)
