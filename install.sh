@@ -802,7 +802,7 @@ XRAY_UPDATE_SCRIPT=/opt/one-ui/scripts/update-xray-core.sh
 COMPOSE_FILE=/opt/one-ui/docker-compose.yml
 
 # Mieru sidecar (Option 2: external GPL runtime)
-MIERU_ENABLED=false
+MIERU_ENABLED=true
 MIERU_RUNTIME_MODE=docker
 MIERU_CONTAINER_NAME=mieru-sidecar
 MIERU_SERVICE_NAME=mieru
