@@ -63,7 +63,7 @@ type UserForm = {
   password: string;
   enabled: boolean;
   quotaDays: string;
-  quotaMegabytes: string;
+  quotaGigabytes: string;
 };
 
 const DEFAULT_USER_FORM: UserForm = {
@@ -71,7 +71,7 @@ const DEFAULT_USER_FORM: UserForm = {
   password: '',
   enabled: true,
   quotaDays: '',
-  quotaMegabytes: ''
+  quotaGigabytes: ''
 };
 
 type PanelPolicyForm = {
@@ -99,6 +99,19 @@ function bytesToGbString(bytes: number | null | undefined): string {
     return '';
   }
   return gb.toFixed(2).replace(/\.00$/, '');
+}
+
+function megabytesToGbString(megabytes: number | null | undefined): string {
+  if (megabytes === null || megabytes === undefined || !Number.isFinite(megabytes) || megabytes < 0) {
+    return '';
+  }
+
+  const gb = megabytes / 1024;
+  if (!Number.isFinite(gb)) {
+    return '';
+  }
+
+  return gb.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 }
 
 function formatUsageBytes(bytes: number | null | undefined): string {
@@ -137,9 +150,9 @@ function getExpiryDaysFromEntry(entry: MieruUserEntry): number {
 
 function parseQuotaPayload(form: UserForm): MieruQuota[] {
   const quotaDays = form.quotaDays.trim();
-  const quotaMegabytes = form.quotaMegabytes.trim();
+  const quotaGigabytes = form.quotaGigabytes.trim();
 
-  if (!quotaDays && !quotaMegabytes) {
+  if (!quotaDays && !quotaGigabytes) {
     return [];
   }
 
@@ -152,18 +165,18 @@ function parseQuotaPayload(form: UserForm): MieruQuota[] {
     quota.days = daysValue;
   }
 
-  if (quotaMegabytes) {
-    const megabytesValue = Number.parseInt(quotaMegabytes, 10);
-    if (!Number.isInteger(megabytesValue) || megabytesValue < 0) {
-      throw new Error('Quota megabytes must be a positive integer.');
+  if (quotaGigabytes) {
+    const gigabytesValue = Number.parseFloat(quotaGigabytes);
+    if (!Number.isFinite(gigabytesValue) || gigabytesValue < 0) {
+      throw new Error('Quota GB must be a valid number.');
     }
-    quota.megabytes = megabytesValue;
+    quota.megabytes = Math.round(gigabytesValue * 1024);
   }
 
   return [quota];
 }
 
-function getQuotaFields(quotas?: MieruQuota[]): Pick<UserForm, 'quotaDays' | 'quotaMegabytes'> {
+function getQuotaFields(quotas?: MieruQuota[]): Pick<UserForm, 'quotaDays' | 'quotaGigabytes'> {
   const primaryQuota = Array.isArray(quotas)
     ? quotas.find((entry) => Number.isInteger(entry?.days) || Number.isInteger(entry?.megabytes))
     : undefined;
@@ -173,9 +186,9 @@ function getQuotaFields(quotas?: MieruQuota[]): Pick<UserForm, 'quotaDays' | 'qu
       primaryQuota && Number.isInteger(primaryQuota.days) && (primaryQuota.days ?? 0) >= 0
         ? String(primaryQuota.days)
         : '',
-    quotaMegabytes:
+    quotaGigabytes:
       primaryQuota && Number.isInteger(primaryQuota.megabytes) && (primaryQuota.megabytes ?? 0) >= 0
-        ? String(primaryQuota.megabytes)
+        ? megabytesToGbString(primaryQuota.megabytes)
         : ''
   };
 }
@@ -1015,10 +1028,11 @@ export const MieruPage: React.FC = () => {
           <Input
             type="number"
             min={0}
-            label={t('mieru.quotaMegabytes', { defaultValue: 'Quota MB' })}
-            value={createForm.quotaMegabytes}
-            onChange={(event) => setCreateForm((previous) => ({ ...previous, quotaMegabytes: event.target.value }))}
-            placeholder="10240"
+            step="0.01"
+            label={t('mieru.quotaGigabytes', { defaultValue: 'Quota GB' })}
+            value={createForm.quotaGigabytes}
+            onChange={(event) => setCreateForm((previous) => ({ ...previous, quotaGigabytes: event.target.value }))}
+            placeholder="10"
           />
           <label className="space-y-1.5">
             <span className="ml-1 block text-sm font-medium text-muted">{t('common.status', { defaultValue: 'Status' })}</span>
@@ -1114,11 +1128,12 @@ export const MieruPage: React.FC = () => {
                             className="w-24 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
                           />
                           <input
-                            value={editForm.quotaMegabytes}
-                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaMegabytes: event.target.value }))}
+                            value={editForm.quotaGigabytes}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaGigabytes: event.target.value }))}
                             type="number"
                             min={0}
-                            placeholder={t('mieru.megabytes', { defaultValue: 'MB' })}
+                            step="0.01"
+                            placeholder={t('mieru.gigabytes', { defaultValue: 'GB' })}
                             className="w-28 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
                           />
                         </div>
@@ -1217,11 +1232,11 @@ export const MieruPage: React.FC = () => {
                                 Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
                                   ? `${quota.days}d`
                                   : '∞';
-                              const mbText =
+                              const gbText =
                                 Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
-                                  ? `${quota.megabytes}MB`
+                                  ? `${megabytesToGbString(quota.megabytes)}GB`
                                   : '∞';
-                              return `${daysText} / ${mbText}`;
+                              return `${daysText} / ${gbText}`;
                             })()
                           )}
                         </div>
