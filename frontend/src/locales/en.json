@@ -816,11 +816,15 @@
             "disabled": "Disabled",
             "unknown": "Unknown",
             "unassigned": "No Users",
+            "sslDisabled": "SSL Off",
+            "udpOnly": "UDP",
             "checkedLabel": "Checked",
             "neverChecked": "never checked",
             "checkedSeconds": "{{count}}s ago",
             "checkedMinutes": "{{count}}m ago",
-            "unassignedDetail": "Assign at least one active user to deploy this inbound."
+            "unassignedDetail": "Assign at least one active user to deploy this inbound.",
+            "sslDisabledDetail": "TLS inbound is skipped until panel SSL is configured.",
+            "udpOnlyDetail": "UDP inbound; TCP health probe skipped."
         },
         "randomPort": "Random",
         "randomPortTitle": "Assign random free port",

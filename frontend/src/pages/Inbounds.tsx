@@ -83,7 +83,7 @@ type MyanmarPackResponseData = {
 
 type InboundHealthSummaryItem = {
   inboundId: number;
-  status: 'open' | 'closed' | 'unknown' | 'disabled' | 'unassigned';
+  status: 'open' | 'closed' | 'unknown' | 'disabled' | 'unassigned' | 'ssl-disabled' | 'udp-only';
   reachable: boolean;
   durationMs: number;
   error?: string | null;
@@ -1545,6 +1545,16 @@ export const Inbounds: React.FC = () => {
           label: t('inbounds.health.unassigned', { defaultValue: 'No Users' }),
           className: 'border-amber-400/50 bg-amber-500/10 text-amber-300'
         };
+      case 'ssl-disabled':
+        return {
+          label: t('inbounds.health.sslDisabled', { defaultValue: 'SSL Off' }),
+          className: 'border-amber-400/50 bg-amber-500/10 text-amber-300'
+        };
+      case 'udp-only':
+        return {
+          label: t('inbounds.health.udpOnly', { defaultValue: 'UDP' }),
+          className: 'border-sky-400/50 bg-sky-500/10 text-sky-300'
+        };
       case 'disabled':
         return {
           label: t('inbounds.health.disabled', { defaultValue: 'Disabled' }),
@@ -1587,6 +1597,18 @@ export const Inbounds: React.FC = () => {
     if (inboundHealth?.status === 'unassigned') {
       return t('inbounds.health.unassignedDetail', {
         defaultValue: 'Assign at least one active user to deploy this inbound.'
+      });
+    }
+
+    if (inboundHealth?.status === 'ssl-disabled') {
+      return t('inbounds.health.sslDisabledDetail', {
+        defaultValue: 'TLS inbound is skipped until panel SSL is configured.'
+      });
+    }
+
+    if (inboundHealth?.status === 'udp-only') {
+      return t('inbounds.health.udpOnlyDetail', {
+        defaultValue: 'UDP inbound; TCP health probe skipped.'
       });
     }
 

@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const env = require('../config/env');
 const crypto = require('node:crypto');
 const net = require('node:net');
 const JSZip = require('jszip');
@@ -137,6 +138,57 @@ function normalizeEndpointHost(hostname = '') {
 
 function requiresActiveUsersForRuntime(inbound = {}) {
   return PROTOCOLS_REQUIRING_ACTIVE_USERS.has(String(inbound.protocol || '').toUpperCase());
+}
+
+function requiresServerTlsCertificate(inbound = {}) {
+  const protocol = String(inbound.protocol || '').toUpperCase();
+  const security = String(inbound.security || '').toUpperCase();
+  return protocol === 'TROJAN' || security === 'TLS';
+}
+
+function isDokodemoUdpOnly(inbound = {}) {
+  const protocol = String(inbound.protocol || '').toUpperCase();
+  const network = String(inbound.dokodemoNetwork || '').toLowerCase();
+  return protocol === 'DOKODEMO_DOOR' && network && !network.includes('tcp');
+}
+
+function resolvePublicProbeHost() {
+  const candidates = [
+    process.env.SUBSCRIPTION_URL,
+    process.env.APP_URL,
+    process.env.PUBLIC_BASE_URL,
+    env.SUBSCRIPTION_URL
+  ];
+
+  for (const candidate of candidates) {
+    const raw = String(candidate || '').trim();
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const host = normalizeEndpointHost(parsed.hostname);
+      if (host) {
+        return host;
+      }
+    } catch {
+      const host = normalizeEndpointHost(raw);
+      if (host) {
+        return host;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveInboundHealthProbeHost(inbound = {}) {
+  if (String(inbound.protocol || '').toUpperCase() === 'DOKODEMO_DOOR') {
+    return resolvePublicProbeHost() || normalizeEndpointHost(inbound.serverAddress);
+  }
+
+  return normalizeEndpointHost(inbound.serverAddress);
 }
 
 function countEffectiveAssignedUsers(inbound = {}) {
@@ -2069,7 +2121,9 @@ class InboundService {
         enabled: true,
         protocol: true,
         port: true,
+        security: true,
         serverAddress: true,
+        dokodemoNetwork: true,
         userInbounds: {
           where: {
             enabled: true,
@@ -2121,7 +2175,7 @@ class InboundService {
 
     const items = await Promise.all(
       inbounds.map(async (inbound) => {
-        const host = normalizeEndpointHost(inbound.serverAddress);
+        const host = resolveInboundHealthProbeHost(inbound);
         const port = Number.parseInt(String(inbound.port || ''), 10);
         const target = host && Number.isInteger(port) ? `${host}:${port}` : '';
         const assignedUsers = countEffectiveAssignedUsers(inbound);
@@ -2152,10 +2206,36 @@ class InboundService {
           };
         }
 
+        if (requiresServerTlsCertificate(inbound) && !env.SSL_ENABLED) {
+          return {
+            inboundId: inbound.id,
+            status: 'ssl-disabled',
+            reachable: false,
+            durationMs: 0,
+            error: 'ssl-disabled',
+            assignedUsers,
+            target,
+            lastCheckedAt: checkedAt
+          };
+        }
+
         if (inbound.protocol === 'WIREGUARD') {
           return {
             inboundId: inbound.id,
             status: 'unknown',
+            reachable: false,
+            durationMs: 0,
+            error: 'udp-protocol',
+            assignedUsers,
+            target,
+            lastCheckedAt: checkedAt
+          };
+        }
+
+        if (isDokodemoUdpOnly(inbound)) {
+          return {
+            inboundId: inbound.id,
+            status: 'udp-only',
             reachable: false,
             durationMs: 0,
             error: 'udp-protocol',
