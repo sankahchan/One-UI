@@ -256,8 +256,8 @@ export const MieruSharePage = () => {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <Card className="flex flex-col items-center gap-4">
+        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[300px_minmax(0,1fr)]">
+          <Card className="flex flex-col items-center gap-4 xl:self-start">
             <div className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
               <QRCodeDisplay text={subscriptionUrl} size={240} />
             </div>
@@ -278,69 +278,68 @@ export const MieruSharePage = () => {
             </div>
           </Card>
 
-          <div className="space-y-6">
-            <Card className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('auth.username', { defaultValue: 'Username' })}
-                  </p>
-                  <p className="mt-1 text-xl font-semibold text-foreground">{user.username}</p>
-                </div>
-                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                  user.enabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
-                }`}>
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {user.enabled
-                    ? t('common.enabled', { defaultValue: 'Enabled' })
-                    : t('common.disabled', { defaultValue: 'Disabled' })}
-                </span>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.quotaDays', { defaultValue: 'Quota Days' })}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{quotaDays}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('mieru.quotaMegabytes', { defaultValue: 'Quota MB' })}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{quotaMegabytes}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('common.createdAt', { defaultValue: 'Created' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.createdAt)}</p>
-                </div>
-                <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {t('common.updatedAt', { defaultValue: 'Updated' })}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.updatedAt)}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
                 <p className="text-xs uppercase tracking-wide text-muted">
-                  {t('portal.subscription.importUrl', { defaultValue: 'Import URL' })}
+                  {t('auth.username', { defaultValue: 'Username' })}
                 </p>
-                <div className="flex flex-col gap-3 rounded-2xl border border-line/70 bg-panel/45 p-4 lg:flex-row lg:items-center">
-                  <code className="min-w-0 flex-1 break-all text-xs text-foreground">{subscriptionUrl}</code>
-                  <Button size="sm" variant="secondary" onClick={() => void copyToClipboard(subscriptionUrl, 'raw-url')}>
-                    <Link2 className="mr-1 h-3.5 w-3.5" />
-                    {copiedKey === 'raw-url'
-                      ? t('common.copied', { defaultValue: 'Copied' })
-                      : t('common.copy', { defaultValue: 'Copy' })}
-                  </Button>
-                </div>
+                <p className="mt-1 text-xl font-semibold text-foreground">{user.username}</p>
               </div>
-            </Card>
+              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                user.enabled ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
+              }`}>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {user.enabled
+                  ? t('common.enabled', { defaultValue: 'Enabled' })
+                  : t('common.disabled', { defaultValue: 'Disabled' })}
+              </span>
+            </div>
 
-            <Card className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('mieru.quotaDays', { defaultValue: 'Quota Days' })}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{quotaDays}</p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('mieru.quotaMegabytes', { defaultValue: 'Quota MB' })}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{quotaMegabytes}</p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('common.createdAt', { defaultValue: 'Created' })}
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.createdAt)}</p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('common.updatedAt', { defaultValue: 'Updated' })}
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.updatedAt)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted">
+                {t('portal.subscription.importUrl', { defaultValue: 'Import URL' })}
+              </p>
+              <div className="flex flex-col gap-3 rounded-2xl border border-line/70 bg-panel/45 p-4 lg:flex-row lg:items-center">
+                <code className="min-w-0 flex-1 break-all text-xs text-foreground">{subscriptionUrl}</code>
+                <Button size="sm" variant="secondary" onClick={() => void copyToClipboard(subscriptionUrl, 'raw-url')}>
+                  <Link2 className="mr-1 h-3.5 w-3.5" />
+                  {copiedKey === 'raw-url'
+                    ? t('common.copied', { defaultValue: 'Copied' })
+                    : t('common.copy', { defaultValue: 'Copy' })}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="space-y-4 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">
@@ -424,8 +423,7 @@ export const MieruSharePage = () => {
                   </div>
                 </div>
               ) : null}
-            </Card>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
