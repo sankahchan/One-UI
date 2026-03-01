@@ -571,7 +571,9 @@ download_project() {
     git pull --ff-only || git pull
   else
     if [ -n "$(ls -A . 2>/dev/null)" ]; then
-      fail "${INSTALL_DIR} is not empty and is not a git repository."
+      warn "${INSTALL_DIR} is not empty and is not a git repository. Cleaning up..."
+      rm -rf "${INSTALL_DIR:?}"/*
+      rm -rf "${INSTALL_DIR}"/.[!.]* 2>/dev/null || true
     fi
     git clone "${repo_url}" .
   fi
