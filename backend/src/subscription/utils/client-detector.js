@@ -26,10 +26,10 @@ class ClientDetector {
       return 'singbox';
     }
     if (ua.includes('hiddify')) {
-      return 'singbox';
+      return 'v2ray';
     }
     if (ua.includes('hiddifynext')) {
-      return 'singbox';
+      return 'v2ray';
     }
 
     if (ua.includes('v2ray')) {
