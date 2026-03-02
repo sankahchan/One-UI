@@ -771,10 +771,10 @@ class MieruManagerService {
     const metadataProfile = this.normalizeProfile(metadata.profile, baseline);
     const profile = runtimeProfile
       ? {
-          ...metadataProfile,
-          portRange: runtimeProfile.portRange,
-          transport: runtimeProfile.transport
-        }
+        ...metadataProfile,
+        portRange: runtimeProfile.portRange,
+        transport: runtimeProfile.transport
+      }
       : metadataProfile;
     const source = isPlainObject(metadata.profile) ? 'stored' : runtimeProfile ? 'runtime' : 'default';
 
@@ -806,10 +806,10 @@ class MieruManagerService {
     const metadataProfile = this.normalizeProfile(metadata.profile, baseline);
     const currentProfile = runtimeProfile
       ? {
-          ...metadataProfile,
-          portRange: runtimeProfile.portRange,
-          transport: runtimeProfile.transport
-        }
+        ...metadataProfile,
+        portRange: runtimeProfile.portRange,
+        transport: runtimeProfile.transport
+      }
       : metadataProfile;
 
     const candidate = {
@@ -1399,8 +1399,8 @@ class MieruManagerService {
           error: usersCommand.error
         },
         connections: {
-          ok: connectionsCommand.ok,
-          error: connectionsCommand.error
+          ok: connectionsCommand.ok || (connectionsCommand.error && connectionsCommand.error.includes('server multiplexier is unavailable')),
+          error: (connectionsCommand.error && connectionsCommand.error.includes('server multiplexier is unavailable')) ? null : connectionsCommand.error
         }
       }
     };
