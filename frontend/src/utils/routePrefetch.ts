@@ -12,12 +12,15 @@ type PrefetchOptions = {
 
 type DataPrefetcher = (path: string) => Promise<void>;
 
+const isMarzban = import.meta.env.VITE_MARZBAN_INTEGRATION === 'true';
+
 const modulePrefetchers: Record<string, () => Promise<unknown>> = {
-  '/dashboard': () => import('../pages/Dashboard'),
-  '/users': () => import('../pages/Users'),
+  '/dashboard': () => isMarzban ? import('../pages/MarzbanDashboard') : import('../pages/Dashboard'),
+  '/users': () => isMarzban ? import('../pages/MarzbanUsers') : import('../pages/Users'),
   '/groups': () => import('../pages/Groups'),
   '/users/:id': () => import('../pages/UserDetail'),
   '/inbounds': () => import('../pages/Inbounds'),
+  '/mieru': () => import('../pages/Mieru'),
   '/settings': () => import('../pages/Settings')
 };
 
