@@ -84,7 +84,9 @@ class SingboxFormat {
     );
 
     outbounds.push(
-      { type: 'direct', tag: 'direct' }
+      { type: 'direct', tag: 'direct' },
+      { type: 'dns', tag: 'dns-out' },
+      { type: 'block', tag: 'block' }
     );
 
     const config = {
@@ -105,15 +107,16 @@ class SingboxFormat {
             address: '223.5.5.5',
             detour: 'direct'
           }
-        ],
-        rules: []
+        ]
       },
       inbounds: [
         {
           type: 'mixed',
           tag: 'mixed-in',
           listen: '127.0.0.1',
-          listen_port: 2080
+          listen_port: 2080,
+          sniff: true,
+          sniff_override_destination: true
         }
       ],
       outbounds,
@@ -121,11 +124,10 @@ class SingboxFormat {
         rules: [
           {
             protocol: 'dns',
-            action: 'hijack-dns'
+            outbound: 'dns-out'
           },
           {
             ip_is_private: true,
-            action: 'route',
             outbound: 'direct'
           }
         ],
