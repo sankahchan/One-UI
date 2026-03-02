@@ -32,7 +32,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
       - "5151:5151"
     depends_on:
       db:
