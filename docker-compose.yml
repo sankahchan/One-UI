@@ -42,7 +42,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - ./xray/config.json:/etc/xray/config.json
+      - ./xray:/etc/xray
       - ./mieru:/opt/one-ui/mieru
       - /var/run/docker.sock:/var/run/docker.sock
       - ./scripts:/opt/one-ui/scripts:ro
@@ -58,7 +58,7 @@ services:
     container_name: xray-core
     restart: always
     volumes:
-      - ./xray/config.json:/etc/xray/config.json
+      - ./xray:/etc/xray
       - xray_logs:/var/log/xray
       - xray_certs:/certs
     network_mode: host
