@@ -1341,6 +1341,48 @@ print_summary() {
   echo "- Stop:      cd \"${INSTALL_DIR}\" && docker compose down"
 }
 
+bootstrap_mieru() {
+  local config_path="${INSTALL_DIR}/mieru/server_config.json"
+  local update_script="${INSTALL_DIR}/scripts/update-mieru.sh"
+
+  if [ ! -f "${config_path}" ]; then
+    info "Seeding Mieru server_config.json with default user..."
+    local seed_pass
+    seed_pass="$(openssl rand -hex 12 2>/dev/null || head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)"
+    mkdir -p "$(dirname "${config_path}")"
+    cat > "${config_path}" <<MIERUEOF
+{
+  "portBindings": [
+    {
+      "portRange": "8444-8444",
+      "protocol": "TCP"
+    }
+  ],
+  "users": [
+    {
+      "name": "admin@one-ui.local",
+      "password": "${seed_pass}"
+    }
+  ],
+  "loggingLevel": "INFO",
+  "mtu": 1400
+}
+MIERUEOF
+    ok "Mieru config seeded at ${config_path}"
+  fi
+
+  if [ -x "${update_script}" ] || [ -f "${update_script}" ]; then
+    info "Bootstrapping Mieru sidecar container..."
+    if bash "${update_script}" --latest -y; then
+      ok "Mieru sidecar is running."
+    else
+      warn "Mieru sidecar bootstrap failed. You can start it later from the panel."
+    fi
+  else
+    warn "Mieru update script not found at ${update_script}. Skipping sidecar bootstrap."
+  fi
+}
+
 main() {
   parse_cli "$@"
 
@@ -1407,6 +1449,7 @@ main() {
   info "Starting all services..."
   compose up -d
 
+  bootstrap_mieru
   wait_for_backend
   setup_ssl_if_requested
   configure_firewall

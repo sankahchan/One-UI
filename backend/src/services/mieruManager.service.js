@@ -709,6 +709,11 @@ class MieruManagerService {
   }
 
   async getPanelUsers() {
+    const autoSync = parseBoolean(process.env.MIERU_AUTO_SYNC, false);
+    if (!autoSync) {
+      return [];
+    }
+
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
