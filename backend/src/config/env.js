@@ -88,7 +88,7 @@ const env = cleanEnv(process.env, {
   MIERU_COMPOSE_FILE: str({ default: '' }),
   MIERU_HEALTH_URL: str({ default: '' }),
   MIERU_COMMAND_TIMEOUT_MS: num({ default: 7000 }),
-  MIERU_AUTO_SYNC: bool({ default: true }),
+  MIERU_AUTO_SYNC: bool({ default: false }),
   MIERU_CONFIG_PATH: str({ default: '/opt/one-ui/mieru/server_config.json' }),
   MIERU_STATE_PATH: str({ default: '/opt/one-ui/mieru/oneui_sync_state.json' }),
   MIERU_USERS_JSON_PATH: str({ default: 'users' }),

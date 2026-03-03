@@ -231,7 +231,7 @@ function getSyncStateDefaultPath(configPath) {
 class MieruSyncService {
   constructor() {
     this.enabled = parseBoolean(process.env.MIERU_ENABLED, false);
-    this.autoSync = parseBoolean(process.env.MIERU_AUTO_SYNC, true);
+    this.autoSync = parseBoolean(process.env.MIERU_AUTO_SYNC, false);
     this.configPath = String(process.env.MIERU_CONFIG_PATH || '/opt/one-ui/mieru/server_config.json').trim();
     this.statePath = String(process.env.MIERU_STATE_PATH || getSyncStateDefaultPath(this.configPath)).trim();
     this.usersPathSegments = parsePathSegments(process.env.MIERU_USERS_JSON_PATH, 'users');
@@ -297,12 +297,12 @@ class MieruSyncService {
     const where = this.includeNonActiveUsers
       ? {}
       : {
-          status: 'ACTIVE',
-          OR: [
-            { startOnFirstUse: true },
-            { expireDate: { gt: new Date() } }
-          ]
-        };
+        status: 'ACTIVE',
+        OR: [
+          { startOnFirstUse: true },
+          { expireDate: { gt: new Date() } }
+        ]
+      };
 
     const users = await prisma.user.findMany({
       where,
