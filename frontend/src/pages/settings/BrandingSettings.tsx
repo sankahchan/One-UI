@@ -1093,7 +1093,7 @@ const BrandingSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+        <div className="grid grid-cols-1 items-start gap-4">
           <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 xl:col-span-8">
             <h4 className="mb-3 text-sm font-semibold text-foreground">Identity & Copy</h4>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1440,7 +1440,7 @@ const BrandingSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-4">
           <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 xl:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-sm font-semibold text-foreground">Enabled Apps</h4>
