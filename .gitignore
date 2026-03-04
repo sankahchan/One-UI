@@ -16,6 +16,7 @@ backend/yarn-error.log*
 # Runtime
 .run/
 backend/runtime/
+/mieru
 
 # Temp files
 backend/.tmp_*
