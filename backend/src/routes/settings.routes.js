@@ -567,6 +567,15 @@ router.get('/subscription-branding', authorize('SUPER_ADMIN'), async (_req, res,
   }
 });
 
+router.get('/subscription-branding/export', authorize('SUPER_ADMIN'), async (_req, res, next) => {
+  try {
+    const exported = await subscriptionBrandingService.exportBrandings();
+    return res.json(ApiResponse.success(exported, 'Subscription branding export generated'));
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post(
   '/subscription-branding/upload-wallpaper',
   authorize('SUPER_ADMIN'),
@@ -638,6 +647,7 @@ router.post(
     body('scope').optional().isIn(['GLOBAL', 'GROUP', 'USER']).withMessage('scope must be GLOBAL, GROUP, or USER'),
     body('priority').optional().isInt({ min: 1, max: 10000 }).withMessage('priority must be between 1 and 10000').toInt(),
     body('enabled').optional().isBoolean().withMessage('enabled must be boolean').toBoolean(),
+    body('isPublished').optional().isBoolean().withMessage('isPublished must be boolean').toBoolean(),
     body('userId').optional().isInt({ min: 1 }).withMessage('userId must be a positive integer').toInt(),
     body('groupId').optional().isInt({ min: 1 }).withMessage('groupId must be a positive integer').toInt(),
     body('metadata').optional().isObject().withMessage('metadata must be an object')
@@ -653,6 +663,24 @@ router.post(
   }
 );
 
+router.post(
+  '/subscription-branding/import',
+  authorize('SUPER_ADMIN'),
+  [
+    body('mode').optional().isIn(['MERGE', 'REPLACE']).withMessage('mode must be MERGE or REPLACE'),
+    body('brandings').isArray({ min: 1, max: 500 }).withMessage('brandings must be a non-empty array (max 500)')
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const imported = await subscriptionBrandingService.importBrandings(req.body || {});
+      return res.json(ApiResponse.success(imported, 'Subscription branding import completed'));
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 router.put(
   '/subscription-branding/:brandingId',
   authorize('SUPER_ADMIN'),
@@ -662,6 +690,7 @@ router.put(
     body('scope').optional().isIn(['GLOBAL', 'GROUP', 'USER']).withMessage('scope must be GLOBAL, GROUP, or USER'),
     body('priority').optional().isInt({ min: 1, max: 10000 }).withMessage('priority must be between 1 and 10000').toInt(),
     body('enabled').optional().isBoolean().withMessage('enabled must be boolean').toBoolean(),
+    body('isPublished').optional().isBoolean().withMessage('isPublished must be boolean').toBoolean(),
     body('userId').optional().isInt({ min: 1 }).withMessage('userId must be a positive integer').toInt(),
     body('groupId').optional().isInt({ min: 1 }).withMessage('groupId must be a positive integer').toInt(),
     body('metadata').optional().isObject().withMessage('metadata must be an object')
@@ -671,6 +700,30 @@ router.put(
     try {
       const updated = await subscriptionBrandingService.updateBranding(req.params.brandingId, req.body || {});
       return res.json(ApiResponse.success(updated, 'Subscription branding updated'));
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  '/subscription-branding/:brandingId/publish',
+  authorize('SUPER_ADMIN'),
+  [
+    param('brandingId').isInt({ min: 1 }).withMessage('brandingId must be a positive integer').toInt(),
+    body('published').optional().isBoolean().withMessage('published must be boolean').toBoolean()
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const published = req.body?.published === undefined ? true : Boolean(req.body.published);
+      const updated = await subscriptionBrandingService.setBrandingPublished(req.params.brandingId, published);
+      return res.json(
+        ApiResponse.success(
+          updated,
+          published ? 'Subscription branding published' : 'Subscription branding moved to draft'
+        )
+      );
     } catch (error) {
       return next(error);
     }

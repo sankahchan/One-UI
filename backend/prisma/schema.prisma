@@ -495,6 +495,8 @@ model SubscriptionBranding {
   id                 Int                      @id @default(autoincrement())
   scope              SubscriptionBrandingScope @default(GLOBAL)
   enabled            Boolean                  @default(true)
+  isPublished        Boolean                  @default(false)
+  publishedAt        DateTime?
   priority           Int                      @default(100)
   name               String
   appName            String?                  @default("One-UI")
@@ -515,6 +517,7 @@ model SubscriptionBranding {
   group              Group?                   @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([scope, enabled, priority])
+  @@index([scope, enabled, isPublished, priority])
   @@map("subscription_branding")
 }
 

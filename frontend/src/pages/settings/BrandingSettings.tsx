@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { Download, Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,8 @@ interface SubscriptionBranding {
   id: number;
   scope: 'GLOBAL' | 'GROUP' | 'USER';
   enabled: boolean;
+  isPublished?: boolean;
+  publishedAt?: string | null;
   priority: number;
   name: string;
   appName?: string | null;
@@ -28,7 +30,25 @@ interface SubscriptionBranding {
   metadata?: unknown;
   userId?: number | null;
   groupId?: number | null;
+  user?: {
+    id: number;
+    email?: string | null;
+  } | null;
+  group?: {
+    id: number;
+    name?: string | null;
+  } | null;
 }
+
+type LookupUser = {
+  id: number;
+  email?: string | null;
+};
+
+type LookupGroup = {
+  id: number;
+  name?: string | null;
+};
 
 type BrandingMetadataDraft = {
   enabledApps?: string[];
@@ -148,8 +168,12 @@ const BrandingSettings: React.FC = () => {
   const [supportUrl, setSupportUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [accentColor, setAccentColor] = useState('');
+  const [isPublished, setIsPublished] = useState(false);
   const [userId, setUserId] = useState('');
   const [groupId, setGroupId] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [groupSearch, setGroupSearch] = useState('');
+  const [importMode, setImportMode] = useState<'MERGE' | 'REPLACE'>('MERGE');
   const [priority, setPriority] = useState(100);
   const [enabledApps, setEnabledApps] = useState<string[]>([]);
   const [qrLogoSizePercent, setQrLogoSizePercent] = useState<string>('');
@@ -168,12 +192,59 @@ const BrandingSettings: React.FC = () => {
   const [isFocalDragging, setIsFocalDragging] = useState(false);
   const [customAppsJson, setCustomAppsJson] = useState<string>('[]');
   const previewFocalRef = useRef<HTMLDivElement | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const brandingQuery = useQuery({
     queryKey: ['subscription-branding'],
     queryFn: async () => {
       const response = await apiClient.get('/settings/subscription-branding');
       return (response.data?.brandings || []) as SubscriptionBranding[];
+    }
+  });
+
+  const userLookupQuery = useQuery({
+    queryKey: ['branding-user-lookup', userSearch],
+    enabled: scope === 'USER',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const response = await apiClient.get('/users', {
+        params: {
+          page: 1,
+          limit: 20,
+          search: userSearch || undefined
+        }
+      });
+      const payload = (response as any)?.data;
+      if (Array.isArray(payload)) {
+        return payload as LookupUser[];
+      }
+      if (Array.isArray(payload?.data)) {
+        return payload.data as LookupUser[];
+      }
+      return [];
+    }
+  });
+
+  const groupLookupQuery = useQuery({
+    queryKey: ['branding-group-lookup', groupSearch],
+    enabled: scope === 'GROUP',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const response = await apiClient.get('/groups', {
+        params: {
+          page: 1,
+          limit: 20,
+          search: groupSearch || undefined
+        }
+      });
+      const payload = (response as any)?.data;
+      if (Array.isArray(payload)) {
+        return payload as LookupGroup[];
+      }
+      if (Array.isArray(payload?.data)) {
+        return payload.data as LookupGroup[];
+      }
+      return [];
     }
   });
 
@@ -347,8 +418,11 @@ const BrandingSettings: React.FC = () => {
     setSupportUrl('');
     setPrimaryColor('');
     setAccentColor('');
+    setIsPublished(false);
     setUserId('');
     setGroupId('');
+    setUserSearch('');
+    setGroupSearch('');
     setPriority(100);
     setEnabledApps([]);
     setQrLogoSizePercent('');
@@ -380,8 +454,11 @@ const BrandingSettings: React.FC = () => {
     setSupportUrl(branding.supportUrl || '');
     setPrimaryColor(branding.primaryColor || '');
     setAccentColor(branding.accentColor || '');
+    setIsPublished(Boolean(branding.isPublished));
     setUserId(branding.userId ? String(branding.userId) : '');
     setGroupId(branding.groupId ? String(branding.groupId) : '');
+    setUserSearch(branding.user?.email || (branding.userId ? `#${branding.userId}` : ''));
+    setGroupSearch(branding.group?.name || (branding.groupId ? `#${branding.groupId}` : ''));
     setPriority(Number.isInteger(branding.priority) ? branding.priority : 100);
 
     const metadata = branding.metadata && typeof branding.metadata === 'object' ? (branding.metadata as any) : {};
@@ -484,6 +561,27 @@ const BrandingSettings: React.FC = () => {
     setWallpaperFilePreviewUrl(URL.createObjectURL(file));
   };
 
+  const handleImportFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    if (importMode === 'REPLACE') {
+      const confirmed = window.confirm(
+        t('brandingSettings.confirm.importReplace', {
+          defaultValue: 'Replace mode will delete all existing branding profiles before import. Continue?'
+        })
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    importBrandings.mutate({ file, mode: importMode });
+  };
+
   const saveBranding = useMutation({
     mutationFn: async () => {
       if (wallpaperFile) {
@@ -506,6 +604,7 @@ const BrandingSettings: React.FC = () => {
         supportUrl,
         primaryColor,
         accentColor,
+        isPublished,
         priority
       };
 
@@ -662,6 +761,100 @@ const BrandingSettings: React.FC = () => {
     }
   });
 
+  const publishBranding = useMutation({
+    mutationFn: async ({ brandingId, published }: { brandingId: number; published: boolean }) => {
+      await apiClient.post(`/settings/subscription-branding/${brandingId}/publish`, {
+        published
+      });
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['subscription-branding'] });
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        variables.published
+          ? t('brandingSettings.toast.published', { defaultValue: 'Branding profile published.' })
+          : t('brandingSettings.toast.draft', { defaultValue: 'Branding profile moved to draft.' })
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.publishFailed', { defaultValue: 'Failed to update publish status' })
+      );
+    }
+  });
+
+  const exportBrandings = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.get('/settings/subscription-branding/export');
+      return response.data?.data || response.data;
+    },
+    onSuccess: (payload) => {
+      const fileName = `subscription-branding-export-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      const content = JSON.stringify(payload, null, 2);
+      const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('brandingSettings.toast.exported', { defaultValue: 'Branding export downloaded.' })
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.exportFailed', { defaultValue: 'Failed to export branding profiles.' })
+      );
+    }
+  });
+
+  const importBrandings = useMutation({
+    mutationFn: async ({ file, mode }: { file: File; mode: 'MERGE' | 'REPLACE' }) => {
+      const raw = await file.text();
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error('Import file is not valid JSON.');
+      }
+
+      const brandings = Array.isArray(parsed)
+        ? parsed
+        : (Array.isArray(parsed?.brandings) ? parsed.brandings : null);
+      if (!brandings || brandings.length === 0) {
+        throw new Error('Import JSON must contain a non-empty "brandings" array.');
+      }
+
+      const response = await apiClient.post('/settings/subscription-branding/import', {
+        mode,
+        brandings
+      });
+      return response.data?.data || response.data;
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['subscription-branding'] });
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        t('brandingSettings.toast.imported', {
+          defaultValue: 'Import completed. {{created}} created, {{updated}} updated.',
+          created: result?.created ?? 0,
+          updated: result?.updated ?? 0
+        })
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        error?.message || t('brandingSettings.toast.importFailed', { defaultValue: 'Failed to import branding profiles.' })
+      );
+    }
+  });
+
   const deleteBranding = useMutation({
     mutationFn: async (id: number) => {
       await apiClient.delete(`/settings/subscription-branding/${id}`);
@@ -691,13 +884,51 @@ const BrandingSettings: React.FC = () => {
               Customize subscription profile identity by scope (GLOBAL, GROUP, USER).
             </p>
           </div>
-          {isEditing ? (
-            <Button variant="secondary" onClick={resetForm}>
-              <X className="mr-2 h-4 w-4" />
-              Cancel edit
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={importMode}
+              onChange={(event) => setImportMode(event.target.value as 'MERGE' | 'REPLACE')}
+              className="rounded-xl border border-line/70 bg-card/70 px-3 py-2 text-xs font-medium text-foreground outline-none transition focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/35"
+              aria-label="Import mode"
+            >
+              <option value="MERGE">Import Mode: Merge</option>
+              <option value="REPLACE">Import Mode: Replace</option>
+            </select>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => importFileInputRef.current?.click()}
+              loading={importBrandings.isPending}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import JSON
             </Button>
-          ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => exportBrandings.mutate()}
+              loading={exportBrandings.isPending}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export JSON
+            </Button>
+            {isEditing ? (
+              <Button variant="secondary" onClick={resetForm}>
+                <X className="mr-2 h-4 w-4" />
+                Cancel edit
+              </Button>
+            ) : null}
+          </div>
         </div>
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={handleImportFileSelect}
+        />
 
         <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 sm:p-5">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -808,6 +1039,16 @@ const BrandingSettings: React.FC = () => {
                   <span className="font-semibold text-foreground">{priority}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-line/70 bg-panel/55 px-3 py-2">
+                  <span className="text-muted">Publication</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                    isPublished
+                      ? 'border-emerald-500/35 bg-emerald-500/15 text-emerald-100'
+                      : 'border-amber-500/35 bg-amber-500/15 text-amber-200'
+                  }`}>
+                    {isPublished ? 'Published' : 'Draft'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-line/70 bg-panel/55 px-3 py-2">
                   <span className="text-muted">Visible apps</span>
                   <span className="font-semibold text-foreground">{selectedAppsCount}</span>
                 </div>
@@ -861,7 +1102,18 @@ const BrandingSettings: React.FC = () => {
                 <label className="mb-2 block text-sm font-medium text-muted">Scope</label>
                 <select
                   value={scope}
-                  onChange={(event) => setScope(event.target.value as 'GLOBAL' | 'GROUP' | 'USER')}
+                  onChange={(event) => {
+                    const nextScope = event.target.value as 'GLOBAL' | 'GROUP' | 'USER';
+                    setScope(nextScope);
+                    if (nextScope !== 'USER') {
+                      setUserId('');
+                      setUserSearch('');
+                    }
+                    if (nextScope !== 'GROUP') {
+                      setGroupId('');
+                      setGroupSearch('');
+                    }
+                  }}
                   className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app"
                 >
                   <option value="GLOBAL">GLOBAL</option>
@@ -875,11 +1127,96 @@ const BrandingSettings: React.FC = () => {
               <Input label="Profile Description" value={profileDescription} onChange={(event) => setProfileDescription(event.target.value)} placeholder="Managed by One-UI" />
               <Input label="Custom Footer" value={customFooter} onChange={(event) => setCustomFooter(event.target.value)} placeholder="Powered by One-UI" />
               <Input label="Priority" type="number" value={String(priority)} onChange={(event) => setPriority(Number.parseInt(event.target.value || '100', 10))} />
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">Publication</label>
+                <select
+                  value={isPublished ? 'PUBLISHED' : 'DRAFT'}
+                  onChange={(event) => setIsPublished(event.target.value === 'PUBLISHED')}
+                  className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app"
+                >
+                  <option value="DRAFT">Draft (not live)</option>
+                  <option value="PUBLISHED">Published (live)</option>
+                </select>
+              </div>
               {scope === 'USER' ? (
-                <Input label="User ID" value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="1" />
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-muted">User Target</label>
+                  <input
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    placeholder="Search user by email"
+                    className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app"
+                  />
+                  <div className="mt-2 max-h-40 overflow-auto rounded-xl border border-line/70 bg-card/60 p-2">
+                    {userLookupQuery.isLoading ? (
+                      <p className="px-2 py-1.5 text-xs text-muted">Searching users...</p>
+                    ) : (userLookupQuery.data || []).length === 0 ? (
+                      <p className="px-2 py-1.5 text-xs text-muted">No users found.</p>
+                    ) : (
+                      (userLookupQuery.data || []).map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            setUserId(String(user.id));
+                            setUserSearch(user.email || `#${user.id}`);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition ${
+                            userId === String(user.id)
+                              ? 'bg-brand-500/15 text-foreground'
+                              : 'text-muted hover:bg-panel/60 hover:text-foreground'
+                          }`}
+                        >
+                          <span className="truncate">{user.email || `User #${user.id}`}</span>
+                          <span className="ml-2 shrink-0 text-[11px] text-muted">#{user.id}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    Selected user: {userId ? `#${userId}` : 'none'}
+                  </p>
+                </div>
               ) : null}
               {scope === 'GROUP' ? (
-                <Input label="Group ID" value={groupId} onChange={(event) => setGroupId(event.target.value)} placeholder="1" />
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-muted">Group Target</label>
+                  <input
+                    value={groupSearch}
+                    onChange={(event) => setGroupSearch(event.target.value)}
+                    placeholder="Search group by name"
+                    className="w-full rounded-xl border border-line/80 bg-card/75 px-4 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app"
+                  />
+                  <div className="mt-2 max-h-40 overflow-auto rounded-xl border border-line/70 bg-card/60 p-2">
+                    {groupLookupQuery.isLoading ? (
+                      <p className="px-2 py-1.5 text-xs text-muted">Searching groups...</p>
+                    ) : (groupLookupQuery.data || []).length === 0 ? (
+                      <p className="px-2 py-1.5 text-xs text-muted">No groups found.</p>
+                    ) : (
+                      (groupLookupQuery.data || []).map((group) => (
+                        <button
+                          key={group.id}
+                          type="button"
+                          onClick={() => {
+                            setGroupId(String(group.id));
+                            setGroupSearch(group.name || `#${group.id}`);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition ${
+                            groupId === String(group.id)
+                              ? 'bg-brand-500/15 text-foreground'
+                              : 'text-muted hover:bg-panel/60 hover:text-foreground'
+                          }`}
+                        >
+                          <span className="truncate">{group.name || `Group #${group.id}`}</span>
+                          <span className="ml-2 shrink-0 text-[11px] text-muted">#{group.id}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    Selected group: {groupId ? `#${groupId}` : 'none'}
+                  </p>
+                </div>
               ) : null}
             </div>
           </div>
@@ -1203,9 +1540,17 @@ const BrandingSettings: React.FC = () => {
           <Button
             onClick={() => saveBranding.mutate()}
             loading={saveBranding.isPending}
-            disabled={!name.trim() || uploadWallpaper.isPending || Boolean(wallpaperFile)}
+            disabled={
+              !name.trim()
+              || uploadWallpaper.isPending
+              || Boolean(wallpaperFile)
+              || (scope === 'USER' && !userId.trim())
+              || (scope === 'GROUP' && !groupId.trim())
+            }
           >
-            {isEditing ? 'Save Changes' : 'Create Branding'}
+            {isEditing
+              ? (isPublished ? 'Save & Keep Published' : 'Save Draft')
+              : (isPublished ? 'Create & Publish' : 'Create Draft')}
           </Button>
           <Button
             variant="secondary"
@@ -1234,6 +1579,7 @@ const BrandingSettings: React.FC = () => {
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">App Name</th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">Priority</th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">Enabled</th>
+                <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">Publication</th>
                 <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted">Action</th>
               </tr>
             </thead>
@@ -1243,8 +1589,12 @@ const BrandingSettings: React.FC = () => {
                   <td className="px-3 py-2 text-sm text-foreground">{branding.name}</td>
                   <td className="px-3 py-2 text-sm text-muted">
                     {branding.scope}
-                    {branding.scope === 'USER' && branding.userId ? ` #${branding.userId}` : ''}
-                    {branding.scope === 'GROUP' && branding.groupId ? ` #${branding.groupId}` : ''}
+                    {branding.scope === 'USER' && branding.userId
+                      ? ` #${branding.userId}${branding.user?.email ? ` (${branding.user.email})` : ''}`
+                      : ''}
+                    {branding.scope === 'GROUP' && branding.groupId
+                      ? ` #${branding.groupId}${branding.group?.name ? ` (${branding.group.name})` : ''}`
+                      : ''}
                   </td>
                   <td className="px-3 py-2 text-sm text-muted">{branding.appName || 'One-UI'}</td>
                   <td className="px-3 py-2 text-sm text-muted">{branding.priority}</td>
@@ -1259,6 +1609,25 @@ const BrandingSettings: React.FC = () => {
                       }`}
                     >
                       {branding.enabled ? 'ON' : 'OFF'}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      disabled={publishBranding.isPending}
+                      onClick={() =>
+                        publishBranding.mutate({
+                          brandingId: branding.id,
+                          published: !branding.isPublished
+                        })
+                      }
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium transition ${
+                        branding.isPublished
+                          ? 'border border-emerald-500/35 bg-emerald-500/15 text-emerald-100'
+                          : 'border border-amber-500/35 bg-amber-500/15 text-amber-200'
+                      } ${publishBranding.isPending ? 'cursor-not-allowed opacity-70' : ''}`}
+                    >
+                      {branding.isPublished ? 'PUBLISHED' : 'DRAFT'}
                     </button>
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -1285,7 +1654,7 @@ const BrandingSettings: React.FC = () => {
               ))}
               {!brandingQuery.isLoading && (brandingQuery.data || []).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-sm text-muted">
+                  <td colSpan={7} className="px-3 py-4 text-center text-sm text-muted">
                     No branding profile configured
                   </td>
                 </tr>

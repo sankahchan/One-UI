@@ -26,6 +26,39 @@ function sanitizeHexColor(value) {
   return null;
 }
 
+function parseBooleanFlag(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on', 'published'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off', 'draft'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseOptionalDate(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
 function sanitizeBrandingMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
     return undefined;
@@ -143,7 +176,8 @@ function sanitizeBrandingMetadata(metadata) {
 function normalizeBrandingInput(payload = {}) {
   return {
     scope: String(payload.scope || 'GLOBAL').toUpperCase(),
-    enabled: payload.enabled === undefined ? true : Boolean(payload.enabled),
+    enabled: parseBooleanFlag(payload.enabled, true),
+    isPublished: parseBooleanFlag(payload.isPublished, false),
     priority: Number.parseInt(String(payload.priority ?? 100), 10) || 100,
     name: String(payload.name || '').trim(),
     appName: payload.appName ? String(payload.appName).trim() : null,
@@ -243,9 +277,13 @@ class SubscriptionBrandingService {
   async createBranding(payload = {}) {
     const input = normalizeBrandingInput(payload);
     validateBrandingInput(input);
+    const publishedAt = input.isPublished ? parseOptionalDate(payload.publishedAt) || new Date() : null;
 
     return prisma.subscriptionBranding.create({
-      data: input
+      data: {
+        ...input,
+        publishedAt
+      }
     });
   }
 
@@ -262,11 +300,180 @@ class SubscriptionBrandingService {
       ...payload
     });
     validateBrandingInput(input);
+    const nextPublished = Boolean(input.isPublished);
+    const publishedAt = nextPublished
+      ? (current.isPublished ? current.publishedAt || new Date() : parseOptionalDate(payload.publishedAt) || new Date())
+      : null;
 
     return prisma.subscriptionBranding.update({
       where: { id: Number(id) },
-      data: input
+      data: {
+        ...input,
+        publishedAt
+      }
     });
+  }
+
+  async setBrandingPublished(id, published = true) {
+    const numericId = Number(id);
+    const current = await prisma.subscriptionBranding.findUnique({
+      where: { id: numericId }
+    });
+    if (!current) {
+      throw new Error('Subscription branding not found');
+    }
+
+    const nextPublished = Boolean(published);
+    return prisma.subscriptionBranding.update({
+      where: { id: numericId },
+      data: {
+        isPublished: nextPublished,
+        publishedAt: nextPublished ? current.publishedAt || new Date() : null
+      }
+    });
+  }
+
+  async exportBrandings() {
+    const brandings = await prisma.subscriptionBranding.findMany({
+      orderBy: [
+        { scope: 'asc' },
+        { priority: 'asc' },
+        { id: 'asc' }
+      ]
+    });
+
+    return {
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      brandings: brandings.map((entry) => ({
+        id: entry.id,
+        scope: entry.scope,
+        enabled: entry.enabled,
+        isPublished: Boolean(entry.isPublished),
+        publishedAt: entry.publishedAt || null,
+        priority: entry.priority,
+        name: entry.name,
+        appName: entry.appName || null,
+        logoUrl: entry.logoUrl || null,
+        supportUrl: entry.supportUrl || null,
+        primaryColor: entry.primaryColor || null,
+        accentColor: entry.accentColor || null,
+        profileTitle: entry.profileTitle || null,
+        profileDescription: entry.profileDescription || null,
+        customFooter: entry.customFooter || null,
+        clashProfileName: entry.clashProfileName || null,
+        metadata: entry.metadata || {},
+        userId: entry.userId || null,
+        groupId: entry.groupId || null
+      }))
+    };
+  }
+
+  async importBrandings(payload = {}) {
+    const mode = String(payload.mode || 'MERGE').trim().toUpperCase() === 'REPLACE' ? 'REPLACE' : 'MERGE';
+    const rawBrandings = Array.isArray(payload.brandings)
+      ? payload.brandings
+      : (Array.isArray(payload) ? payload : []);
+
+    if (!rawBrandings.length) {
+      throw new Error('brandings must be a non-empty array');
+    }
+
+    const normalizedBrandings = rawBrandings.map((entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new Error(`branding at index ${index} must be an object`);
+      }
+
+      const input = normalizeBrandingInput(entry);
+      validateBrandingInput(input);
+
+      const hasPublishedFlag = Object.prototype.hasOwnProperty.call(entry, 'isPublished');
+      const isPublished = hasPublishedFlag
+        ? parseBooleanFlag(entry.isPublished, false)
+        : Boolean(input.enabled);
+
+      const parsedId = Number(entry.id);
+
+      return {
+        id: Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null,
+        data: {
+          ...input,
+          isPublished,
+          publishedAt: isPublished ? parseOptionalDate(entry.publishedAt) || new Date() : null
+        }
+      };
+    });
+
+    const result = await prisma.$transaction(async (tx) => {
+      let created = 0;
+      let updated = 0;
+
+      if (mode === 'REPLACE') {
+        await tx.subscriptionBranding.deleteMany();
+      }
+
+      for (const entry of normalizedBrandings) {
+        let existing = null;
+
+        if (mode === 'MERGE') {
+          if (entry.id) {
+            existing = await tx.subscriptionBranding.findUnique({
+              where: { id: entry.id }
+            });
+          }
+
+          if (!existing && entry.data.scope === 'USER' && entry.data.userId) {
+            existing = await tx.subscriptionBranding.findFirst({
+              where: {
+                scope: 'USER',
+                userId: entry.data.userId
+              }
+            });
+          }
+
+          if (!existing && entry.data.scope === 'GROUP' && entry.data.groupId) {
+            existing = await tx.subscriptionBranding.findFirst({
+              where: {
+                scope: 'GROUP',
+                groupId: entry.data.groupId
+              }
+            });
+          }
+
+          if (!existing && entry.data.scope === 'GLOBAL') {
+            existing = await tx.subscriptionBranding.findFirst({
+              where: {
+                scope: 'GLOBAL',
+                name: entry.data.name
+              }
+            });
+          }
+        }
+
+        if (existing) {
+          await tx.subscriptionBranding.update({
+            where: { id: existing.id },
+            data: entry.data
+          });
+          updated += 1;
+        } else {
+          await tx.subscriptionBranding.create({
+            data: entry.data
+          });
+          created += 1;
+        }
+      }
+
+      return {
+        mode,
+        total: normalizedBrandings.length,
+        created,
+        updated,
+        replaced: mode === 'REPLACE'
+      };
+    });
+
+    return result;
   }
 
   async deleteBranding(id) {
@@ -295,7 +502,8 @@ class SubscriptionBrandingService {
       prisma.subscriptionBranding.findMany({
         where: {
           scope: 'GLOBAL',
-          enabled: true
+          enabled: true,
+          isPublished: true
         },
         orderBy: [{ priority: 'asc' }, { id: 'asc' }]
       }),
@@ -306,7 +514,8 @@ class SubscriptionBrandingService {
               groupId: {
                 in: groupIds
               },
-              enabled: true
+              enabled: true,
+              isPublished: true
             },
             orderBy: [{ priority: 'asc' }, { id: 'asc' }]
           })
@@ -315,7 +524,8 @@ class SubscriptionBrandingService {
         where: {
           scope: 'USER',
           userId: numericUserId,
-          enabled: true
+          enabled: true,
+          isPublished: true
         },
         orderBy: [{ priority: 'asc' }, { id: 'asc' }]
       })
