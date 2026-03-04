@@ -256,9 +256,16 @@ export const MieruPage: React.FC = () => {
 
   const policyQuery = useMieruPolicy();
   const statusQuery = useMieruStatus();
-  const onlineQuery = useMieruOnlineSnapshot(Boolean(policyQuery.data?.enabled));
+  const runtimeState = String(statusQuery.data?.state || '').toLowerCase();
+  const runtimeStable = Boolean(
+    policyQuery.data?.enabled
+    && statusQuery.data?.running
+    && !statusQuery.data?.restarting
+    && runtimeState === 'running'
+  );
+  const onlineQuery = useMieruOnlineSnapshot(runtimeStable);
   const profileQuery = useMieruProfile();
-  const usersQuery = useMieruUsers(true);
+  const usersQuery = useMieruUsers(runtimeStable);
 
   const syncMutation = useSyncMieruUsers();
   const restartMutation = useRestartMieru();
@@ -350,12 +357,16 @@ export const MieruPage: React.FC = () => {
       return { label: t('common.disabled', { defaultValue: 'Disabled' }), variant: 'danger' as const };
     }
 
-    if (statusQuery.data?.running) {
+    if (statusQuery.data?.restarting || runtimeState === 'restarting') {
+      return { label: t('mieru.restarting', { defaultValue: 'Restarting' }), variant: 'warning' as const };
+    }
+
+    if (statusQuery.data?.running && runtimeState === 'running') {
       return { label: t('common.online', { defaultValue: 'Online' }), variant: 'success' as const };
     }
 
     return { label: t('common.offline', { defaultValue: 'Offline' }), variant: 'warning' as const };
-  }, [policyQuery.data?.enabled, statusQuery.data?.running, t]);
+  }, [policyQuery.data?.enabled, runtimeState, statusQuery.data?.restarting, statusQuery.data?.running, t]);
 
   const onRefreshAll = () => {
     void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
@@ -759,10 +770,18 @@ export const MieruPage: React.FC = () => {
     }
   };
 
-  const onlineSnapshot = onlineQuery.data || usersQuery.data?.onlineSnapshot || null;
-  const onlineCount = onlineSnapshot?.summary?.online ?? usersQuery.data?.stats?.online ?? 0;
-  const totalCount = onlineSnapshot?.summary?.total ?? usersQuery.data?.stats?.total ?? 0;
-  const onlineCheckedAgo = formatRelativeAgo(onlineSnapshot?.checkedAt || null);
+  const onlineSnapshot = runtimeStable
+    ? onlineQuery.data || usersQuery.data?.onlineSnapshot || null
+    : null;
+  const onlineCount = runtimeStable
+    ? (onlineSnapshot?.summary?.online ?? usersQuery.data?.stats?.online ?? 0)
+    : 0;
+  const totalCount = runtimeStable
+    ? (onlineSnapshot?.summary?.total ?? usersQuery.data?.stats?.total ?? 0)
+    : usersQuery.data?.stats?.total ?? 0;
+  const onlineCheckedAgo = runtimeStable
+    ? formatRelativeAgo(onlineSnapshot?.checkedAt || null)
+    : t('mieru.onlinePaused', { defaultValue: 'paused (runtime unstable)' });
   const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
 
   return (
@@ -854,16 +873,24 @@ export const MieruPage: React.FC = () => {
             <span className="text-sm text-foreground">
               {t('mieru.lastChecked', { defaultValue: 'Last checked: {{ago}}', ago: onlineCheckedAgo })}
             </span>
-            <Badge variant={onlineSnapshot?.commands?.users?.ok ? 'success' : 'warning'}>
-              {onlineSnapshot?.commands?.users?.ok
-                ? t('mieru.usersCmdOk', { defaultValue: 'Users command: OK' })
-                : t('mieru.usersCmdFail', { defaultValue: 'Users command: Error' })}
-            </Badge>
-            <Badge variant={onlineSnapshot?.commands?.connections?.ok ? 'success' : 'warning'}>
-              {onlineSnapshot?.commands?.connections?.ok
-                ? t('mieru.connectionsCmdOk', { defaultValue: 'Connections command: OK' })
-                : t('mieru.connectionsCmdFail', { defaultValue: 'Connections command: Error' })}
-            </Badge>
+            {runtimeStable ? (
+              <>
+                <Badge variant={onlineSnapshot?.commands?.users?.ok ? 'success' : 'warning'}>
+                  {onlineSnapshot?.commands?.users?.ok
+                    ? t('mieru.usersCmdOk', { defaultValue: 'Users command: OK' })
+                    : t('mieru.usersCmdFail', { defaultValue: 'Users command: Error' })}
+                </Badge>
+                <Badge variant={onlineSnapshot?.commands?.connections?.ok ? 'success' : 'warning'}>
+                  {onlineSnapshot?.commands?.connections?.ok
+                    ? t('mieru.connectionsCmdOk', { defaultValue: 'Connections command: OK' })
+                    : t('mieru.connectionsCmdFail', { defaultValue: 'Connections command: Error' })}
+                </Badge>
+              </>
+            ) : (
+              <Badge variant="warning">
+                {t('mieru.onlinePaused', { defaultValue: 'Online probing paused' })}
+              </Badge>
+            )}
             {onlineQuery.isFetching ? (
               <span className="text-xs text-muted">{t('common.refreshing', { defaultValue: 'Refreshing...' })}</span>
             ) : null}

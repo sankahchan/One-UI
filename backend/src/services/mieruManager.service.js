@@ -1183,6 +1183,15 @@ class MieruManagerService {
     const attempts = [];
 
     if (policy.mode === 'docker') {
+      const containerState = await mieruRuntimeService.getDockerContainerState();
+      if (!containerState.exists || !containerState.running || containerState.restarting) {
+        return {
+          ok: false,
+          raw: '',
+          error: containerState.detail || `Mieru container is not ready (state: ${containerState.state || 'unknown'})`
+        };
+      }
+
       attempts.push(['docker', ['exec', policy.containerName, 'mita', ...args]]);
       attempts.push(['docker', ['exec', policy.containerName, '/usr/local/bin/mita', ...args]]);
       attempts.push(['docker', ['exec', policy.containerName, '/usr/bin/mita', ...args]]);
