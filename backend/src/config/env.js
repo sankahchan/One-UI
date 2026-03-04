@@ -158,6 +158,8 @@ const env = cleanEnv(process.env, {
 
   CLOUDFLARE_API_TOKEN: str({ default: '' }),
   CLOUDFLARE_ZONE_ID: str({ default: '' }),
+  CLOUDFLARE_DOMAIN: str({ default: '' }),
+  CLOUDFLARE_TARGET_IP: str({ default: '' }),
   CLOUDFLARE_EMAIL: str({ default: '' }),
   CLOUDFLARE_ACCOUNT_EMAIL: str({ default: '' }),
   CLOUDFLARE_API_KEY: str({ default: '' }),
