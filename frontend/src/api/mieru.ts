@@ -28,6 +28,10 @@ export interface MieruStatus extends MieruPolicy {
   state: string;
   restarting?: boolean;
   image?: string | null;
+  lastExitCode?: number | null;
+  lastError?: string | null;
+  oomKilled?: boolean;
+  lastFinishedAt?: string | null;
   restartMonitor?: {
     restartCount: number;
     observedRestarts: number;

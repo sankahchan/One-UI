@@ -322,6 +322,19 @@ class MieruSyncService {
     }
 
     try {
+      const runtimeStatus = await mieruRuntimeService.getStatus().catch(() => null);
+      if (runtimeStatus?.restarting || String(runtimeStatus?.state || '').toLowerCase() === 'restarting') {
+        const message = 'Skipped restart after sync because Mieru is already restarting.';
+        logger.warn('Mieru restart skipped after config sync', {
+          action: 'mieru_sync_restart_skip',
+          message
+        });
+        return {
+          restarted: false,
+          restartError: message
+        };
+      }
+
       await mieruRuntimeService.restart();
       return {
         restarted: true,

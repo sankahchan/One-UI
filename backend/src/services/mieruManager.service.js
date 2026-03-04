@@ -858,8 +858,17 @@ class MieruManagerService {
 
     if (profileConfigChanged) {
       try {
-        await mieruRuntimeService.restart();
-        profileRestarted = true;
+        const runtimeStatus = await mieruRuntimeService.getStatus().catch(() => null);
+        if (runtimeStatus?.restarting || String(runtimeStatus?.state || '').toLowerCase() === 'restarting') {
+          profileRestartError = 'Skipped profile restart because Mieru is already restarting.';
+          logger.warn('Mieru restart skipped after profile update', {
+            action: 'mieru_profile_restart_skip',
+            message: profileRestartError
+          });
+        } else {
+          await mieruRuntimeService.restart();
+          profileRestarted = true;
+        }
       } catch (error) {
         profileRestartError = sanitizeMultiline(error?.message || 'Failed to restart Mieru after profile update', 320);
         logger.warn('Mieru restart failed after profile update', {

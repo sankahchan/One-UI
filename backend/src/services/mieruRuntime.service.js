@@ -578,7 +578,11 @@ class MieruRuntimeService {
         restarting: false,
         state: 'docker-unavailable',
         image: null,
-        detail: 'Docker daemon unavailable'
+        detail: 'Docker daemon unavailable',
+        lastExitCode: null,
+        oomKilled: false,
+        lastError: null,
+        finishedAt: null
       };
     }
 
@@ -598,7 +602,11 @@ class MieruRuntimeService {
         restarting: false,
         state: notFound ? 'not-found' : 'inspect-failed',
         image: null,
-        detail: sanitizeMultiline(inspectResult.stderr || inspectResult.stdout || 'Failed to inspect Mieru container', 320)
+        detail: sanitizeMultiline(inspectResult.stderr || inspectResult.stdout || 'Failed to inspect Mieru container', 320),
+        lastExitCode: null,
+        oomKilled: false,
+        lastError: null,
+        finishedAt: null
       };
     }
 
@@ -615,6 +623,22 @@ class MieruRuntimeService {
     const restarting = Boolean(parsedState.Restarting);
     const state = String(parsedState.Status || '').trim() || (running ? 'running' : 'stopped');
     const restartCount = Number.parseInt(String(restartCountRaw || '0').trim(), 10);
+    const parsedExitCode = Number.parseInt(String(parsedState.ExitCode ?? ''), 10);
+    const lastExitCode = Number.isInteger(parsedExitCode) ? parsedExitCode : null;
+    const oomKilled = Boolean(parsedState.OOMKilled);
+    const rawError = String(parsedState.Error || '').trim();
+    const lastError = rawError ? sanitizeMultiline(rawError, 320) : null;
+    const finishedAtRaw = String(parsedState.FinishedAt || '').trim();
+    const finishedAt = finishedAtRaw && !finishedAtRaw.startsWith('0001-01-01') ? finishedAtRaw : null;
+
+    let detail = null;
+    if (restarting && lastError) {
+      detail = `Restart loop detected: ${lastError}`;
+    } else if (restarting && lastExitCode !== null && lastExitCode !== 0) {
+      detail = `Restart loop detected (last exit code: ${lastExitCode}).`;
+    } else if (oomKilled) {
+      detail = 'Mieru container was OOM-killed.';
+    }
 
     return {
       dockerAvailable: true,
@@ -624,7 +648,11 @@ class MieruRuntimeService {
       state,
       image: image || null,
       restartCount: Number.isInteger(restartCount) && restartCount >= 0 ? restartCount : 0,
-      detail: null
+      detail,
+      lastExitCode,
+      oomKilled,
+      lastError,
+      finishedAt
     };
   }
 
@@ -681,6 +709,7 @@ class MieruRuntimeService {
         ...this.getPolicy(),
         running: false,
         state: 'disabled',
+        restarting: false,
         version: null,
         restartMonitor: null,
         health: {
@@ -690,6 +719,10 @@ class MieruRuntimeService {
           latencyMs: null,
           error: null
         },
+        lastExitCode: null,
+        lastError: null,
+        oomKilled: false,
+        lastFinishedAt: null,
         checkedAt: new Date().toISOString(),
         detail: 'Mieru sidecar integration is disabled'
       };
@@ -706,9 +739,14 @@ class MieruRuntimeService {
         dockerAvailable: false,
         running: health.ok === true,
         state: health.ok === true ? 'running' : 'unknown',
+        restarting: false,
         version,
         restartMonitor: null,
         health,
+        lastExitCode: null,
+        lastError: null,
+        oomKilled: false,
+        lastFinishedAt: null,
         checkedAt: new Date().toISOString(),
         detail: health.ok === true
           ? 'Manual mode active (status from configured health endpoint).'
@@ -734,6 +772,10 @@ class MieruRuntimeService {
       restartMonitor,
       version,
       health,
+      lastExitCode: containerState.lastExitCode ?? null,
+      lastError: containerState.lastError ?? null,
+      oomKilled: Boolean(containerState.oomKilled),
+      lastFinishedAt: containerState.finishedAt || null,
       checkedAt: new Date().toISOString(),
       detail: containerState.detail
     };

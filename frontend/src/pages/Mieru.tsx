@@ -368,6 +368,29 @@ export const MieruPage: React.FC = () => {
     return { label: t('common.offline', { defaultValue: 'Offline' }), variant: 'warning' as const };
   }, [policyQuery.data?.enabled, runtimeState, statusQuery.data?.restarting, statusQuery.data?.running, t]);
 
+  const runtimeDiagnostics = useMemo(() => {
+    const status = statusQuery.data;
+    if (!status) {
+      return [];
+    }
+
+    const lines: string[] = [];
+    if (status.detail) {
+      lines.push(String(status.detail));
+    }
+    if (status.lastError && status.lastError !== status.detail) {
+      lines.push(`Last error: ${status.lastError}`);
+    }
+    if (typeof status.lastExitCode === 'number' && status.lastExitCode !== 0) {
+      lines.push(`Last exit code: ${status.lastExitCode}`);
+    }
+    if (status.oomKilled) {
+      lines.push('Container was OOM-killed (increase memory limit).');
+    }
+
+    return Array.from(new Set(lines));
+  }, [statusQuery.data]);
+
   const onRefreshAll = () => {
     void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
@@ -865,6 +888,20 @@ export const MieruPage: React.FC = () => {
             </p>
           </div>
         </div>
+        {runtimeDiagnostics.length > 0 ? (
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+            <p className="text-xs uppercase tracking-wide text-amber-200">
+              {t('mieru.runtimeDiagnostics', { defaultValue: 'Runtime Diagnostics' })}
+            </p>
+            <div className="mt-2 space-y-1">
+              {runtimeDiagnostics.map((line) => (
+                <p key={line} className="text-sm text-amber-100/90">
+                  {line}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="rounded-2xl border border-line/70 bg-panel/45 p-4">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs uppercase tracking-wide text-muted">
