@@ -874,6 +874,24 @@ const BrandingSettings: React.FC = () => {
     }
   });
 
+  const brandingRows = brandingQuery.data || [];
+  const saveDisabled =
+    !name.trim()
+    || uploadWallpaper.isPending
+    || Boolean(wallpaperFile)
+    || (scope === 'USER' && !userId.trim())
+    || (scope === 'GROUP' && !groupId.trim());
+  const saveButtonLabel = isEditing
+    ? (isPublished ? 'Save & Keep Published' : 'Save Draft')
+    : (isPublished ? 'Create & Publish' : 'Create Draft');
+  const resetBrandingColors = () => {
+    setPrimaryColor('#3b82f6');
+    setAccentColor('#6366f1');
+    setWallpaperGradientFrom('#3b82f6');
+    setWallpaperGradientTo('#6366f1');
+    setWallpaperGradientOpacity('62');
+  };
+
   return (
     <div className="space-y-6">
       <Card className="space-y-6">
@@ -884,11 +902,11 @@ const BrandingSettings: React.FC = () => {
               Customize subscription profile identity by scope (GLOBAL, GROUP, USER).
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <select
               value={importMode}
               onChange={(event) => setImportMode(event.target.value as 'MERGE' | 'REPLACE')}
-              className="rounded-xl border border-line/70 bg-card/70 px-3 py-2 text-xs font-medium text-foreground outline-none transition focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/35"
+              className="w-full rounded-xl border border-line/70 bg-card/70 px-3 py-2 text-xs font-medium text-foreground outline-none transition focus-visible:border-brand-500/50 focus-visible:ring-2 focus-visible:ring-brand-500/35 sm:w-auto"
               aria-label="Import mode"
             >
               <option value="MERGE">Import Mode: Merge</option>
@@ -900,6 +918,7 @@ const BrandingSettings: React.FC = () => {
               size="sm"
               onClick={() => importFileInputRef.current?.click()}
               loading={importBrandings.isPending}
+              className="w-full sm:w-auto"
             >
               <Upload className="mr-2 h-4 w-4" />
               Import JSON
@@ -910,12 +929,13 @@ const BrandingSettings: React.FC = () => {
               size="sm"
               onClick={() => exportBrandings.mutate()}
               loading={exportBrandings.isPending}
+              className="w-full sm:w-auto"
             >
               <Download className="mr-2 h-4 w-4" />
               Export JSON
             </Button>
             {isEditing ? (
-              <Button variant="secondary" onClick={resetForm}>
+              <Button variant="secondary" onClick={resetForm} className="w-full sm:w-auto">
                 <X className="mr-2 h-4 w-4" />
                 Cancel edit
               </Button>
@@ -1353,9 +1373,9 @@ const BrandingSettings: React.FC = () => {
 
               <div className="space-y-1.5">
                 <label className="ml-1 block text-sm font-medium text-muted">Primary Color</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                   <span
-                    className="h-10 w-10 shrink-0 rounded-lg border border-line/70"
+                    className="h-10 w-full shrink-0 rounded-lg border border-line/70 sm:w-10"
                     style={{ backgroundColor: previewPrimary }}
                   />
                   <input
@@ -1368,7 +1388,7 @@ const BrandingSettings: React.FC = () => {
                     type="color"
                     value={previewPrimary}
                     onChange={(event) => setPrimaryColor(event.target.value)}
-                    className="h-10 w-10 cursor-pointer rounded-lg border border-line/70 bg-card p-1"
+                    className="h-10 w-full cursor-pointer rounded-lg border border-line/70 bg-card p-1 sm:w-10"
                     aria-label="Pick primary color"
                   />
                 </div>
@@ -1376,9 +1396,9 @@ const BrandingSettings: React.FC = () => {
 
               <div className="space-y-1.5">
                 <label className="ml-1 block text-sm font-medium text-muted">Accent Color</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                   <span
-                    className="h-10 w-10 shrink-0 rounded-lg border border-line/70"
+                    className="h-10 w-full shrink-0 rounded-lg border border-line/70 sm:w-10"
                     style={{ backgroundColor: previewAccent }}
                   />
                   <input
@@ -1391,7 +1411,7 @@ const BrandingSettings: React.FC = () => {
                     type="color"
                     value={previewAccent}
                     onChange={(event) => setAccentColor(event.target.value)}
-                    className="h-10 w-10 cursor-pointer rounded-lg border border-line/70 bg-card p-1"
+                    className="h-10 w-full cursor-pointer rounded-lg border border-line/70 bg-card p-1 sm:w-10"
                     aria-label="Pick accent color"
                   />
                 </div>
@@ -1450,6 +1470,7 @@ const BrandingSettings: React.FC = () => {
                   size="sm"
                   variant="secondary"
                   onClick={() => setEnabledApps(allBuiltInAppIds)}
+                  className="w-full sm:w-auto"
                 >
                   Select all
                 </Button>
@@ -1458,6 +1479,7 @@ const BrandingSettings: React.FC = () => {
                   size="sm"
                   variant="secondary"
                   onClick={() => setEnabledApps([])}
+                  className="w-full sm:w-auto"
                 >
                   Clear
                 </Button>
@@ -1536,41 +1558,131 @@ const BrandingSettings: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-line/70 pt-4 sm:flex-row sm:items-center">
+        <div className="hidden flex-col gap-2 border-t border-line/70 pt-4 sm:flex sm:flex-row sm:items-center">
           <Button
             onClick={() => saveBranding.mutate()}
             loading={saveBranding.isPending}
-            disabled={
-              !name.trim()
-              || uploadWallpaper.isPending
-              || Boolean(wallpaperFile)
-              || (scope === 'USER' && !userId.trim())
-              || (scope === 'GROUP' && !groupId.trim())
-            }
+            disabled={saveDisabled}
           >
-            {isEditing
-              ? (isPublished ? 'Save & Keep Published' : 'Save Draft')
-              : (isPublished ? 'Create & Publish' : 'Create Draft')}
+            {saveButtonLabel}
           </Button>
           <Button
             variant="secondary"
             type="button"
-            onClick={() => {
-              setPrimaryColor('#3b82f6');
-              setAccentColor('#6366f1');
-              setWallpaperGradientFrom('#3b82f6');
-              setWallpaperGradientTo('#6366f1');
-              setWallpaperGradientOpacity('62');
-            }}
+            onClick={resetBrandingColors}
           >
             Reset Colors
           </Button>
+        </div>
+        <div className="sticky bottom-2 z-20 -mx-1 border-t border-line/70 bg-panel/85 px-1 pb-1 pt-3 backdrop-blur sm:hidden">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => saveBranding.mutate()}
+              loading={saveBranding.isPending}
+              disabled={saveDisabled}
+              size="sm"
+              className="w-full"
+            >
+              {isEditing ? 'Save' : 'Create'}
+            </Button>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={resetBrandingColors}
+              size="sm"
+              className="w-full"
+            >
+              Reset Colors
+            </Button>
+          </div>
         </div>
       </Card>
 
       <Card>
         <h3 className="mb-4 text-lg font-semibold text-foreground">Branding Profiles</h3>
-        <div className="overflow-x-auto rounded-2xl border border-line/70">
+        <div className="space-y-3 md:hidden">
+          {brandingRows.map((branding) => (
+            <div key={branding.id} className="rounded-2xl border border-line/70 bg-card/60 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{branding.name}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {branding.scope}
+                    {branding.scope === 'USER' && branding.userId
+                      ? ` #${branding.userId}${branding.user?.email ? ` (${branding.user.email})` : ''}`
+                      : ''}
+                    {branding.scope === 'GROUP' && branding.groupId
+                      ? ` #${branding.groupId}${branding.group?.name ? ` (${branding.group.name})` : ''}`
+                      : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadForEdit(branding)}
+                  className="rounded-lg p-2 text-muted hover:bg-card/70 hover:text-foreground"
+                  aria-label={`Edit ${branding.name}`}
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-line/70 bg-panel/55 px-2 py-1.5 text-muted">
+                  App: <span className="font-semibold text-foreground">{branding.appName || 'One-UI'}</span>
+                </div>
+                <div className="rounded-lg border border-line/70 bg-panel/55 px-2 py-1.5 text-muted">
+                  Priority: <span className="font-semibold text-foreground">{branding.priority}</span>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleBranding.mutate(branding)}
+                  className={`inline-flex items-center justify-center rounded-full px-2 py-1 text-xs font-medium transition ${
+                    branding.enabled
+                      ? 'border border-emerald-500/35 bg-emerald-500/15 text-emerald-100'
+                      : 'border border-line/70 bg-card/60 text-muted'
+                  }`}
+                >
+                  {branding.enabled ? 'Enabled' : 'Disabled'}
+                </button>
+                <button
+                  type="button"
+                  disabled={publishBranding.isPending}
+                  onClick={() =>
+                    publishBranding.mutate({
+                      brandingId: branding.id,
+                      published: !branding.isPublished
+                    })
+                  }
+                  className={`inline-flex items-center justify-center rounded-full px-2 py-1 text-xs font-medium transition ${
+                    branding.isPublished
+                      ? 'border border-emerald-500/35 bg-emerald-500/15 text-emerald-100'
+                      : 'border border-amber-500/35 bg-amber-500/15 text-amber-200'
+                  } ${publishBranding.isPending ? 'cursor-not-allowed opacity-70' : ''}`}
+                >
+                  {branding.isPublished ? 'Published' : 'Draft'}
+                </button>
+              </div>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => deleteBranding.mutate(branding.id)}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                  aria-label={`Delete ${branding.name}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!brandingQuery.isLoading && brandingRows.length === 0 ? (
+            <p className="rounded-2xl border border-line/70 bg-card/60 px-3 py-4 text-center text-sm text-muted">
+              No branding profile configured
+            </p>
+          ) : null}
+        </div>
+        <div className="hidden overflow-x-auto rounded-2xl border border-line/70 md:block">
           <table className="min-w-full divide-y divide-line/70">
             <thead className="bg-panel/60">
               <tr>
@@ -1584,7 +1696,7 @@ const BrandingSettings: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-line/70 bg-card/60">
-              {(brandingQuery.data || []).map((branding) => (
+              {brandingRows.map((branding) => (
                 <tr key={branding.id}>
                   <td className="px-3 py-2 text-sm text-foreground">{branding.name}</td>
                   <td className="px-3 py-2 text-sm text-muted">
@@ -1652,7 +1764,7 @@ const BrandingSettings: React.FC = () => {
                   </td>
                 </tr>
               ))}
-              {!brandingQuery.isLoading && (brandingQuery.data || []).length === 0 ? (
+              {!brandingQuery.isLoading && brandingRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-4 text-center text-sm text-muted">
                     No branding profile configured
