@@ -934,30 +934,26 @@ class MieruManagerService {
     return normalizedCustomUsers;
   }
 
-  mergeUsers({ panelUsers, customUsers, configuredUsers, onlineByUsername = new Map() }) {
-    const panelByUsername = new Map(panelUsers.map((user) => [user.username, user]));
+  mergeUsers({ customUsers, configuredUsers, onlineByUsername = new Map() }) {
     const customByUsername = new Map(customUsers.map((user) => [user.name, user]));
     const configuredByUsername = new Map(configuredUsers.map((user) => [user.name, user]));
 
     const usernames = new Set([
-      ...Array.from(panelByUsername.keys()),
       ...Array.from(customByUsername.keys()),
       ...Array.from(configuredByUsername.keys())
     ]);
 
     return Array.from(usernames)
       .map((username) => {
-        const panelUser = panelByUsername.get(username);
         const customUser = customByUsername.get(username);
         const configuredUser = configuredByUsername.get(username);
 
-        const source = customUser ? 'custom' : panelUser ? 'panel' : 'config';
+        const source = customUser ? 'custom' : 'config';
         const enabled = customUser ? Boolean(customUser.enabled) : true;
-        const password = configuredUser?.password || customUser?.password || panelUser?.password || '';
+        const password = configuredUser?.password || customUser?.password || '';
         const quotas = normalizeQuotaEntries(
           configuredUser?.quotas
           || customUser?.quotas
-          || panelUser?.quotas
         );
 
         return {
@@ -968,27 +964,26 @@ class MieruManagerService {
           enabled,
           configured: Boolean(configuredUser),
           online: Boolean(onlineByUsername.get(username)),
-          panelUserId: panelUser?.panelUserId || null,
-          dataLimitBytes: panelUser?.dataLimitBytes || null,
-          uploadUsedBytes: panelUser?.uploadUsedBytes || null,
-          downloadUsedBytes: panelUser?.downloadUsedBytes || null,
-          expireDate: panelUser?.expireDate || null,
-          ipLimit: Number.isInteger(panelUser?.ipLimit) ? panelUser.ipLimit : null,
-          deviceLimit: Number.isInteger(panelUser?.deviceLimit) ? panelUser.deviceLimit : null,
-          startOnFirstUse: panelUser?.startOnFirstUse === undefined ? null : Boolean(panelUser.startOnFirstUse),
-          firstUsedAt: panelUser?.firstUsedAt || null,
+          panelUserId: null,
+          dataLimitBytes: null,
+          uploadUsedBytes: null,
+          downloadUsedBytes: null,
+          expireDate: null,
+          ipLimit: null,
+          deviceLimit: null,
+          startOnFirstUse: null,
+          firstUsedAt: null,
           updatedAt: customUser?.updatedAt || null,
-          createdAt: customUser?.createdAt || panelUser?.createdAt || null
+          createdAt: customUser?.createdAt || null
         };
       })
       .sort((a, b) => a.username.localeCompare(b.username));
   }
 
   async listUsers({ includeOnline = false } = {}) {
-    const [configState, syncState, panelUsers] = await Promise.all([
+    const [configState, syncState] = await Promise.all([
       this.loadCurrentConfig(),
-      this.loadSyncState(),
-      this.getPanelUsers()
+      this.loadSyncState()
     ]);
 
     const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
@@ -1004,7 +999,6 @@ class MieruManagerService {
     }
 
     const users = this.mergeUsers({
-      panelUsers,
       customUsers,
       configuredUsers,
       onlineByUsername
@@ -1017,7 +1011,7 @@ class MieruManagerService {
       stats: {
         total: users.length,
         configured: users.filter((entry) => entry.configured).length,
-        panel: users.filter((entry) => entry.source === 'panel').length,
+        panel: 0,
         custom: users.filter((entry) => entry.source === 'custom').length,
         online: onlineCount
       },
@@ -1032,12 +1026,8 @@ class MieruManagerService {
     };
   }
 
-  assertUniqueUsername(username, panelUsers, customUsers, ignoreUsername = null) {
+  assertUniqueUsername(username, customUsers, ignoreUsername = null) {
     const normalizedIgnore = ignoreUsername ? String(ignoreUsername).trim() : null;
-
-    if (username !== normalizedIgnore && panelUsers.some((user) => user.username === username)) {
-      throw new ConflictError('username conflicts with an existing panel user email');
-    }
 
     if (
       username !== normalizedIgnore
@@ -1053,16 +1043,15 @@ class MieruManagerService {
     const enabled = payload.enabled === undefined ? true : Boolean(payload.enabled);
     const quotas = normalizeQuotaEntries(payload.quotas);
 
-    const [configState, syncState, panelUsers] = await Promise.all([
+    const [configState, syncState] = await Promise.all([
       this.loadCurrentConfig(),
-      this.loadSyncState(),
-      this.getPanelUsers()
+      this.loadSyncState()
     ]);
 
     const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
     const customUsers = normalizeCustomUsers(metadata.customUsers);
 
-    this.assertUniqueUsername(username, panelUsers, customUsers);
+    this.assertUniqueUsername(username, customUsers);
 
     const now = new Date().toISOString();
     const nextCustomUsers = [
@@ -1099,10 +1088,9 @@ class MieruManagerService {
   async updateCustomUser(targetUsername, payload = {}) {
     const normalizedTarget = normalizeUsername(targetUsername);
 
-    const [configState, syncState, panelUsers] = await Promise.all([
+    const [configState, syncState] = await Promise.all([
       this.loadCurrentConfig(),
-      this.loadSyncState(),
-      this.getPanelUsers()
+      this.loadSyncState()
     ]);
 
     const metadata = this.getSyncMetadata(syncState.parsed, configState.parsed);
@@ -1123,7 +1111,6 @@ class MieruManagerService {
 
     this.assertUniqueUsername(
       username,
-      panelUsers,
       customUsers.filter((_, index) => index !== targetIndex),
       current.name
     );
@@ -1506,6 +1493,20 @@ class MieruManagerService {
 
   async getUserSubscription(username) {
     const normalizedUsername = normalizeUsername(username);
+    try {
+      const customUser = await this.ensureCustomUserSubscription(normalizedUsername);
+      return {
+        source: 'custom',
+        username: customUser.name,
+        email: customUser.name,
+        subscriptionToken: customUser.subscriptionToken
+      };
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) {
+        throw error;
+      }
+    }
+
     const panelUser = await prisma.user.findUnique({
       where: { email: normalizedUsername },
       select: {
@@ -1524,14 +1525,7 @@ class MieruManagerService {
       };
     }
 
-    const customUser = await this.ensureCustomUserSubscription(normalizedUsername);
-
-    return {
-      source: 'custom',
-      username: customUser.name,
-      email: customUser.name,
-      subscriptionToken: customUser.subscriptionToken
-    };
+    throw new NotFoundError('Mieru user subscription not found');
   }
 
   async getCustomUserPublicRecordByToken(token) {

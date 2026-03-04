@@ -2,7 +2,6 @@ const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 
-const prisma = require('../config/database');
 const logger = require('../config/logger');
 const mieruRuntimeService = require('./mieruRuntime.service');
 
@@ -24,15 +23,6 @@ function parseBoolean(value, fallback = false) {
   }
 
   return fallback;
-}
-
-function parsePositiveInt(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGER) {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isInteger(parsed)) {
-    return fallback;
-  }
-
-  return Math.min(Math.max(parsed, min), max);
 }
 
 function parsePathSegments(value, fallback = 'users') {
@@ -138,32 +128,6 @@ function normalizeMieruQuotas(entries) {
   return normalized;
 }
 
-function normalizeMieruCredentialEntries(entries) {
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-
-  const deduped = new Map();
-
-  for (const entry of entries) {
-    const name = String(entry?.name || entry?.username || '').trim();
-    const password = String(entry?.password || '').trim();
-
-    if (!name || !password) {
-      continue;
-    }
-
-    const quotas = normalizeMieruQuotas(entry?.quotas);
-    deduped.set(name, {
-      name,
-      password,
-      ...(quotas.length > 0 ? { quotas } : {})
-    });
-  }
-
-  return Array.from(deduped.values());
-}
-
 function normalizeManagedCustomUsers(entries) {
   if (!Array.isArray(entries)) {
     return [];
@@ -195,12 +159,8 @@ function normalizeManagedCustomUsers(entries) {
   return Array.from(deduped.values());
 }
 
-function mergePanelAndCustomUsers(panelUsers, customUsers) {
+function mergeCustomUsers(customUsers) {
   const merged = new Map();
-
-  for (const user of normalizeMieruCredentialEntries(panelUsers)) {
-    merged.set(user.name, user);
-  }
 
   for (const user of normalizeManagedCustomUsers(customUsers)) {
     if (!user.enabled) {
@@ -237,8 +197,6 @@ class MieruSyncService {
     this.usersPathSegments = parsePathSegments(process.env.MIERU_USERS_JSON_PATH, 'users');
     this.restartAfterSync = parseBoolean(process.env.MIERU_SYNC_RESTART, true);
     this.requireRestart = parseBoolean(process.env.MIERU_SYNC_REQUIRE_RESTART, false);
-    this.maxUsers = parsePositiveInt(process.env.MIERU_SYNC_MAX_USERS, 50000, 1, 200000);
-    this.includeNonActiveUsers = parseBoolean(process.env.MIERU_SYNC_INCLUDE_NON_ACTIVE_USERS, false);
   }
 
   async loadCurrentConfig() {
@@ -293,70 +251,6 @@ class MieruSyncService {
     }
   }
 
-  async fetchUsers() {
-    const where = this.includeNonActiveUsers
-      ? {}
-      : {
-        status: 'ACTIVE',
-        OR: [
-          { startOnFirstUse: true },
-          { expireDate: { gt: new Date() } }
-        ]
-      };
-
-    const users = await prisma.user.findMany({
-      where,
-      orderBy: {
-        id: 'asc'
-      },
-      take: this.maxUsers,
-      select: {
-        email: true,
-        password: true,
-        dataLimit: true,
-        uploadUsed: true,
-        downloadUsed: true,
-        expireDate: true
-      }
-    });
-
-    return users;
-  }
-
-  buildPanelUserQuotas(user) {
-    const quotas = [];
-    const now = Date.now();
-    const expireAt = new Date(user.expireDate).getTime();
-    if (Number.isFinite(expireAt)) {
-      const daysRemaining = Math.max(0, Math.ceil((expireAt - now) / (1000 * 60 * 60 * 24)));
-      if (daysRemaining > 0) {
-        quotas.push({ days: daysRemaining });
-      }
-    }
-
-    const dataLimit = Number(BigInt(user.dataLimit || 0n));
-    const totalUsed = Number(BigInt(user.uploadUsed || 0n) + BigInt(user.downloadUsed || 0n));
-    const remainingBytes = Math.max(0, dataLimit - totalUsed);
-    if (remainingBytes > 0) {
-      const remainingMb = Math.max(1, Math.floor(remainingBytes / (1024 * 1024)));
-      if (quotas.length > 0) {
-        quotas[0].megabytes = remainingMb;
-      } else {
-        quotas.push({ megabytes: remainingMb });
-      }
-    }
-
-    return normalizeMieruQuotas(quotas);
-  }
-
-  buildMieruUsers(users) {
-    return normalizeMieruCredentialEntries(users.map((user) => ({
-      name: user.email,
-      password: user.password,
-      quotas: this.buildPanelUserQuotas(user)
-    })));
-  }
-
   getSyncMetadata(stateDocument, configDocument) {
     if (isPlainObject(stateDocument) && stateDocument.managedBy) {
       return deepCloneObject(stateDocument);
@@ -373,10 +267,10 @@ class MieruSyncService {
     return {};
   }
 
-  buildNextConfig(previousConfig, mieruUsers, previousSyncMeta = {}) {
+  buildNextConfig(previousConfig, previousSyncMeta = {}) {
     const base = sanitizeConfigDocument(previousConfig);
     const customUsers = normalizeManagedCustomUsers(previousSyncMeta.customUsers);
-    const mergedUsers = mergePanelAndCustomUsers(mieruUsers, customUsers);
+    const mergedUsers = mergeCustomUsers(customUsers);
     setObjectValueByPath(base, this.usersPathSegments, mergedUsers);
 
     const syncMetadata = {
@@ -384,7 +278,7 @@ class MieruSyncService {
       managedBy: 'one-ui',
       schemaVersion: 2,
       usersPath: this.usersPathSegments.join('.'),
-      panelUserCount: mieruUsers.length,
+      panelUserCount: 0,
       customUserCount: customUsers.filter((user) => user.enabled).length,
       userCount: mergedUsers.length,
       usersHash: buildSyncHash(mergedUsers),
@@ -491,17 +385,14 @@ class MieruSyncService {
       };
     }
 
-    const [existingConfig, existingState, users] = await Promise.all([
+    const [existingConfig, existingState] = await Promise.all([
       this.loadCurrentConfig(),
-      this.loadSyncState(),
-      this.fetchUsers()
+      this.loadSyncState()
     ]);
 
-    const mieruUsers = this.buildMieruUsers(users);
     const previousSyncMeta = this.getSyncMetadata(existingState.parsed, existingConfig.parsed);
     const { document: nextDocument, syncMetadata, hash, userCount } = this.buildNextConfig(
       existingConfig.parsed,
-      mieruUsers,
       previousSyncMeta
     );
 

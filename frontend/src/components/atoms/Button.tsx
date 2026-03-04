@@ -14,6 +14,7 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   loading = false,
+  type = 'button',
   disabled,
   className,
   children,
@@ -41,6 +42,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      type={type}
       className={cn(baseStyles, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
       {...props}

@@ -43,10 +43,15 @@ function normalizeDeploymentHint(value) {
   return null;
 }
 
+function escapeShellArg(value) {
+  return `'${String(value ?? '').replace(/'/g, `'\\''`)}'`;
+}
+
 class XrayManager {
   constructor() {
     this.xrayBinary = process.env.XRAY_BINARY || process.env.XRAY_BINARY_PATH || '/usr/local/bin/xray';
     this.configPath = process.env.XRAY_CONFIG_PATH || '/etc/xray/config.json';
+    this.activeConfigPath = this.configPath;
     this.pidFile = process.env.XRAY_PID_FILE || process.env.XRAY_PID_PATH || '/var/run/xray.pid';
     this.confDirPath = process.env.XRAY_CONF_DIR || '/etc/xray/conf.d';
     this.confDirEnabled = parseBoolean(process.env.XRAY_WRITE_CONFDIR, false);
@@ -265,21 +270,28 @@ class XrayManager {
     return status.running;
   }
 
-  async readCurrentConfigRaw() {
+  getRuntimeConfigPath(pathOverride = null) {
+    const candidate = String(pathOverride || this.activeConfigPath || this.configPath || '').trim();
+    return candidate || this.configPath;
+  }
+
+  async readCurrentConfigRaw(pathOverride = null) {
+    const targetPath = this.getRuntimeConfigPath(pathOverride);
     try {
-      return await fs.readFile(this.configPath, 'utf8');
+      return await fs.readFile(targetPath, 'utf8');
     } catch (_error) {
       return null;
     }
   }
 
-  async restoreConfig(rawConfig) {
+  async restoreConfig(rawConfig, pathOverride = null) {
     if (typeof rawConfig !== 'string') {
       return;
     }
 
-    await fs.mkdir(path.dirname(this.configPath), { recursive: true });
-    await fs.writeFile(this.configPath, rawConfig, 'utf8');
+    const targetPath = this.getRuntimeConfigPath(pathOverride);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, rawConfig, 'utf8');
   }
 
   sanitizeSnapshotId(snapshotId) {
@@ -537,7 +549,8 @@ class XrayManager {
   }
 
   async applyGeneratedConfig({ applyMethod = 'hot', createSnapshot = true, skipRuntimeIfUnchanged = false } = {}) {
-    const previousConfigRaw = await this.readCurrentConfigRaw();
+    const previousConfigPath = this.getRuntimeConfigPath();
+    const previousConfigRaw = await this.readCurrentConfigRaw(previousConfigPath);
     let generatedConfig = null;
     let snapshot = null;
 
@@ -573,13 +586,14 @@ class XrayManager {
         });
       }
 
-      await configGenerator.saveConfig(generatedConfig);
+      const savedConfigPath = await configGenerator.saveConfig(generatedConfig);
+      this.activeConfigPath = this.getRuntimeConfigPath(savedConfigPath);
       let confDir = null;
       if (this.confDirEnabled) {
         confDir = await configGenerator.saveConfigDirectory(generatedConfig, this.confDirPath);
       }
 
-      const testResult = await this.testConfig();
+      const testResult = await this.testConfig(this.activeConfigPath);
       if (!testResult.valid) {
         throw new Error(`Config validation failed: ${testResult.error}`);
       }
@@ -607,7 +621,8 @@ class XrayManager {
         config: generatedConfig,
         apply,
         snapshot,
-        confDir
+        confDir,
+        configPath: this.activeConfigPath
       };
     } catch (error) {
       logger.error('Xray apply failed, rolling back config', {
@@ -617,7 +632,8 @@ class XrayManager {
 
       if (previousConfigRaw !== null) {
         try {
-          await this.restoreConfig(previousConfigRaw);
+          await this.restoreConfig(previousConfigRaw, previousConfigPath);
+          this.activeConfigPath = previousConfigPath;
           await this.applyRuntimeChange(applyMethod === 'none' ? 'none' : 'restart');
           logger.warn('Xray config rolled back to previous known-good snapshot');
         } catch (rollbackError) {
@@ -695,13 +711,17 @@ class XrayManager {
     }
   }
 
-  async testConfig() {
+  async testConfig(pathOverride = null) {
+    const runtimeConfigPath = this.getRuntimeConfigPath(pathOverride);
+    const escapedBinary = escapeShellArg(this.xrayBinary);
+    const escapedConfigPath = escapeShellArg(runtimeConfigPath);
+
     try {
       const runtime = await this.resolveRuntimeStatus();
 
       if (runtime.mode === 'docker') {
         const { stdout, stderr } = await execPromise(
-          `docker exec xray-core ${this.xrayBinary} -test -config ${this.configPath}`
+          `docker exec xray-core ${escapedBinary} -test -config ${escapedConfigPath}`
         );
 
         if (stderr && stderr.includes('failed')) {
@@ -711,7 +731,7 @@ class XrayManager {
         return { valid: true, message: stdout };
       }
 
-      const { stdout, stderr } = await execPromise(`${this.xrayBinary} -test -config ${this.configPath}`);
+      const { stdout, stderr } = await execPromise(`${escapedBinary} -test -config ${escapedConfigPath}`);
 
       if (stderr && stderr.includes('failed')) {
         return { valid: false, error: stderr };
@@ -814,6 +834,7 @@ class XrayManager {
       version,
       binaryPath: this.xrayBinary,
       configPath: this.configPath,
+      activeConfigPath: this.activeConfigPath,
       pidFile: this.pidFile
     };
   }
@@ -834,7 +855,7 @@ class XrayManager {
       success: true,
       message,
       inbounds: result.config.inbounds.length,
-      configPath: this.configPath,
+      configPath: result.configPath || this.activeConfigPath,
       apply: result.apply,
       snapshotId: result.snapshot?.id || null,
       confDir: result.confDir || null
@@ -855,7 +876,7 @@ class XrayManager {
         : 'Xray config applied during startup',
       apply: result.apply,
       inbounds: result.config.inbounds.length,
-      configPath: this.configPath,
+      configPath: result.configPath || this.activeConfigPath,
       confDir: result.confDir || null
     };
   }
