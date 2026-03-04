@@ -83,6 +83,40 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.min(Math.max(alpha, 0), 1)})`;
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const normalized = normalizeHexColor(hex, '#3b82f6').replace('#', '');
+  const intValue = Number.parseInt(normalized, 16);
+  return {
+    r: (intValue >> 16) & 255,
+    g: (intValue >> 8) & 255,
+    b: intValue & 255
+  };
+}
+
+function srgbChannelToLinear(channel: number): number {
+  const normalized = channel / 255;
+  if (normalized <= 0.03928) {
+    return normalized / 12.92;
+  }
+  return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const rLinear = srgbChannelToLinear(r);
+  const gLinear = srgbChannelToLinear(g);
+  const bLinear = srgbChannelToLinear(b);
+  return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+}
+
+function contrastRatio(colorA: string, colorB: string): number {
+  const l1 = relativeLuminance(colorA);
+  const l2 = relativeLuminance(colorB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 function parseNumberList(value: string): number[] {
   return value
     .split(',')
@@ -208,6 +242,73 @@ const BrandingSettings: React.FC = () => {
   }, [wallpaperGradientOpacity]);
   const previewHasWallpaper = Boolean(previewWallpaperImageUrl);
   const selectedAppsCount = enabledApps.length > 0 ? enabledApps.length : BUILTIN_CLIENT_APPS.length;
+  const contrastChecks = useMemo(() => {
+    const lightSurface = '#ffffff';
+    const darkSurface = '#0f172a';
+    const lightText = '#ffffff';
+    const darkText = '#0f172a';
+
+    const pickReadableText = (background: string) =>
+      contrastRatio(lightText, background) >= contrastRatio(darkText, background) ? lightText : darkText;
+
+    const onPrimary = pickReadableText(previewPrimary);
+    const onAccent = pickReadableText(previewAccent);
+    const onGradientCandidate =
+      Math.min(contrastRatio(lightText, previewGradientFrom), contrastRatio(lightText, previewGradientTo)) >=
+      Math.min(contrastRatio(darkText, previewGradientFrom), contrastRatio(darkText, previewGradientTo))
+        ? lightText
+        : darkText;
+
+    const gradientRatio = Math.min(
+      contrastRatio(onGradientCandidate, previewGradientFrom),
+      contrastRatio(onGradientCandidate, previewGradientTo)
+    );
+
+    return [
+      {
+        id: 'primary-text-light',
+        label: 'Primary text on light surface',
+        ratio: contrastRatio(previewPrimary, lightSurface),
+        foreground: previewPrimary,
+        background: lightSurface
+      },
+      {
+        id: 'accent-text-light',
+        label: 'Accent text on light surface',
+        ratio: contrastRatio(previewAccent, lightSurface),
+        foreground: previewAccent,
+        background: lightSurface
+      },
+      {
+        id: 'on-primary',
+        label: 'Button text on primary color',
+        ratio: contrastRatio(onPrimary, previewPrimary),
+        foreground: onPrimary,
+        background: previewPrimary
+      },
+      {
+        id: 'on-accent',
+        label: 'Button text on accent color',
+        ratio: contrastRatio(onAccent, previewAccent),
+        foreground: onAccent,
+        background: previewAccent
+      },
+      {
+        id: 'gradient-title',
+        label: 'Title text on gradient header',
+        ratio: gradientRatio,
+        foreground: onGradientCandidate,
+        background: previewGradientFrom
+      },
+      {
+        id: 'primary-text-dark',
+        label: 'Primary text on dark surface',
+        ratio: contrastRatio(previewPrimary, darkSurface),
+        foreground: previewPrimary,
+        background: darkSurface
+      }
+    ];
+  }, [previewAccent, previewGradientFrom, previewGradientTo, previewPrimary]);
 
   useEffect(() => {
     if (!wallpaperFilePreviewUrl.startsWith('blob:')) {
@@ -956,6 +1057,46 @@ const BrandingSettings: React.FC = () => {
                     className="h-10 w-10 cursor-pointer rounded-lg border border-line/70 bg-card p-1"
                     aria-label="Pick accent color"
                   />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-line/70 bg-card/55 p-3">
+                <div className="mb-1 flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Sparkles className="h-4 w-4 text-brand-500" />
+                  Accessibility Contrast Check
+                </div>
+                <p className="text-xs text-muted">WCAG AA target for normal text: 4.5:1 (large text: 3.0:1).</p>
+                <div className="mt-3 space-y-2">
+                  {contrastChecks.map((check) => {
+                    const aaPass = check.ratio >= 4.5;
+                    const largePass = check.ratio >= 3;
+                    const statusClass = aaPass
+                      ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+                      : largePass
+                        ? 'border-amber-500/35 bg-amber-500/10 text-amber-300'
+                        : 'border-rose-500/35 bg-rose-500/10 text-rose-300';
+
+                    return (
+                      <div key={check.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line/70 bg-panel/55 px-3 py-2 text-xs">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-4 w-4 shrink-0 rounded border border-line/70"
+                            style={{
+                              backgroundImage: `linear-gradient(135deg, ${check.foreground} 0%, ${check.background} 100%)`
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span className="truncate text-muted">{check.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground">{check.ratio.toFixed(2)}:1</span>
+                          <span className={`rounded-full border px-2 py-0.5 font-semibold ${statusClass}`}>
+                            {aaPass ? 'AA pass' : largePass ? 'Large text only' : 'Fail'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
