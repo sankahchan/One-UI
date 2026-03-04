@@ -814,14 +814,22 @@ export const MieruPage: React.FC = () => {
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(140deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 42%, hsl(var(--color-app)) 100%)'
+              'linear-gradient(152deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 44%, hsl(var(--color-app)) 100%)'
           }}
         />
-        <div className="absolute -left-24 -top-48 h-[28rem] w-[28rem] rounded-full bg-brand-500/20 blur-3xl" />
-        <div className="absolute -right-28 -top-36 h-[24rem] w-[24rem] rounded-full bg-fuchsia-500/18 blur-3xl" />
-        <div className="absolute -bottom-44 left-1/3 h-[26rem] w-[26rem] rounded-full bg-cyan-500/15 blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.07]"
+          className="absolute inset-x-0 -top-24 h-72 opacity-35 dark:opacity-75"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(14, 165, 233, 0.26) 0%, rgba(59, 130, 246, 0.18) 36%, rgba(147, 51, 234, 0.2) 100%)',
+            filter: 'blur(34px)'
+          }}
+        />
+        <div className="absolute -left-28 -top-44 h-[26rem] w-[26rem] rounded-full bg-brand-500/12 dark:bg-brand-500/28 blur-3xl" />
+        <div className="absolute -right-24 -top-40 h-[24rem] w-[24rem] rounded-full bg-fuchsia-500/10 dark:bg-fuchsia-500/26 blur-3xl" />
+        <div className="absolute -bottom-52 left-1/3 h-[22rem] w-[22rem] rounded-full bg-cyan-500/8 dark:bg-cyan-500/16 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.05] dark:opacity-[0.08]"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.4) 1px, transparent 0)',
             backgroundSize: '14px 14px'
