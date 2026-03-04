@@ -818,18 +818,27 @@ export const MieruPage: React.FC = () => {
           }}
         />
         <div
-          className="absolute inset-x-0 -top-24 h-72 opacity-35 dark:opacity-75"
+          className="absolute inset-x-0 -top-28 h-80 opacity-55 dark:opacity-95"
           style={{
             background:
-              'linear-gradient(90deg, rgba(14, 165, 233, 0.26) 0%, rgba(59, 130, 246, 0.18) 36%, rgba(147, 51, 234, 0.2) 100%)',
-            filter: 'blur(34px)'
+              'linear-gradient(90deg, rgba(14, 165, 233, 0.42) 0%, rgba(59, 130, 246, 0.32) 38%, rgba(147, 51, 234, 0.38) 100%)',
+            filter: 'blur(44px)'
           }}
         />
-        <div className="absolute -left-28 -top-44 h-[26rem] w-[26rem] rounded-full bg-brand-500/12 dark:bg-brand-500/28 blur-3xl" />
-        <div className="absolute -right-24 -top-40 h-[24rem] w-[24rem] rounded-full bg-fuchsia-500/10 dark:bg-fuchsia-500/26 blur-3xl" />
-        <div className="absolute -bottom-52 left-1/3 h-[22rem] w-[22rem] rounded-full bg-cyan-500/8 dark:bg-cyan-500/16 blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.05] dark:opacity-[0.08]"
+          className="absolute inset-x-8 -top-8 h-44 opacity-35 dark:opacity-70"
+          style={{
+            background:
+              'linear-gradient(112deg, transparent 4%, rgba(56, 189, 248, 0.36) 34%, rgba(168, 85, 247, 0.34) 68%, transparent 96%)',
+            filter: 'blur(28px)'
+          }}
+        />
+        <div className="absolute -left-32 -top-48 h-[30rem] w-[30rem] rounded-full bg-brand-500/22 dark:bg-brand-500/40 blur-3xl" />
+        <div className="absolute -right-28 -top-44 h-[28rem] w-[28rem] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-500/38 blur-3xl" />
+        <div className="absolute left-[34%] -top-36 h-[22rem] w-[22rem] rounded-full bg-sky-400/14 dark:bg-sky-400/24 blur-3xl" />
+        <div className="absolute -bottom-56 left-1/3 h-[24rem] w-[24rem] rounded-full bg-cyan-500/10 dark:bg-cyan-500/20 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.07] dark:opacity-[0.10]"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.4) 1px, transparent 0)',
             backgroundSize: '14px 14px'
