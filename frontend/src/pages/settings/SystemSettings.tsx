@@ -875,7 +875,7 @@ const SystemSettings: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 [&>section]:p-4 [&>section]:sm:p-6 [&>div>section]:p-4 [&>div>section]:sm:p-6">
       <Card>
         <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">System Information</h3>
         {stats ? (
@@ -1768,6 +1768,33 @@ const SystemSettings: React.FC = () => {
           Sync Confdir
         </Button>
       </Card>
+
+      <div className="sticky bottom-2 z-20 -mx-1 border-t border-line/70 bg-panel/85 px-1 pb-1 pt-3 backdrop-blur sm:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={refreshXrayStatus}
+            loading={xrayStatusQuery.isFetching}
+          >
+            Refresh Runtime
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              void handleReloadConfig();
+            }}
+            loading={reloadXrayConfigMutation.isPending}
+            disabled={restartXrayMutation.isPending}
+          >
+            {xrayStatus?.mode === 'docker' ? 'Apply Config' : 'Reload Config'}
+          </Button>
+        </div>
+      </div>
 
       <ConfirmDialog
         open={Boolean(confirmDialog)}

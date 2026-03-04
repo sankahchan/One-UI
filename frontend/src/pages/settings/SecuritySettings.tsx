@@ -683,7 +683,7 @@ const SecuritySettings: React.FC = () => {
   const canUpdateProfile = Boolean(currentPassword.trim()) && (hasUsernameChange || hasPasswordChange);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 [&>section]:p-4 [&>section]:sm:p-6">
       <Card>
         <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Administrator Security</h3>
         {isLoading ? (
@@ -1336,6 +1336,31 @@ const SecuritySettings: React.FC = () => {
       </Card>
       </>
       ) : null}
+
+      <div className="sticky bottom-2 z-20 -mx-1 border-t border-line/70 bg-panel/85 px-1 pb-1 pt-3 backdrop-blur sm:hidden">
+        <div className={`grid gap-2 ${isSuperAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={() => updateProfile.mutate()}
+            loading={updateProfile.isPending}
+            disabled={!canUpdateProfile}
+          >
+            Save Credentials
+          </Button>
+          {isSuperAdmin ? (
+            <Button
+              size="sm"
+              className="w-full"
+              variant="secondary"
+              onClick={() => updateSecurityPolicies.mutate()}
+              loading={updateSecurityPolicies.isPending || securityPoliciesQuery.isFetching}
+            >
+              Save Policies
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 };
