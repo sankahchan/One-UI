@@ -160,6 +160,10 @@ const BrandingSettings: React.FC = () => {
 
     return groups;
   }, []);
+  const allBuiltInAppIds = useMemo(
+    () => Array.from(new Set(BUILTIN_CLIENT_APPS.map((app) => app.id))),
+    []
+  );
 
   const previewPrimary = useMemo(
     () => normalizeHexColor(primaryColor, '#3b82f6'),
@@ -747,7 +751,7 @@ const BrandingSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
           <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 xl:col-span-8">
             <h4 className="mb-3 text-sm font-semibold text-foreground">Identity & Copy</h4>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -958,9 +962,29 @@ const BrandingSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
           <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 xl:col-span-2">
-            <h4 className="text-sm font-semibold text-foreground">Enabled Apps</h4>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-foreground">Enabled Apps</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEnabledApps(allBuiltInAppIds)}
+                >
+                  Select all
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEnabledApps([])}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
             <p className="mt-1 text-xs text-muted">Choose which one-click import tiles appear on the subscription page.</p>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {(['android', 'ios', 'windows'] as const).map((platformKey) => (
