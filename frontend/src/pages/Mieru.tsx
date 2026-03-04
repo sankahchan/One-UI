@@ -808,7 +808,27 @@ export const MieruPage: React.FC = () => {
   const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
 
   return (
-    <div className="space-y-6">
+    <div className="relative isolate space-y-6">
+      <div className="pointer-events-none absolute inset-[-8%] -z-10 overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(140deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 42%, hsl(var(--color-app)) 100%)'
+          }}
+        />
+        <div className="absolute -left-24 -top-48 h-[28rem] w-[28rem] rounded-full bg-brand-500/20 blur-3xl" />
+        <div className="absolute -right-28 -top-36 h-[24rem] w-[24rem] rounded-full bg-fuchsia-500/18 blur-3xl" />
+        <div className="absolute -bottom-44 left-1/3 h-[26rem] w-[26rem] rounded-full bg-cyan-500/15 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.4) 1px, transparent 0)',
+            backgroundSize: '14px 14px'
+          }}
+        />
+      </div>
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">{t('nav.mieru', { defaultValue: 'Mieru' })}</h1>
