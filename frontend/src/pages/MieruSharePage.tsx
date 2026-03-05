@@ -237,7 +237,16 @@ export const MieruSharePage = () => {
   }, []);
 
   useEffect(() => {
-    if (!qrAnchorRef.current || qrVisible || typeof IntersectionObserver === 'undefined') {
+    if (qrVisible) {
+      return undefined;
+    }
+
+    if (isMobileViewport || typeof IntersectionObserver === 'undefined') {
+      setQrVisible(true);
+      return undefined;
+    }
+
+    if (!qrAnchorRef.current) {
       return undefined;
     }
 
@@ -253,7 +262,7 @@ export const MieruSharePage = () => {
 
     observer.observe(qrAnchorRef.current);
     return () => observer.disconnect();
-  }, [qrVisible]);
+  }, [isMobileViewport, qrVisible]);
 
   const infoUrl = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -432,7 +441,7 @@ export const MieruSharePage = () => {
   const usageLimitLabel = usage && usage.limitBytes > 0 ? formatBytes(usage.limitBytes) : '∞';
 
   return (
-    <div className="relative min-h-screen px-4 pb-28 pt-6 text-foreground sm:px-6 sm:pb-10 sm:pt-8">
+    <div className="relative min-h-screen px-4 pb-44 pt-6 text-foreground sm:px-6 sm:pb-10 sm:pt-8">
       <div className="pointer-events-none fixed inset-0 -z-20 bg-slate-950" />
       <div
         className="pointer-events-none fixed inset-0 -z-10 opacity-90"
@@ -822,8 +831,8 @@ export const MieruSharePage = () => {
         </div>
 
         {isMobileViewport && subscriptionUrl ? (
-          <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 lg:hidden ${reduceVisualEffects ? '' : 'backdrop-blur'}`}>
-            <div className="mx-auto flex max-w-6xl gap-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+          <div className={`fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 lg:hidden ${reduceVisualEffects ? '' : 'backdrop-blur'}`}>
+            <div className="mx-auto flex max-w-6xl gap-2 px-3 pb-2 pt-2">
               {recommendedApp?.importUrl && recommendedLaunchUrls ? (
                 <Button
                   className="flex-1"

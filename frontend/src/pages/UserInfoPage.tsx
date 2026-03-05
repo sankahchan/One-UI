@@ -304,7 +304,16 @@ export const UserInfoPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!qrAnchorRef.current || qrVisible || typeof IntersectionObserver === 'undefined') {
+    if (qrVisible) {
+      return undefined;
+    }
+
+    if (isMobileViewport || typeof IntersectionObserver === 'undefined') {
+      setQrVisible(true);
+      return undefined;
+    }
+
+    if (!qrAnchorRef.current) {
       return undefined;
     }
 
@@ -320,7 +329,7 @@ export const UserInfoPage = () => {
 
     observer.observe(qrAnchorRef.current);
     return () => observer.disconnect();
-  }, [qrVisible]);
+  }, [isMobileViewport, qrVisible]);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -885,7 +894,7 @@ export const UserInfoPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen px-4 pb-28 pt-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-8">
+    <div className="relative min-h-screen px-4 pb-44 pt-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-8">
       {hasWallpaper ? (
         <>
           <div
@@ -1912,8 +1921,8 @@ export const UserInfoPage = () => {
         </Card>
 
         {isMobileViewport && selectedUrl ? (
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
-            <div className="mx-auto flex max-w-5xl gap-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+          <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
+            <div className="mx-auto flex max-w-5xl gap-2 px-3 pb-2 pt-2">
               {primaryImportApp?.importUrl && primaryImportLaunchUrls ? (
                 <Button
                   className="flex-1"
