@@ -9,10 +9,14 @@
         "success": "အောင်မြင်ပါသည်",
         "error": "အမှား",
         "copied": "ကူးယူပြီးပါပြီ",
+        "copy": "ကူးရန်",
+        "copyFailed": "ကူးယူမရပါ။",
         "export": "CSV ထုတ်ယူရန်",
         "refresh": "ပြန်လည်ဖော်ပြရန်",
+        "retry": "ထပ်စမ်းရန်",
         "loading": "တင်နေသည်...",
         "noData": "ဒေတာမရှိပါ",
+        "notSet": "မသတ်မှတ်ရသေး",
         "confirm": "အတည်ပြုရန်",
         "back": "နောက်သို့",
         "previous": "ယခင်",
@@ -69,6 +73,8 @@
         "disconnect": "ချိတ်ဆက်မှုဖြုတ်ရန်",
         "regenerate": "ပြန်ထုတ်ရန်",
         "extend": "တိုးချဲ့ရန်",
+        "createdAt": "ဖန်တီးသည့်နေ့",
+        "updatedAt": "ပြင်ဆင်သည့်နေ့",
         "open": "ဖွင့်ရန်",
         "bulkActions": "အစုလိုက် လုပ်ဆောင်ချက်များ",
         "clearSelection": "ရွေးထားမှု ရှင်းရန်",
@@ -100,6 +106,10 @@
         "loginButton": "ဝင်ရောက်မည်",
         "loggingIn": "ဝင်ရောက်နေသည်...",
         "welcomeBack": "ပြန်လည်ကြိုဆိုပါသည်"
+    },
+    "mieru": {
+        "quotaDays": "Quota ရက်",
+        "quotaGigabytes": "Quota GB"
     },
     "autoRefresh": {
         "line": "အလိုအလျောက် ပြန်လည်ဖော်ပြ: {{status}} ({{seconds}} စက္ကန့်)",
@@ -1148,11 +1158,18 @@
             "wireguard": "WireGuard",
             "mieru": "Mieru"
         },
+        "steps": {
+            "pickFormat": "အဆင့် ၁ · ဖော်မတ်ရွေးရန်",
+            "import": "အဆင့် ၂ · Import",
+            "verify": "အဆင့် ၃ · စစ်ဆေးရန်"
+        },
         "subscription": {
             "title": "Subscription",
             "description": "URL ကို ကူးယူရန်၊ QR ကို scan လုပ်ရန်၊ သို့မဟုတ် one-click import ကို သုံးနိုင်ပါသည်။",
             "mieruTitle": "Mieru Access",
             "mieruDescription": "QR code ကို scan လုပ်ပါ၊ import URL ကို ကူးယူပါ၊ supported client ဖြင့်လည်း ဖွင့်နိုင်ပါသည်။",
+            "mieruShareTitle": "မီယဲရူ အသုံးပြုခွင့်",
+            "mieruShareSubtitle": "ဤ Mieru profile ကို compatible client ထဲသို့ import လုပ်ပါ၊ သို့မဟုတ် raw URL ကို ကူးယူပါ။",
             "formatHint": {
                 "clash": "Clash / Meta client များ",
                 "v2ray": "V2Ray subscription",
@@ -1164,28 +1181,47 @@
             "hideLargeQr": "QR အကြီး ဖျောက်ရန်",
             "urlLabel": "Subscription URL",
             "mieruUrlLabel": "Mieru Import URL",
+            "importUrl": "Import URL",
             "downloadClashYaml": "Clash YAML ဒေါင်းလုဒ်",
             "copyImportUrl": "Import URL ကူးရန်",
+            "copySuccess": "Import URL ကူးယူပြီးပါပြီ။",
             "openImportUrl": "Import URL ဖွင့်ရန်",
+            "openCurrentUrl": "လက်ရှိ URL ဖွင့်ရန်",
+            "openInApp": "{{app}} တွင် ဖွင့်ရန်",
+            "openInAppShort": "App တွင်ဖွင့်ရန်",
             "copySharePage": "Share စာမျက်နှာ ကူးရန်",
+            "copyCurrentFormat": "လက်ရှိဖော်မတ် URL ကူးရန်",
+            "copyAlternateFormat": "{{format}} URL ကူးရန်",
             "mieruQuickTipTitle": "Import အကြံပြုချက်",
             "quickTipTitle": "အမြန် အကြံပြုချက်",
             "quickTipBody": "Deep link နည်းဖြင့် import မရပါက subscription URL ကို ကူးယူပြီး app ထဲက “Import from URL” ကို အသုံးပြုပါ။",
             "mieruQuickTipBody": "Client က support လုပ်ပါက “One-Click Import” ကို သုံးပါ။ မရပါက Mieru URL ကို ကူးယူပြီး app ထဲမှ import လုပ်ပါ။",
+            "importFailedTitle": "Import မအောင်မြင်ဘူးလား?",
             "stats": {
                 "validUntil": "အသုံးပြုနိုင်သည့် နောက်ဆုံးရက်",
                 "daysRemaining": "ကျန်ရက်",
                 "dataUsed": "အသုံးပြုပြီး ဒေတာ",
                 "dataRemaining": "ကျန်ဒေတာ",
-                "unlimited": "အကန့်အသတ်မရှိ"
+                "unlimited": "အကန့်အသတ်မရှိ",
+                "lastUpdated": "နောက်ဆုံး အပ်ဒိတ်",
+                "endpoint": "Endpoint",
+                "healthy": "ကောင်းမွန်",
+                "degraded": "မတည်ငြိမ်",
+                "checking": "စစ်ဆေးနေသည်...",
+                "latency": "ကြန့်ကြာချိန်: {{ms}} ms",
+                "expiryHealth": "သက်တမ်း အခြေအနေ",
+                "quotaHealth": "Quota အခြေအနေ",
+                "dataRemainingValue": "{{value}} ကျန်"
             }
         },
         "addToApp": {
             "title": "App ထဲသို့ ထည့်ရန်",
+            "subtitle": "Support ရှိသည့် app တွင် one-click import ကို သုံးပါ၊ မရပါက URL ကို ကူး၍ app ထဲတွင် manual import လုပ်ပါ။",
             "description": "သင့်စက်အမျိုးအစားကို ရွေးပြီး တစ်ချက်နှိပ်၍ import လုပ်နိုင်ပါသည်။",
             "mieruTitle": "Third Party Client Software",
             "mieruDescription": "Compatible client ကို install လုပ်ပြီး Mieru URL ကို one-click သို့မဟုတ် manual copy ဖြင့် import လုပ်ပါ။",
             "copyFallback": "Copy URL fallback ရနိုင်သည်",
+            "importFallbackCopied": "App handoff မအောင်မြင်ပါ။ Subscription URL ကို အလိုအလျောက် ကူးယူပေးထားသည်။",
             "platform": {
                 "android": "Android",
                 "ios": "iOS",
@@ -1209,6 +1245,23 @@
             "oneClickImport": "တစ်ချက်နှိပ် Import",
             "copyUrl": "URL ကူးရန်",
             "getApp": "App ရယူရန်"
+        },
+        "troubleshoot": {
+            "clash1": "Clash/Meta ကို ဖွင့်ပြီး URL မှ Import ကို ရွေးပါ။",
+            "clash2": "Parse error ဖြစ်ပါက V2Ray tab သို့ ပြောင်းပြီး ထပ်စမ်းပါ။",
+            "clash3": "Import ပြီးနောက် app ထဲတွင် profile refresh လုပ်ပါ။",
+            "singbox1": "Sing-box format URL ကို သင့် client တွင် အသုံးပြုပါ။",
+            "singbox2": "App က ပယ်ချပါက V2Ray format ကို fallback အဖြစ် စမ်းပါ။",
+            "singbox3": "App ကို ပြန်ဖွင့်ပြီး sync/update လုပ်ပါ။",
+            "wireguard1": "WireGuard app ကို ဖွင့်ပြီး URL မှ import လုပ်ပါ။",
+            "wireguard2": "မရပါက Open Current URL ကို နှိပ်ပြီး file အဖြစ် သိမ်းကာ import လုပ်ပါ။",
+            "wireguard3": "Import ပြီးနောက် tunnel ကို ဖွင့်ပါ။",
+            "mieru1": "Compatible client များအတွက် One-Click Import ကို အရင်သုံးပါ။",
+            "mieru2": "Handoff မအောင်မြင်ပါက Mieru URL ကို ကူးယူပြီး manual import လုပ်ပါ။",
+            "mieru3": "App ကို restart လုပ်ပြီး profile list ကို refresh လုပ်ပါ။",
+            "v2ray1": "Client app ကို ဖွင့်ပြီး Import from URL ကို ရွေးပါ။",
+            "v2ray2": "Parse မရပါက Clash သို့မဟုတ် Sing-box tab သို့ ပြောင်းစမ်းပါ။",
+            "v2ray3": "Import ပြီးနောက် profile update/refresh လုပ်ပါ။"
         },
         "nodes": {
             "title": "Node တစ်ခုချင်း",

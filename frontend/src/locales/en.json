@@ -9,10 +9,14 @@
         "success": "Success",
         "error": "Error",
         "copied": "Copied",
+        "copy": "Copy",
+        "copyFailed": "Failed to copy.",
         "export": "Export CSV",
         "refresh": "Refresh",
+        "retry": "Retry",
         "loading": "Loading...",
         "noData": "No data available",
+        "notSet": "Not set",
         "confirm": "Confirm",
         "back": "Back",
         "previous": "Previous",
@@ -69,6 +73,8 @@
         "disconnect": "Disconnect",
         "regenerate": "Regenerate",
         "extend": "Extend",
+        "createdAt": "Created",
+        "updatedAt": "Updated",
         "open": "Open",
         "bulkActions": "Bulk actions",
         "clearSelection": "Clear selection",
@@ -100,6 +106,10 @@
         "loginButton": "Sign In",
         "loggingIn": "Signing in...",
         "welcomeBack": "Welcome back"
+    },
+    "mieru": {
+        "quotaDays": "Quota Days",
+        "quotaGigabytes": "Quota GB"
     },
     "autoRefresh": {
         "line": "Auto refresh: {{status}} ({{seconds}}s)",
@@ -1431,11 +1441,18 @@
             "wireguard": "WireGuard",
             "mieru": "Mieru"
         },
+        "steps": {
+            "pickFormat": "Step 1 · Pick format",
+            "import": "Step 2 · Import",
+            "verify": "Step 3 · Verify"
+        },
         "subscription": {
             "title": "Subscription",
             "description": "Copy the URL, scan the QR code, or use one-click import.",
             "mieruTitle": "Mieru Access",
             "mieruDescription": "Scan the QR code, copy the import URL, or launch a supported client.",
+            "mieruShareTitle": "Mieru Access",
+            "mieruShareSubtitle": "Import this Mieru profile into a compatible client or copy the raw URL.",
             "formatHint": {
                 "clash": "Clash / Meta clients",
                 "v2ray": "V2Ray subscription",
@@ -1447,28 +1464,47 @@
             "hideLargeQr": "Hide Large QR",
             "urlLabel": "Subscription URL",
             "mieruUrlLabel": "Mieru Import URL",
+            "importUrl": "Import URL",
             "downloadClashYaml": "Download Clash YAML",
             "copyImportUrl": "Copy Import URL",
+            "copySuccess": "Import URL copied.",
             "openImportUrl": "Open Import URL",
+            "openCurrentUrl": "Open Current URL",
+            "openInApp": "Open in {{app}}",
+            "openInAppShort": "Open in App",
             "copySharePage": "Copy Share Page",
+            "copyCurrentFormat": "Copy current format URL",
+            "copyAlternateFormat": "Copy {{format}} URL",
             "mieruQuickTipTitle": "Import tip",
             "quickTipTitle": "Quick tip",
             "quickTipBody": "If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.",
             "mieruQuickTipBody": "Use “One-Click Import” when your client supports it. Otherwise copy the Mieru URL and import it from inside the app.",
+            "importFailedTitle": "Import failed?",
             "stats": {
                 "validUntil": "Valid Until",
                 "daysRemaining": "Days Remaining",
                 "dataUsed": "Data Used",
                 "dataRemaining": "Data Remaining",
-                "unlimited": "Unlimited"
+                "unlimited": "Unlimited",
+                "lastUpdated": "Last Updated",
+                "endpoint": "Endpoint",
+                "healthy": "Healthy",
+                "degraded": "Degraded",
+                "checking": "Checking...",
+                "latency": "Latency: {{ms}} ms",
+                "expiryHealth": "Expiry Health",
+                "quotaHealth": "Quota Health",
+                "dataRemainingValue": "{{value}} remaining"
             }
         },
         "addToApp": {
             "title": "Add To App",
+            "subtitle": "Use one-click import where supported, or copy the URL into the app manually.",
             "description": "Choose your device and import with one tap.",
             "mieruTitle": "Third Party Client Software",
             "mieruDescription": "Install a compatible client, then import your Mieru URL with one click or manual copy.",
             "copyFallback": "Copy URL fallback available",
+            "importFallbackCopied": "App handoff failed. Subscription URL was copied instead.",
             "platform": {
                 "android": "Android",
                 "ios": "iOS",
@@ -1492,6 +1528,23 @@
             "oneClickImport": "One-Click Import",
             "copyUrl": "Copy URL",
             "getApp": "Get App"
+        },
+        "troubleshoot": {
+            "clash1": "Open Clash/Meta and use Import from URL.",
+            "clash2": "If parsing fails, switch to V2Ray tab and retry.",
+            "clash3": "Refresh profile in app after import.",
+            "singbox1": "Use the Sing-box format URL in your client.",
+            "singbox2": "If app rejects it, try V2Ray format as fallback.",
+            "singbox3": "Re-open app and trigger sync/update.",
+            "wireguard1": "Open WireGuard app and import from URL.",
+            "wireguard2": "If blocked, use Open Current URL then Save As file.",
+            "wireguard3": "Activate the tunnel after import.",
+            "mieru1": "Use One-Click Import first for compatible clients.",
+            "mieru2": "If handoff fails, copy the Mieru URL and import manually.",
+            "mieru3": "Restart app and refresh profile list.",
+            "v2ray1": "Open your client and choose Import from URL.",
+            "v2ray2": "If app can’t parse, switch to Clash or Sing-box tab.",
+            "v2ray3": "Run update/refresh profile after import."
         },
         "nodes": {
             "title": "Individual Nodes",

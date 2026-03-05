@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Copy, ExternalLink, Link2, QrCode, Smartphone } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CheckCircle2, Clock, Copy, ExternalLink, Link2, QrCode, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -8,6 +8,7 @@ import { Button } from '../components/atoms/Button';
 import { Card } from '../components/atoms/Card';
 import { QRCodeDisplay } from '../components/molecules/QRCodeDisplay';
 import { useToast } from '../hooks/useToast';
+import { changeLanguage, languages } from '../i18n';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { openDeepLinksWithFallback } from '../utils/deepLink';
 import {
@@ -67,29 +68,37 @@ interface MieruShareResponse {
 const MIERU_APP_GROUPS: Array<{
   key: 'desktop' | 'android' | 'ios';
   platform: Platform;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  defaultTitle: string;
+  subtitleKey: string;
+  defaultSubtitle: string;
   preferredIds: string[];
 }> = [
   {
     key: 'desktop',
     platform: 'windows',
-    title: 'Desktop',
-    subtitle: 'Windows, macOS, Linux',
+    titleKey: 'portal.addToApp.mieruGroups.desktop.title',
+    defaultTitle: 'Desktop',
+    subtitleKey: 'portal.addToApp.mieruGroups.desktop.subtitle',
+    defaultSubtitle: 'Windows, macOS, Linux',
     preferredIds: ['clashvergerev', 'mihomoparty', 'nyamebox']
   },
   {
     key: 'android',
     platform: 'android',
-    title: 'Android',
-    subtitle: 'Phones and tablets',
+    titleKey: 'portal.addToApp.mieruGroups.android.title',
+    defaultTitle: 'Android',
+    subtitleKey: 'portal.addToApp.mieruGroups.android.subtitle',
+    defaultSubtitle: 'Phones and tablets',
     preferredIds: ['clashmeta_android', 'clashmi', 'exclave', 'husi_mieru_plugin', 'karing', 'nekobox_mieru_plugin']
   },
   {
     key: 'ios',
     platform: 'ios',
-    title: 'iOS',
-    subtitle: 'iPhone and iPad',
+    titleKey: 'portal.addToApp.mieruGroups.ios.title',
+    defaultTitle: 'iOS',
+    subtitleKey: 'portal.addToApp.mieruGroups.ios.subtitle',
+    defaultSubtitle: 'iPhone and iPad',
     preferredIds: ['clashmi', 'karing']
   }
 ];
@@ -114,14 +123,14 @@ function orderAppsByPreferredIds(apps: ResolvedClientApp[], preferredIds: string
   });
 }
 
-function formatTimestamp(value: string | null): string {
+function formatTimestamp(value: string | null, fallback: string): string {
   if (!value) {
-    return 'Not set';
+    return fallback;
   }
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return 'Not set';
+    return fallback;
   }
 
   return parsed.toLocaleString();
@@ -136,20 +145,20 @@ function getQuotaMetric(quotas: ShareQuota[], key: 'days' | 'megabytes'): number
   return Number(value);
 }
 
-function formatQuotaDays(quotas: ShareQuota[]): string {
+function formatQuotaDays(quotas: ShareQuota[], unlimitedLabel: string): string {
   const days = getQuotaMetric(quotas, 'days');
-  return days === null ? 'Unlimited' : String(days);
+  return days === null ? unlimitedLabel : String(days);
 }
 
-function formatQuotaGigabytes(quotas: ShareQuota[]): string {
+function formatQuotaGigabytes(quotas: ShareQuota[], unlimitedLabel: string): string {
   const megabytes = getQuotaMetric(quotas, 'megabytes');
   if (megabytes === null) {
-    return 'Unlimited';
+    return unlimitedLabel;
   }
 
   const gb = megabytes / 1024;
   if (!Number.isFinite(gb)) {
-    return 'Unlimited';
+    return unlimitedLabel;
   }
 
   return gb.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
@@ -176,10 +185,75 @@ function formatBytes(bytes: number | null | undefined): string {
 export const MieruSharePage = () => {
   const { token } = useParams<{ token: string }>();
   const toast = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [copiedKey, setCopiedKey] = useState('');
   const [preferredPlatform, setPreferredPlatform] = useState<Platform>(() => detectPlatform());
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
+  });
+  const [isPageVisible, setIsPageVisible] = useState(() => {
+    if (typeof document === 'undefined') {
+      return true;
+    }
+    return document.visibilityState !== 'hidden';
+  });
+  const [qrVisible, setQrVisible] = useState(false);
+  const qrAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const media = window.matchMedia('(max-width: 1023px), (pointer: coarse)');
+    const update = (event?: MediaQueryListEvent) => {
+      setIsMobileViewport(event ? event.matches : media.matches);
+    };
+    update();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsPageVisible(document.visibilityState !== 'hidden');
+    };
+
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!qrAnchorRef.current || qrVisible || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setQrVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '260px 0px' }
+    );
+
+    observer.observe(qrAnchorRef.current);
+    return () => observer.disconnect();
+  }, [qrVisible]);
 
   const infoUrl = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -203,13 +277,22 @@ export const MieruSharePage = () => {
 
       return payload.data;
     },
-    staleTime: 30_000
+    staleTime: 20_000,
+    refetchInterval: isPageVisible ? 45_000 : false
   });
 
+  const activeLanguageCode = useMemo(() => {
+    const normalized = String(i18n.resolvedLanguage || i18n.language || 'en')
+      .toLowerCase()
+      .split('-')[0];
+    return languages.some((entry) => entry.code === normalized) ? normalized : 'en';
+  }, [i18n.language, i18n.resolvedLanguage]);
   const subscriptionUrl = infoQuery.data?.subscription?.url || '';
-  const groupedApps = useMemo(
-    () => MIERU_APP_GROUPS.map((group) => ({
+  const groupedApps = useMemo(() => {
+    return MIERU_APP_GROUPS.map((group) => ({
       ...group,
+      title: t(group.titleKey, { defaultValue: group.defaultTitle }),
+      subtitle: t(group.subtitleKey, { defaultValue: group.defaultSubtitle }),
       apps: orderAppsByPreferredIds(
         resolveSubscriptionApps({
           platform: group.platform,
@@ -218,12 +301,46 @@ export const MieruSharePage = () => {
         }),
         group.preferredIds
       )
-    })).filter((group) => group.apps.length > 0),
-    [subscriptionUrl]
-  );
+    })).filter((group) => group.apps.length > 0);
+  }, [subscriptionUrl, t]);
   const activeGroup = groupedApps.find((group) => group.platform === preferredPlatform) || groupedApps[0] || null;
+  const recommendedApp = useMemo(() => {
+    if (!activeGroup) {
+      return null;
+    }
+    return activeGroup.apps.find((entry) => Boolean(entry.importUrl)) || activeGroup.apps[0] || null;
+  }, [activeGroup]);
+  const recommendedManualUrl = recommendedApp?.manualUrl || subscriptionUrl;
+  const recommendedLaunchUrls = useMemo(() => {
+    if (!recommendedApp || !recommendedApp.importUrl) {
+      return null;
+    }
+    return buildImportLaunchUrls({
+      appId: recommendedApp.id,
+      importUrl: recommendedApp.importUrl,
+      manualUrl: recommendedManualUrl
+    });
+  }, [recommendedApp, recommendedManualUrl]);
+  const latestUpdatedAt = infoQuery.dataUpdatedAt ? new Date(infoQuery.dataUpdatedAt) : null;
+  const endpointStatus = infoQuery.isError
+    ? 'degraded'
+    : infoQuery.isFetching
+      ? 'checking'
+      : 'healthy';
+  const troubleshootingTips = useMemo(
+    () => [
+      t('portal.troubleshoot.mieru1', { defaultValue: 'Use One-Click Import first for compatible clients.' }),
+      t('portal.troubleshoot.mieru2', { defaultValue: 'If handoff fails, copy the Mieru URL and import manually.' }),
+      t('portal.troubleshoot.mieru3', { defaultValue: 'Restart app and refresh profile list.' })
+    ],
+    [t]
+  );
 
   const copyToClipboard = async (value: string, key: string) => {
+    if (!value) {
+      return;
+    }
+
     const copied = await copyTextToClipboard(value);
     if (!copied) {
       toast.error(
@@ -244,18 +361,23 @@ export const MieruSharePage = () => {
     );
   };
 
-  const onOneClickImport = (app: ResolvedClientApp) => {
+  const onOneClickImport = (app: ResolvedClientApp, copyKey: string) => {
+    const manualUrl = app.manualUrl || subscriptionUrl;
     const launchUrls = buildImportLaunchUrls({
       appId: app.id,
       importUrl: app.importUrl,
-      manualUrl: app.manualUrl || subscriptionUrl
+      manualUrl
     });
 
     openDeepLinksWithFallback(launchUrls, {
       onExhausted: () => {
-        if (app.storeLink) {
-          window.open(app.storeLink, '_blank', 'noopener,noreferrer');
-        }
+        void copyToClipboard(manualUrl, copyKey);
+        toast.warning(
+          t('common.warning', { defaultValue: 'Warning' }),
+          t('portal.addToApp.importFallbackCopied', {
+            defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+          })
+        );
       }
     });
   };
@@ -272,13 +394,17 @@ export const MieruSharePage = () => {
     return (
       <div className="min-h-screen bg-panel px-4 py-10 text-foreground">
         <div className="mx-auto max-w-3xl">
-          <Card className="space-y-3">
+          <Card className="space-y-4">
             <h1 className="text-2xl font-bold text-foreground">
               {t('portal.subscription.mieruShareTitle', { defaultValue: 'Mieru Access' })}
             </h1>
             <p className="text-sm text-muted">
               {String(infoQuery.error instanceof Error ? infoQuery.error.message : 'Unable to load this Mieru share page.')}
             </p>
+            <Button variant="secondary" onClick={() => void infoQuery.refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('common.retry', { defaultValue: 'Retry' })}
+            </Button>
           </Card>
         </div>
       </div>
@@ -286,31 +412,71 @@ export const MieruSharePage = () => {
   }
 
   const { user } = infoQuery.data;
-  const quotaDays = formatQuotaDays(user.quotas);
-  const quotaGigabytes = formatQuotaGigabytes(user.quotas);
+  const unlimitedLabel = t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' });
+  const quotaDays = formatQuotaDays(user.quotas, unlimitedLabel);
+  const quotaGigabytes = formatQuotaGigabytes(user.quotas, unlimitedLabel);
+  const notSetLabel = t('common.notSet', { defaultValue: 'Not set' });
   const usage = infoQuery.data.usage;
   const usagePercent = Math.min(Math.max(Number(usage?.percent || 0), 0), 100);
   const usageLimitLabel = usage && usage.limitBytes > 0 ? formatBytes(usage.limitBytes) : '∞';
 
   return (
-    <div className="min-h-screen bg-panel px-4 py-8 text-foreground sm:px-6">
+    <div className="relative min-h-screen px-4 pb-28 pt-6 text-foreground sm:px-6 sm:pb-10 sm:pt-8">
+      <div className="pointer-events-none fixed inset-0 -z-20 bg-slate-950" />
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 opacity-90"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 10%, rgba(59,130,246,.35), transparent 42%), radial-gradient(circle at 80% 16%, rgba(99,102,241,.28), transparent 40%), linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
+        }}
+      />
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-400">ONE-UI</p>
-          <h1 className="text-3xl font-bold text-foreground">
-            {t('portal.subscription.mieruShareTitle', { defaultValue: 'Mieru Access' })}
-          </h1>
-          <p className="text-sm text-muted">
-            {t('portal.subscription.mieruShareSubtitle', {
-              defaultValue: 'Import this Mieru profile into a compatible client or copy the raw URL.'
-            })}
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-300">ONE-UI</p>
+            <h1 className="text-3xl font-bold text-slate-50">
+              {t('portal.subscription.mieruShareTitle', { defaultValue: 'Mieru Access' })}
+            </h1>
+            <p className="text-sm text-slate-300/85">
+              {t('portal.subscription.mieruShareSubtitle', {
+                defaultValue: 'Import this Mieru profile into a compatible client or copy the raw URL.'
+              })}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 rounded-xl border border-white/15 bg-slate-900/55 px-3 py-2 text-sm text-slate-100">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {t('portal.language', { defaultValue: 'Language' })}
+              </span>
+              <select
+                value={activeLanguageCode}
+                onChange={(event) => {
+                  changeLanguage(event.target.value);
+                }}
+                className="rounded-md border border-white/15 bg-slate-900/80 px-2 py-1 text-sm text-slate-100 focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                aria-label={t('portal.language', { defaultValue: 'Language' })}
+              >
+                {languages.map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.nativeName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button variant="secondary" onClick={() => void infoQuery.refetch()} loading={infoQuery.isFetching}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('common.refresh', { defaultValue: 'Refresh' })}
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[300px_minmax(0,1fr)]">
-          <Card className="flex flex-col items-center gap-4 xl:self-start">
-            <div className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
-              <QRCodeDisplay text={subscriptionUrl} size={240} />
+          <Card className="flex flex-col items-center gap-4 bg-slate-900/55 xl:self-start">
+            <div ref={qrAnchorRef} className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
+              {qrVisible ? (
+                <QRCodeDisplay text={subscriptionUrl} size={240} />
+              ) : (
+                <div className="h-[240px] w-[240px] animate-pulse rounded-2xl bg-slate-200/75" />
+              )}
             </div>
             <div className="flex w-full flex-col gap-2">
               <Button onClick={() => void copyToClipboard(subscriptionUrl, 'subscription')}>
@@ -329,7 +495,7 @@ export const MieruSharePage = () => {
             </div>
           </Card>
 
-          <Card className="space-y-4">
+          <Card className="space-y-4 bg-slate-900/55">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">
@@ -365,7 +531,7 @@ export const MieruSharePage = () => {
                       ? 'bg-gradient-to-r from-amber-500 to-orange-400'
                       : 'bg-gradient-to-r from-brand-500 to-cyan-400'
                   }`}
-                  style={{ width: `${usagePercent}%` }}
+                    style={{ width: `${usagePercent}%` }}
                 />
               </div>
               <div className="mt-3 grid gap-3 text-xs text-muted sm:grid-cols-2">
@@ -384,7 +550,7 @@ export const MieruSharePage = () => {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted">
                   {t('mieru.quotaDays', { defaultValue: 'Quota Days' })}
@@ -401,17 +567,56 @@ export const MieruSharePage = () => {
                 <p className="text-xs uppercase tracking-wide text-muted">
                   {t('common.createdAt', { defaultValue: 'Created' })}
                 </p>
-                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.createdAt)}</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.createdAt, notSetLabel)}</p>
               </div>
               <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted">
                   {t('common.updatedAt', { defaultValue: 'Updated' })}
                 </p>
-                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.updatedAt)}</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{formatTimestamp(user.updatedAt, notSetLabel)}</p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('portal.subscription.stats.lastUpdated', { defaultValue: 'Last Updated' })}
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {latestUpdatedAt ? latestUpdatedAt.toLocaleString() : notSetLabel}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('portal.subscription.stats.endpoint', { defaultValue: 'Endpoint' })}
+                </p>
+                <p
+                  className={`mt-1 text-sm font-semibold ${
+                    endpointStatus === 'healthy'
+                      ? 'text-emerald-400'
+                      : endpointStatus === 'degraded'
+                        ? 'text-amber-400'
+                        : 'text-muted'
+                  }`}
+                >
+                  {endpointStatus === 'healthy'
+                    ? t('portal.subscription.stats.healthy', { defaultValue: 'Healthy' })
+                    : endpointStatus === 'degraded'
+                      ? t('portal.subscription.stats.degraded', { defaultValue: 'Degraded' })
+                      : t('portal.subscription.stats.checking', { defaultValue: 'Checking...' })}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-line/70 bg-panel/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {t('portal.inbound', { defaultValue: 'Inbound' })}
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {infoQuery.data.profile.server}:{infoQuery.data.profile.portRange}
+                </p>
               </div>
             </div>
 
             <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
+                {t('portal.steps.import', { defaultValue: 'Step 2 · Import' })}
+              </p>
               <p className="text-xs uppercase tracking-wide text-muted">
                 {t('portal.subscription.importUrl', { defaultValue: 'Import URL' })}
               </p>
@@ -425,9 +630,61 @@ export const MieruSharePage = () => {
                 </Button>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {recommendedApp?.importUrl && recommendedLaunchUrls ? (
+                <Button
+                  className="sm:col-span-2"
+                  onClick={() => {
+                    openDeepLinksWithFallback(recommendedLaunchUrls, {
+                      onExhausted: () => {
+                        void copyToClipboard(recommendedManualUrl, 'recommended-fallback');
+                        toast.warning(
+                          t('common.warning', { defaultValue: 'Warning' }),
+                          t('portal.addToApp.importFallbackCopied', {
+                            defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+                          })
+                        );
+                      }
+                    });
+                  }}
+                >
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  {t('portal.subscription.openInApp', {
+                    defaultValue: 'Open in {{app}}',
+                    app: recommendedApp.name
+                  })}
+                </Button>
+              ) : null}
+              <Button
+                variant="secondary"
+                onClick={() => void copyToClipboard(recommendedManualUrl || subscriptionUrl, 'recommended-copy')}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                {t('portal.subscription.copyImportUrl', { defaultValue: 'Copy Import URL' })}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => window.open(subscriptionUrl, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
+              </Button>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              <p className="font-semibold text-amber-50">
+                {t('portal.subscription.importFailedTitle', { defaultValue: 'Import failed?' })}
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-100/90">
+                {troubleshootingTips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
           </Card>
 
-          <Card className="space-y-4 xl:col-span-2">
+          <Card className="space-y-4 bg-slate-900/55 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">
@@ -480,7 +737,7 @@ export const MieruSharePage = () => {
 
                         <div className="mt-4 flex flex-wrap gap-2">
                           {app.importUrl ? (
-                            <Button size="sm" onClick={() => onOneClickImport(app)}>
+                            <Button size="sm" onClick={() => onOneClickImport(app, `app-fallback-${app.id}`)}>
                               <QrCode className="mr-1 h-3.5 w-3.5" />
                               {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
                             </Button>
@@ -499,11 +756,11 @@ export const MieruSharePage = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
-                            >
+                            onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
+                          >
                               <ExternalLink className="mr-1 h-3.5 w-3.5" />
                               {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
-                            </Button>
+                          </Button>
                           ) : null}
                         </div>
                       </div>
@@ -512,6 +769,73 @@ export const MieruSharePage = () => {
                 </div>
               ) : null}
           </Card>
+        </div>
+
+        {isMobileViewport && subscriptionUrl ? (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
+            <div className="mx-auto flex max-w-6xl gap-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+              {recommendedApp?.importUrl && recommendedLaunchUrls ? (
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    openDeepLinksWithFallback(recommendedLaunchUrls, {
+                      onExhausted: () => {
+                        void copyToClipboard(recommendedManualUrl || subscriptionUrl, 'mobile-sticky-copy-fallback');
+                      }
+                    });
+                  }}
+                >
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  {t('portal.subscription.openInAppShort', { defaultValue: 'Open in App' })}
+                </Button>
+              ) : (
+                <Button className="flex-1" onClick={() => window.open(subscriptionUrl, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t('portal.subscription.openImportUrl', { defaultValue: 'Open Import URL' })}
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => void copyToClipboard(subscriptionUrl, 'mobile-sticky-copy')}
+              >
+                {copiedKey === 'mobile-sticky-copy' ? (
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="rounded-2xl border border-line/70 bg-slate-900/45 p-3 text-center text-xs text-slate-400">
+          <div className="inline-flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span>{t('portal.subscription.stats.endpoint', { defaultValue: 'Endpoint' })}:</span>
+            <span
+              className={
+                endpointStatus === 'healthy'
+                  ? 'text-emerald-400'
+                  : endpointStatus === 'degraded'
+                    ? 'text-amber-400'
+                    : 'text-slate-300'
+              }
+            >
+              {endpointStatus === 'healthy'
+                ? t('portal.subscription.stats.healthy', { defaultValue: 'Healthy' })
+                : endpointStatus === 'degraded'
+                  ? t('portal.subscription.stats.degraded', { defaultValue: 'Degraded' })
+                  : t('portal.subscription.stats.checking', { defaultValue: 'Checking...' })}
+            </span>
+            <Clock className="ml-2 h-3.5 w-3.5 text-slate-400" />
+            <span>
+              {latestUpdatedAt
+                ? latestUpdatedAt.toLocaleTimeString()
+                : t('common.notSet', { defaultValue: 'Not set' })}
+            </span>
+          </div>
         </div>
       </div>
     </div>
