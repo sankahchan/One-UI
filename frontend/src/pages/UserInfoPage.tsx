@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Smartphone
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -256,6 +256,71 @@ export const UserInfoPage = () => {
   const [copiedKey, setCopiedKey] = useState<string>('');
   const [devicesWindowMinutes] = useState(60);
   const [revokingFingerprint, setRevokingFingerprint] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
+  });
+  const [isPageVisible, setIsPageVisible] = useState(() => {
+    if (typeof document === 'undefined') {
+      return true;
+    }
+    return document.visibilityState !== 'hidden';
+  });
+  const [qrVisible, setQrVisible] = useState(false);
+  const qrAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const media = window.matchMedia('(max-width: 1023px), (pointer: coarse)');
+    const update = (event?: MediaQueryListEvent) => {
+      setIsMobileViewport(event ? event.matches : media.matches);
+    };
+    update();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsPageVisible(document.visibilityState !== 'hidden');
+    };
+
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!qrAnchorRef.current || qrVisible || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setQrVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '260px 0px' }
+    );
+
+    observer.observe(qrAnchorRef.current);
+    return () => observer.disconnect();
+  }, [qrVisible]);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -284,7 +349,7 @@ export const UserInfoPage = () => {
   const apiUrl = import.meta.env.VITE_API_URL || '';
   const backendUrl = normalizeBackendUrl(apiUrl);
 
-  const { data: userInfo, isLoading, error, refetch } = useQuery({
+  const { data: userInfo, isLoading, error, refetch, dataUpdatedAt: userInfoUpdatedAt } = useQuery({
     queryKey: ['userInfo', token],
     queryFn: async () => {
       const res = await fetch(`${backendUrl}/user/${token}/info`);
@@ -294,7 +359,7 @@ export const UserInfoPage = () => {
     enabled: !!token
   });
 
-  const { data: publicLinks, refetch: refetchLinks } = useQuery({
+  const { data: publicLinks, refetch: refetchLinks, dataUpdatedAt: publicLinksUpdatedAt } = useQuery({
     queryKey: ['publicSubLinks', token],
     queryFn: async () => {
       const res = await fetch(`${backendUrl}/sub/${token}/links`, {
@@ -306,7 +371,12 @@ export const UserInfoPage = () => {
     enabled: !!token
   });
 
-  const { data: devicesResponse, refetch: refetchDevices, isFetching: isFetchingDevices } = useQuery({
+  const {
+    data: devicesResponse,
+    refetch: refetchDevices,
+    isFetching: isFetchingDevices,
+    dataUpdatedAt: devicesUpdatedAt
+  } = useQuery({
     queryKey: ['publicDevices', token, devicesWindowMinutes],
     queryFn: async () => {
       const res = await fetch(`${backendUrl}/user/${token}/devices?windowMinutes=${devicesWindowMinutes}`, {
@@ -316,8 +386,38 @@ export const UserInfoPage = () => {
       return (await res.json()) as PublicDevicesResponse;
     },
     enabled: Boolean(token) && Boolean(backendUrl),
-    refetchInterval: 12_000,
+    refetchInterval: isPageVisible ? 12_000 : false,
     staleTime: 5_000
+  });
+
+  const { data: endpointProbe, refetch: refetchEndpointProbe } = useQuery({
+    queryKey: ['publicEndpointProbe', token],
+    queryFn: async () => {
+      const startedAt = performance.now();
+      try {
+        const response = await fetch(`${backendUrl}/user/${token}/info`, {
+          headers: { Accept: 'application/json' }
+        });
+        const latencyMs = Math.max(1, Math.round(performance.now() - startedAt));
+        return {
+          ok: response.ok,
+          status: response.status,
+          latencyMs,
+          checkedAt: new Date().toISOString()
+        };
+      } catch {
+        const latencyMs = Math.max(1, Math.round(performance.now() - startedAt));
+        return {
+          ok: false,
+          status: 0,
+          latencyMs,
+          checkedAt: new Date().toISOString()
+        };
+      }
+    },
+    enabled: Boolean(token) && Boolean(backendUrl),
+    staleTime: 15_000,
+    refetchInterval: isPageVisible ? 45_000 : false
   });
 
   const revokeDeviceMutation = useMutation({
@@ -519,6 +619,80 @@ export const UserInfoPage = () => {
       };
     }).filter((group) => group.apps.length > 0);
   }, [brandingMetadata, isMieruOnlyPage, subscriptionUrls]);
+  const currentClientApps = useMemo(() => {
+    if (!isMieruOnlyPage) {
+      return appsForPlatform;
+    }
+
+    const normalizedPlatform: Platform = platform === 'android' || platform === 'ios' ? platform : 'windows';
+    const preferredGroup = mieruAppGroups.find((group) => group.platform === normalizedPlatform);
+    if (preferredGroup?.apps.length) {
+      return preferredGroup.apps;
+    }
+
+    return mieruAppGroups.flatMap((group) => group.apps);
+  }, [appsForPlatform, isMieruOnlyPage, mieruAppGroups, platform]);
+  const primaryImportApp = useMemo(() => {
+    if (currentClientApps.length === 0) {
+      return null;
+    }
+    return currentClientApps.find((entry) => Boolean(entry.importUrl)) || currentClientApps[0];
+  }, [currentClientApps]);
+  const primaryImportManualUrl = useMemo(() => {
+    if (!primaryImportApp) {
+      return selectedUrl;
+    }
+    const format = primaryImportApp.usesFormat || activeFormat;
+    return primaryImportApp.manualUrl || subscriptionUrls[format] || selectedUrl;
+  }, [activeFormat, primaryImportApp, selectedUrl, subscriptionUrls]);
+  const primaryImportLaunchUrls = useMemo(() => {
+    if (!primaryImportApp) {
+      return null;
+    }
+    return buildImportLaunchUrls({
+      appId: primaryImportApp.id,
+      importUrl: primaryImportApp.importUrl,
+      manualUrl: primaryImportManualUrl
+    });
+  }, [primaryImportApp, primaryImportManualUrl]);
+  const troubleshootingTips = useMemo(() => {
+    if (activeFormat === 'clash') {
+      return [
+        t('portal.troubleshoot.clash1', { defaultValue: 'Open Clash/Meta and use Import from URL.' }),
+        t('portal.troubleshoot.clash2', { defaultValue: 'If parsing fails, switch to V2Ray tab and retry.' }),
+        t('portal.troubleshoot.clash3', { defaultValue: 'Refresh profile in app after import.' })
+      ];
+    }
+    if (activeFormat === 'singbox') {
+      return [
+        t('portal.troubleshoot.singbox1', { defaultValue: 'Use the Sing-box format URL in your client.' }),
+        t('portal.troubleshoot.singbox2', { defaultValue: 'If app rejects it, try V2Ray format as fallback.' }),
+        t('portal.troubleshoot.singbox3', { defaultValue: 'Re-open app and trigger sync/update.' })
+      ];
+    }
+    if (activeFormat === 'wireguard') {
+      return [
+        t('portal.troubleshoot.wireguard1', { defaultValue: 'Open WireGuard app and import from URL.' }),
+        t('portal.troubleshoot.wireguard2', { defaultValue: 'If blocked, use Open Current URL then Save As file.' }),
+        t('portal.troubleshoot.wireguard3', { defaultValue: 'Activate the tunnel after import.' })
+      ];
+    }
+    if (activeFormat === 'mieru') {
+      return [
+        t('portal.troubleshoot.mieru1', { defaultValue: 'Use One-Click Import first for compatible clients.' }),
+        t('portal.troubleshoot.mieru2', { defaultValue: 'If handoff fails, copy the Mieru URL and import manually.' }),
+        t('portal.troubleshoot.mieru3', { defaultValue: 'Restart app and refresh profile list.' })
+      ];
+    }
+    return [
+      t('portal.troubleshoot.v2ray1', { defaultValue: 'Open your client and choose Import from URL.' }),
+      t('portal.troubleshoot.v2ray2', { defaultValue: 'If app can’t parse, switch to Clash or Sing-box tab.' }),
+      t('portal.troubleshoot.v2ray3', { defaultValue: 'Run update/refresh profile after import.' })
+    ];
+  }, [activeFormat, t]);
+  const alternateFormat = useMemo(() => {
+    return availableFormats.find((format) => format.key !== activeFormat) || null;
+  }, [activeFormat, availableFormats]);
 
   const heroStyle = useMemo(() => {
     return {
@@ -559,6 +733,39 @@ export const UserInfoPage = () => {
     [brandingMetadata]
   );
   const hasWallpaper = Boolean(wallpaperUrl);
+  const reduceVisualEffects = useMemo(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const reducedMotion = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false;
+    const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
+    return reducedMotion || isMobileViewport || memory <= 4;
+  }, [isMobileViewport]);
+  const latestUpdatedAt = useMemo(() => {
+    const timestamp = Math.max(userInfoUpdatedAt || 0, publicLinksUpdatedAt || 0, devicesUpdatedAt || 0);
+    return timestamp > 0 ? new Date(timestamp) : null;
+  }, [devicesUpdatedAt, publicLinksUpdatedAt, userInfoUpdatedAt]);
+  const endpointHealth = endpointProbe
+    ? endpointProbe.ok
+      ? 'healthy'
+      : 'degraded'
+    : 'checking';
+  const endpointLatencyMs = endpointProbe?.latencyMs || null;
+  const expirySeverity = userInfo?.expiry.daysRemaining <= 3
+    ? 'critical'
+    : userInfo?.expiry.daysRemaining <= 10
+      ? 'warning'
+      : 'healthy';
+  const usageSeverity = userInfo?.usage.limit && userInfo.usage.limit > 0
+    ? userInfo.usage.percent >= 90
+      ? 'critical'
+      : userInfo.usage.percent >= 75
+        ? 'warning'
+        : 'healthy'
+    : 'healthy';
 
   if (isLoading) {
     return (
@@ -642,7 +849,7 @@ export const UserInfoPage = () => {
 
   const handleRefreshAll = async () => {
     try {
-      await Promise.all([refetch(), refetchLinks()]);
+      await Promise.all([refetch(), refetchLinks(), refetchDevices(), refetchEndpointProbe()]);
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
         t('portal.toast.refreshed', { defaultValue: 'Subscription data refreshed.' })
@@ -678,7 +885,7 @@ export const UserInfoPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen px-4 pb-28 pt-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-8">
       {hasWallpaper ? (
         <>
           <div
@@ -686,8 +893,8 @@ export const UserInfoPage = () => {
             style={{
               backgroundImage: `url(${wallpaperUrl})`,
               backgroundPosition: `${wallpaperPositionX}% ${wallpaperPositionY}%`,
-              filter: wallpaperBlurPx > 0 ? `blur(${wallpaperBlurPx}px)` : undefined,
-              transform: wallpaperBlurPx > 0 ? 'scale(1.03)' : undefined
+              filter: !reduceVisualEffects && wallpaperBlurPx > 0 ? `blur(${wallpaperBlurPx}px)` : undefined,
+              transform: !reduceVisualEffects && wallpaperBlurPx > 0 ? 'scale(1.03)' : undefined
             }}
           />
           <div
@@ -698,7 +905,9 @@ export const UserInfoPage = () => {
           />
           <div
             className="pointer-events-none fixed inset-0 -z-10"
-            style={{ backgroundColor: `rgba(2, 6, 23, ${wallpaperOverlayOpacity / 100})` }}
+            style={{
+              backgroundColor: `rgba(2, 6, 23, ${(reduceVisualEffects ? Math.min(wallpaperOverlayOpacity, 50) : wallpaperOverlayOpacity) / 100})`
+            }}
           />
         </>
       ) : null}
@@ -706,7 +915,17 @@ export const UserInfoPage = () => {
         <div
           className="pointer-events-none fixed inset-0 -z-10"
           style={{
-            backgroundImage: `linear-gradient(135deg, ${hexToRgba(wallpaperGradientFrom, Math.min(Math.max(wallpaperGradientOpacity / 150, 0.2), 0.6))} 0%, ${hexToRgba(wallpaperGradientTo, Math.min(Math.max(wallpaperGradientOpacity / 130, 0.25), 0.7))} 100%)`
+            backgroundImage: `linear-gradient(135deg, ${hexToRgba(
+              wallpaperGradientFrom,
+              reduceVisualEffects
+                ? 0.22
+                : Math.min(Math.max(wallpaperGradientOpacity / 150, 0.2), 0.6)
+            )} 0%, ${hexToRgba(
+              wallpaperGradientTo,
+              reduceVisualEffects
+                ? 0.26
+                : Math.min(Math.max(wallpaperGradientOpacity / 130, 0.25), 0.7)
+            )} 100%)`
           }}
         />
       ) : null}
@@ -841,7 +1060,7 @@ export const UserInfoPage = () => {
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-white/20">
               <div
-                className="h-full rounded-full bg-white/70 transition-all duration-500"
+                className={`h-full rounded-full bg-white/70 ${reduceVisualEffects ? '' : 'transition-all duration-500'}`}
                 style={{ width: `${Math.min(userInfo.usage.percent, 100)}%` }}
               />
             </div>
@@ -862,6 +1081,9 @@ export const UserInfoPage = () => {
         <Card className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
+                {t('portal.steps.pickFormat', { defaultValue: 'Step 1 · Pick format' })}
+              </p>
               <h3 className="text-lg font-semibold text-foreground">
                 {isMieruOnlyPage
                   ? t('portal.subscription.mieruTitle', { defaultValue: 'Mieru Access' })
@@ -902,13 +1124,17 @@ export const UserInfoPage = () => {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="flex flex-col items-center justify-center rounded-2xl border border-line/70 bg-panel/55 p-5">
-              <div className="rounded-2xl border border-line/70 bg-white p-4">
-                <QRCodeDisplay
-                  text={selectedUrl || userInfo.subscription.url}
-                  size={210}
-                  logoUrl={branding?.logoUrl || null}
-                  logoSizePercent={qrLogoSizePercent}
-                />
+              <div ref={qrAnchorRef} className="rounded-2xl border border-line/70 bg-white p-4">
+                {qrVisible ? (
+                  <QRCodeDisplay
+                    text={selectedUrl || userInfo.subscription.url}
+                    size={210}
+                    logoUrl={branding?.logoUrl || null}
+                    logoSizePercent={qrLogoSizePercent}
+                  />
+                ) : (
+                  <div className="h-[210px] w-[210px] animate-pulse rounded-xl bg-slate-200/70" />
+                )}
               </div>
               <div className="mt-4 text-center text-sm text-muted">
                 {getFormatBadgeLabel(activeFormat)}
@@ -927,6 +1153,9 @@ export const UserInfoPage = () => {
 
             <div className="space-y-4">
               <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
+                  {t('portal.steps.import', { defaultValue: 'Step 2 · Import' })}
+                </p>
                 <label className="mb-2 block text-sm font-medium text-muted">
                   {isMieruOnlyPage
                     ? t('portal.subscription.mieruUrlLabel', { defaultValue: 'Mieru Import URL' })
@@ -936,7 +1165,10 @@ export const UserInfoPage = () => {
                   <input
                     readOnly
                     value={selectedUrl}
-                    onClick={(e) => { (e.target as HTMLInputElement).select(); void copyToClipboard(selectedUrl, `sub-${activeFormat}`); }}
+                    onClick={(event) => {
+                      (event.target as HTMLInputElement).select();
+                      void copyToClipboard(selectedUrl, `sub-${activeFormat}`);
+                    }}
                     className="flex-1 cursor-pointer select-all rounded-xl border border-line/80 bg-card/80 px-3 py-2 font-mono text-xs text-foreground sm:text-sm"
                   />
                   <Button
@@ -948,108 +1180,84 @@ export const UserInfoPage = () => {
                 </div>
               </div>
 
-              {isMieruOnlyPage ? (
-                <>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Button className="w-full" onClick={() => void copyToClipboard(selectedUrl, 'sub-mieru-primary')}>
-                      {copiedKey === 'sub-mieru-primary' ? (
-                        <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-100" />
-                      ) : (
-                        <Copy className="mr-2 h-4 w-4" />
-                      )}
-                      {t('portal.subscription.copyImportUrl', { defaultValue: 'Copy Import URL' })}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {t('portal.subscription.openImportUrl', { defaultValue: 'Open Import URL' })}
-                    </Button>
-                    {shareUrl ? (
-                      <Button
-                        variant="secondary"
-                        className="w-full sm:col-span-2"
-                        onClick={() => void copyToClipboard(shareUrl, 'share')}
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
-                      </Button>
-                    ) : null}
-                  </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {primaryImportApp?.importUrl && primaryImportLaunchUrls ? (
+                  <Button
+                    className="w-full sm:col-span-2"
+                    onClick={() => {
+                      openDeepLinksWithFallback(primaryImportLaunchUrls, {
+                        onExhausted: () => {
+                          void copyToClipboard(primaryImportManualUrl, `manual-${primaryImportApp.id}`);
+                          toast.warning(
+                            t('common.warning', { defaultValue: 'Warning' }),
+                            t('portal.addToApp.importFallbackCopied', {
+                              defaultValue: 'App handoff failed. Subscription URL was copied instead.'
+                            })
+                          );
+                        }
+                      });
+                    }}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.openInApp', {
+                      defaultValue: 'Open in {{app}}',
+                      app: primaryImportApp.name
+                    })}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full sm:col-span-2"
+                    onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.openImportUrl', { defaultValue: 'Open Import URL' })}
+                  </Button>
+                )}
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                        {t('portal.subscription.stats.validUntil', { defaultValue: 'Valid Until' })}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {new Date(userInfo.expiry.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                        {t('portal.subscription.stats.daysRemaining', { defaultValue: 'Days Remaining' })}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {userInfo.expiry.daysRemaining}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                        {t('portal.subscription.stats.dataUsed', { defaultValue: 'Data Used' })}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {formatBytes(userInfo.usage.total)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                        {t('portal.subscription.stats.dataRemaining', { defaultValue: 'Data Remaining' })}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {userInfo.usage.limit > 0
-                          ? formatBytes(Math.max(userInfo.usage.remaining, 0))
-                          : t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' })}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {activeFormat === 'clash' ? (
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
-                    </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => void copyToClipboard(primaryImportManualUrl || selectedUrl, 'sub-primary-copy')}
+                >
+                  {copiedKey === 'sub-primary-copy' ? (
+                    <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
                   ) : (
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
-                    </Button>
+                    <Copy className="mr-2 h-4 w-4" />
                   )}
+                  {t('portal.subscription.copyImportUrl', { defaultValue: 'Copy Import URL' })}
+                </Button>
 
-                  {shareUrl ? (
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => void copyToClipboard(shareUrl, 'share')}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
-                    </Button>
-                  ) : null}
-                </div>
-              )}
+                {activeFormat === 'clash' && !isMieruOnlyPage ? (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => window.open(userInfo.subscription.clashUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.downloadClashYaml', { defaultValue: 'Download Clash YAML' })}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.openCurrentUrl', { defaultValue: 'Open Current URL' })}
+                  </Button>
+                )}
+
+                {shareUrl ? (
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:col-span-2"
+                    onClick={() => void copyToClipboard(shareUrl, 'share')}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.copySharePage', { defaultValue: 'Copy Share Page' })}
+                  </Button>
+                ) : null}
+              </div>
 
               <div className="rounded-2xl border border-line/70 bg-panel/55 p-4 text-sm text-muted">
                 <p className="font-semibold text-foreground">
@@ -1068,6 +1276,127 @@ export const UserInfoPage = () => {
                           'If a client can’t import via deep link, copy the subscription URL and use “Import from URL” inside the app.'
                       })}
                 </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
+                  {t('portal.steps.verify', { defaultValue: 'Step 3 · Verify' })}
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                      {t('portal.subscription.stats.lastUpdated', { defaultValue: 'Last Updated' })}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {latestUpdatedAt ? latestUpdatedAt.toLocaleString() : '-'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                      {t('portal.subscription.stats.endpoint', { defaultValue: 'Endpoint' })}
+                    </p>
+                    <p
+                      className={`mt-2 text-sm font-semibold ${
+                        endpointHealth === 'healthy'
+                          ? 'text-emerald-400'
+                          : endpointHealth === 'degraded'
+                            ? 'text-amber-400'
+                            : 'text-muted'
+                      }`}
+                    >
+                      {endpointHealth === 'healthy'
+                        ? t('portal.subscription.stats.healthy', { defaultValue: 'Healthy' })
+                        : endpointHealth === 'degraded'
+                          ? t('portal.subscription.stats.degraded', { defaultValue: 'Degraded' })
+                          : t('portal.subscription.stats.checking', { defaultValue: 'Checking...' })}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {t('portal.subscription.stats.latency', {
+                        defaultValue: 'Latency: {{ms}} ms',
+                        ms: endpointLatencyMs ?? '-'
+                      })}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                      {t('portal.subscription.stats.expiryHealth', { defaultValue: 'Expiry Health' })}
+                    </p>
+                    <p
+                      className={`mt-2 text-sm font-semibold ${
+                        expirySeverity === 'critical'
+                          ? 'text-rose-400'
+                          : expirySeverity === 'warning'
+                            ? 'text-amber-400'
+                            : 'text-emerald-400'
+                      }`}
+                    >
+                      {t('portal.hero.daysRemaining', {
+                        defaultValue: '{{days}} days remaining',
+                        days: userInfo.expiry.daysRemaining
+                      })}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+                      {t('portal.subscription.stats.quotaHealth', { defaultValue: 'Quota Health' })}
+                    </p>
+                    <p
+                      className={`mt-2 text-sm font-semibold ${
+                        usageSeverity === 'critical'
+                          ? 'text-rose-400'
+                          : usageSeverity === 'warning'
+                            ? 'text-amber-400'
+                            : 'text-emerald-400'
+                      }`}
+                    >
+                      {userInfo.usage.limit > 0
+                        ? t('portal.subscription.stats.dataRemainingValue', {
+                            defaultValue: '{{value}} remaining',
+                            value: formatBytes(Math.max(userInfo.usage.remaining, 0))
+                          })
+                        : t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <p className="font-semibold text-amber-50">
+                  {t('portal.subscription.importFailedTitle', { defaultValue: 'Import failed?' })}
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-100/90">
+                  {troubleshootingTips.map((tip) => (
+                    <li key={tip}>{tip}</li>
+                  ))}
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void copyToClipboard(selectedUrl, `trouble-${activeFormat}`)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t('portal.subscription.copyCurrentFormat', { defaultValue: 'Copy current format URL' })}
+                  </Button>
+                  {alternateFormat ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        void copyToClipboard(
+                          subscriptionUrls[alternateFormat.key],
+                          `trouble-${alternateFormat.key}`
+                        )
+                      }
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      {t('portal.subscription.copyAlternateFormat', {
+                        defaultValue: 'Copy {{format}} URL',
+                        format: alternateFormat.label
+                      })}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -1184,10 +1513,11 @@ export const UserInfoPage = () => {
                             </div>
                           </div>
 
-                          <div className="mt-4 flex flex-wrap gap-2">
+                          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                             {importUrl ? (
                               <Button
                                 size="sm"
+                                className="w-full"
                                 onClick={() => {
                                   openDeepLinksWithFallback(launchUrls, {
                                     onExhausted: () => {
@@ -1203,12 +1533,16 @@ export const UserInfoPage = () => {
                                 }}
                               >
                                 <Smartphone className="mr-2 h-4 w-4" />
-                                {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                                {t('portal.subscription.openInApp', {
+                                  defaultValue: 'Open in {{app}}',
+                                  app: app.name
+                                })}
                               </Button>
                             ) : null}
 
                             <Button
                               size="sm"
+                              className="w-full"
                               variant={importUrl ? 'secondary' : 'primary'}
                               onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
                             >
@@ -1221,8 +1555,8 @@ export const UserInfoPage = () => {
                             </Button>
 
                             {storeLink ? (
-                              <a href={storeLink} target="_blank" rel="noopener noreferrer">
-                                <Button size="sm" variant="ghost">
+                              <a href={storeLink} target="_blank" rel="noopener noreferrer" className="sm:col-span-2">
+                                <Button size="sm" variant="ghost" className="w-full">
                                   <ExternalLink className="mr-2 h-4 w-4" />
                                   {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
                                 </Button>
@@ -1287,11 +1621,14 @@ export const UserInfoPage = () => {
                           }}
                         >
                           <Smartphone className="mr-2 h-4 w-4" />
-                          {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                          {t('portal.subscription.openInApp', {
+                            defaultValue: 'Open in {{app}}',
+                            app: app.name
+                          })}
                         </Button>
                       ) : (
                         <Button
-                          variant="secondary"
+                          variant="primary"
                           className="w-full"
                           onClick={() => void copyToClipboard(manualUrl, `manual-${app.id}`)}
                         >
@@ -1300,35 +1637,32 @@ export const UserInfoPage = () => {
                         </Button>
                       )}
 
-                      <div className="flex gap-2">
-                        {storeLink ? (
-                          <a
-                            href={storeLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1"
-                          >
-                            <Button variant="secondary" className="w-full">
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
-                            </Button>
-                          </a>
+                      <Button
+                        variant={importUrl ? 'secondary' : 'ghost'}
+                        className="w-full"
+                        onClick={() => void copyToClipboard(subscriptionUrls[usedFormat] || selectedUrl, `app-${app.id}`)}
+                      >
+                        {copiedKey === `app-${app.id}` ? (
+                          <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
                         ) : (
-                          <Button variant="secondary" className="w-full flex-1" disabled>
+                          <Copy className="mr-2 h-4 w-4" />
+                        )}
+                        {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                      </Button>
+
+                      {storeLink ? (
+                        <a
+                          href={storeLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full"
+                        >
+                          <Button variant="ghost" className="w-full">
                             <ExternalLink className="mr-2 h-4 w-4" />
                             {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
                           </Button>
-                        )}
-
-                        <Button
-                          variant="ghost"
-                          className="px-4"
-                          onClick={() => void copyToClipboard(subscriptionUrls[usedFormat] || selectedUrl, `app-${app.id}`)}
-                          aria-label={t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                        >
-                          {copiedKey === `app-${app.id}` ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -1521,12 +1855,12 @@ export const UserInfoPage = () => {
                     <tr key={device.fingerprint} className="border-b border-line/50">
                       <td className="py-2 pr-3">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
                             device.online ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-300'
                           }`}
                         >
                           <span className="relative inline-flex h-2.5 w-2.5">
-                            {device.online ? (
+                            {device.online && !reduceVisualEffects ? (
                               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
                             ) : null}
                             <span
@@ -1576,6 +1910,48 @@ export const UserInfoPage = () => {
             </div>
           )}
         </Card>
+
+        {isMobileViewport && selectedUrl ? (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
+            <div className="mx-auto flex max-w-5xl gap-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+              {primaryImportApp?.importUrl && primaryImportLaunchUrls ? (
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    openDeepLinksWithFallback(primaryImportLaunchUrls, {
+                      onExhausted: () => {
+                        void copyToClipboard(primaryImportManualUrl || selectedUrl, 'mobile-sticky-copy-fallback');
+                      }
+                    });
+                  }}
+                >
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  {t('portal.subscription.openInAppShort', { defaultValue: 'Open in App' })}
+                </Button>
+              ) : (
+                <Button
+                  className="flex-1"
+                  onClick={() => window.open(selectedUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t('portal.subscription.openImportUrl', { defaultValue: 'Open Import URL' })}
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => void copyToClipboard(primaryImportManualUrl || selectedUrl, 'mobile-sticky-copy')}
+              >
+                {copiedKey === 'mobile-sticky-copy' ? (
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="py-4 text-center text-xs text-muted">
           {branding?.customFooter
