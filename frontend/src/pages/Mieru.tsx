@@ -806,6 +806,24 @@ export const MieruPage: React.FC = () => {
     ? formatRelativeAgo(onlineSnapshot?.checkedAt || null)
     : t('mieru.onlinePaused', { defaultValue: 'paused (runtime unstable)' });
   const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
+  const getQuotaLabel = (entry: MieruUserEntry): string => {
+    const quota = entry.quotas?.find(
+      (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
+    );
+    if (!quota) {
+      return t('common.notSet', { defaultValue: 'Not set' });
+    }
+
+    const daysText =
+      Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
+        ? `${quota.days}d`
+        : '∞';
+    const gbText =
+      Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
+        ? `${megabytesToGbString(quota.megabytes)}GB`
+        : '∞';
+    return `${daysText} / ${gbText}`;
+  };
 
   return (
     <div className="relative isolate space-y-6">
@@ -1153,32 +1171,30 @@ export const MieruPage: React.FC = () => {
         </Button>
       </Card>
 
-      <Card padding={false}>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-line/70">
-            <thead className="bg-panel/40">
-              <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3">{t('auth.username', { defaultValue: 'Username' })}</th>
-                <th className="px-4 py-3">{t('auth.password', { defaultValue: 'Password' })}</th>
-                <th className="px-4 py-3">{t('mieru.source', { defaultValue: 'Source' })}</th>
-                <th className="px-4 py-3">{t('common.status', { defaultValue: 'Status' })}</th>
-                <th className="px-4 py-3">{t('mieru.quotas', { defaultValue: 'Quotas' })}</th>
-                <th className="px-4 py-3">{t('common.online', { defaultValue: 'Online' })}</th>
-                <th className="px-4 py-3">{t('common.actions', { defaultValue: 'Actions' })}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {users.map((entry) => {
-                const isEditing = editTarget === entry.username;
-                const isCustom = entry.source === 'custom';
-                const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
-                const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
-                const supportsSubscriptionUrl = entry.configured && entry.source !== 'config';
-                const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
+      <Card padding={false} className="overflow-hidden">
+        {!users.length ? (
+          <div className="px-4 py-10 text-center text-sm text-muted">
+            {t('mieru.noUsers', { defaultValue: 'No Mieru users found yet.' })}
+          </div>
+        ) : null}
 
-                return (
-                  <tr key={entry.username} className="text-sm">
-                    <td className="px-4 py-3">
+        {users.length ? (
+          <div className="space-y-3 p-4 md:hidden">
+            {users.map((entry) => {
+              const isEditing = editTarget === entry.username;
+              const isCustom = entry.source === 'custom';
+              const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
+              const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
+              const supportsSubscriptionUrl = entry.configured && entry.source !== 'config';
+              const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
+
+              return (
+                <article
+                  key={`mobile-${entry.username}`}
+                  className="space-y-3 rounded-2xl border border-line/70 bg-panel/55 p-3.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
                       {isEditing ? (
                         <input
                           value={editForm.username}
@@ -1186,10 +1202,8 @@ export const MieruPage: React.FC = () => {
                           className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
                         />
                       ) : (
-                        <span className="font-medium text-foreground">{entry.username}</span>
+                        <p className="truncate text-sm font-semibold text-foreground">{entry.username}</p>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
                       {isEditing ? (
                         <input
                           value={editForm.password}
@@ -1197,16 +1211,19 @@ export const MieruPage: React.FC = () => {
                           className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
                         />
                       ) : (
-                        <code className="rounded bg-panel/60 px-2 py-1 text-xs text-muted">{entry.password}</code>
+                        <code className="block break-all rounded bg-panel/60 px-2 py-1 text-[11px] text-muted">
+                          {entry.password}
+                        </code>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-muted">{entry.source}</td>
-                    <td className="px-4 py-3">
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                       {isEditing ? (
                         <select
                           value={editForm.enabled ? 'enabled' : 'disabled'}
-                          onChange={(event) => setEditForm((previous) => ({ ...previous, enabled: event.target.value === 'enabled' }))}
-                          className="rounded-lg border border-line/60 bg-card/60 px-2 py-1 text-sm"
+                          onChange={(event) =>
+                            setEditForm((previous) => ({ ...previous, enabled: event.target.value === 'enabled' }))
+                          }
+                          className="rounded-lg border border-line/60 bg-card/60 px-2 py-1 text-xs"
                         >
                           <option value="enabled">{t('common.enabled', { defaultValue: 'Enabled' })}</option>
                           <option value="disabled">{t('common.disabled', { defaultValue: 'Disabled' })}</option>
@@ -1216,287 +1233,623 @@ export const MieruPage: React.FC = () => {
                       ) : (
                         <Badge variant="warning">{t('common.disabled', { defaultValue: 'Disabled' })}</Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isEditing ? (
-                        <div className="flex min-w-[220px] items-center gap-2">
-                          <input
-                            value={editForm.quotaDays}
-                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaDays: event.target.value }))}
-                            type="number"
-                            min={0}
-                            placeholder={t('mieru.days', { defaultValue: 'Days' })}
-                            className="w-24 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                          <input
-                            value={editForm.quotaGigabytes}
-                            onChange={(event) => setEditForm((previous) => ({ ...previous, quotaGigabytes: event.target.value }))}
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            placeholder={t('mieru.gigabytes', { defaultValue: 'GB' })}
-                            className="w-28 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                        </div>
-                      ) : isPanelEditing ? (
-                        <div className="grid min-w-[320px] grid-cols-2 gap-2">
-                          <input
-                            value={panelPolicyForm.dataLimitGb}
-                            onChange={(event) =>
-                              setPanelPolicyForm((previous) => ({ ...previous, dataLimitGb: event.target.value }))
-                            }
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            placeholder={t('users.dataLimitGb', { defaultValue: 'Data GB' })}
-                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                          <input
-                            value={panelPolicyForm.expiryDays}
-                            onChange={(event) =>
-                              setPanelPolicyForm((previous) => ({ ...previous, expiryDays: event.target.value }))
-                            }
-                            type="number"
-                            min={1}
-                            placeholder={t('users.expiryDays', { defaultValue: 'Expiry days' })}
-                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                          <input
-                            value={panelPolicyForm.ipLimit}
-                            onChange={(event) =>
-                              setPanelPolicyForm((previous) => ({ ...previous, ipLimit: event.target.value }))
-                            }
-                            type="number"
-                            min={0}
-                            placeholder={t('users.ipLimit', { defaultValue: 'IP limit' })}
-                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                          <input
-                            value={panelPolicyForm.deviceLimit}
-                            onChange={(event) =>
-                              setPanelPolicyForm((previous) => ({ ...previous, deviceLimit: event.target.value }))
-                            }
-                            type="number"
-                            min={0}
-                            placeholder={t('users.deviceLimit', { defaultValue: 'Device limit' })}
-                            className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
-                          />
-                          <label className="col-span-2 inline-flex items-center gap-2 text-xs text-muted">
-                            <input
-                              type="checkbox"
-                              checked={panelPolicyForm.startOnFirstUse}
-                              onChange={(event) =>
-                                setPanelPolicyForm((previous) => ({
-                                  ...previous,
-                                  startOnFirstUse: event.target.checked
-                                }))
-                              }
-                              className="h-4 w-4 rounded border-line/70 bg-card/70 text-brand-500 focus:ring-brand-500/40"
-                            />
-                            {t('users.startOnFirstUse', { defaultValue: 'Start expiry on first connect' })}
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-muted">
-                          {isPanel ? (
-                            <div className="space-y-1">
-                              <div>
-                                {t('users.dataLimitGb', { defaultValue: 'Data Limit' })}:{' '}
-                                <span className="text-foreground">{bytesToGbString(entry.dataLimitBytes) || '0'} GB</span>
-                              </div>
-                              <div>
-                                {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
-                                <span className="text-foreground">{formatUsageBytes(usedBytes)}</span>
-                              </div>
-                              <div>
-                                {t('users.expiryDays', { defaultValue: 'Expiry days' })}:{' '}
-                                <span className="text-foreground">{getExpiryDaysFromEntry(entry)}</span>
-                              </div>
-                              <div>
-                                {t('users.startOnFirstUse', { defaultValue: 'Start on first connect' })}:{' '}
-                                <span className="text-foreground">
-                                  {entry.startOnFirstUse
-                                    ? t('common.enabled', { defaultValue: 'Enabled' })
-                                    : t('common.disabled', { defaultValue: 'Disabled' })}
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            (() => {
-                              const quota = entry.quotas?.find(
-                                (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
-                              );
-                              if (!quota) {
-                                return t('common.notSet', { defaultValue: 'Not set' });
-                              }
-                              const daysText =
-                                Number.isInteger(quota.days) && (quota.days ?? 0) >= 0
-                                  ? `${quota.days}d`
-                                  : '∞';
-                              const gbText =
-                                Number.isInteger(quota.megabytes) && (quota.megabytes ?? 0) >= 0
-                                  ? `${megabytesToGbString(quota.megabytes)}GB`
-                                  : '∞';
-                              return `${daysText} / ${gbText}`;
-                            })()
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
                       {entry.online ? (
                         <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
                       ) : (
                         <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void onRegenerateAndCopyYaml(entry.username)}
-                          loading={syncMutation.isPending || userExportMutation.isPending}
-                          disabled={!entry.configured}
-                        >
-                          <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                          {t('mieru.regenerateCopy', { defaultValue: 'Regen + Copy' })}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void onCopyYaml(entry.username)}
-                          loading={userExportMutation.isPending}
-                          disabled={!entry.configured}
-                        >
-                          <Copy className="mr-1 h-3.5 w-3.5" />
-                          YAML
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void onDownloadYaml(entry.username)}
-                          loading={userExportMutation.isPending}
-                          disabled={!entry.configured}
-                        >
-                          <Download className="mr-1 h-3.5 w-3.5" />
-                          {t('common.download', { defaultValue: 'Download' })}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void onCopySubscriptionUrl(entry.username)}
-                          loading={userSubscriptionUrlMutation.isPending}
-                          disabled={!supportsSubscriptionUrl}
-                          title={
-                            supportsSubscriptionUrl
-                              ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru import URL' })
-                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input
+                        value={editForm.quotaDays}
+                        onChange={(event) => setEditForm((previous) => ({ ...previous, quotaDays: event.target.value }))}
+                        type="number"
+                        min={0}
+                        placeholder={t('mieru.days', { defaultValue: 'Days' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                      <input
+                        value={editForm.quotaGigabytes}
+                        onChange={(event) =>
+                          setEditForm((previous) => ({ ...previous, quotaGigabytes: event.target.value }))
+                        }
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder={t('mieru.gigabytes', { defaultValue: 'GB' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                  ) : null}
+
+                  {isPanelEditing ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input
+                        value={panelPolicyForm.dataLimitGb}
+                        onChange={(event) =>
+                          setPanelPolicyForm((previous) => ({ ...previous, dataLimitGb: event.target.value }))
+                        }
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder={t('users.dataLimitGb', { defaultValue: 'Data GB' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                      <input
+                        value={panelPolicyForm.expiryDays}
+                        onChange={(event) =>
+                          setPanelPolicyForm((previous) => ({ ...previous, expiryDays: event.target.value }))
+                        }
+                        type="number"
+                        min={1}
+                        placeholder={t('users.expiryDays', { defaultValue: 'Expiry days' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                      <input
+                        value={panelPolicyForm.ipLimit}
+                        onChange={(event) =>
+                          setPanelPolicyForm((previous) => ({ ...previous, ipLimit: event.target.value }))
+                        }
+                        type="number"
+                        min={0}
+                        placeholder={t('users.ipLimit', { defaultValue: 'IP limit' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                      <input
+                        value={panelPolicyForm.deviceLimit}
+                        onChange={(event) =>
+                          setPanelPolicyForm((previous) => ({ ...previous, deviceLimit: event.target.value }))
+                        }
+                        type="number"
+                        min={0}
+                        placeholder={t('users.deviceLimit', { defaultValue: 'Device limit' })}
+                        className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                      />
+                      <label className="sm:col-span-2 inline-flex items-center gap-2 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          checked={panelPolicyForm.startOnFirstUse}
+                          onChange={(event) =>
+                            setPanelPolicyForm((previous) => ({
+                              ...previous,
+                              startOnFirstUse: event.target.checked
+                            }))
                           }
-                        >
-                          <Link className="mr-1 h-3.5 w-3.5" />
-                          {t('mieru.copyImportUrl', { defaultValue: 'Copy Import URL' })}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void onOpenSubscriptionUrl(entry.username)}
-                          loading={userSubscriptionUrlMutation.isPending}
-                          disabled={!supportsSubscriptionUrl}
-                          title={
-                            supportsSubscriptionUrl
-                              ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru page' })
-                              : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
-                          }
-                        >
-                          <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                          {t('mieru.openPage', { defaultValue: 'Open Page' })}
-                        </Button>
-                        {isPanel ? (
-                          isPanelEditing ? (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => void onSavePanelPolicy()}
-                                loading={updatePanelUserMutation.isPending || syncMutation.isPending}
-                              >
-                                <Save className="mr-1 h-3.5 w-3.5" />
-                                {t('common.save', { defaultValue: 'Save' })}
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={onCancelPanelPolicyEdit}>
-                                {t('common.cancel', { defaultValue: 'Cancel' })}
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onStartPanelPolicyEdit(entry)}
-                              >
-                                <Edit3 className="mr-1 h-3.5 w-3.5" />
-                                {t('users.editPolicy', { defaultValue: 'Edit Policy' })}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => void onResetPanelTraffic(entry)}
-                                loading={resetPanelTrafficMutation.isPending}
-                              >
-                                <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                                {t('users.resetTraffic', { defaultValue: 'Reset Traffic' })}
-                              </Button>
-                            </>
-                          )
-                        ) : null}
-                        {isCustom ? (
-                          isEditing ? (
-                            <>
-                              <Button size="sm" onClick={() => void onUpdateUser()} loading={updateUserMutation.isPending}>
-                                <Save className="mr-1 h-3.5 w-3.5" />
-                                {t('common.save', { defaultValue: 'Save' })}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditTarget(null);
-                                  setEditForm(DEFAULT_USER_FORM);
-                                }}
-                              >
-                                {t('common.cancel', { defaultValue: 'Cancel' })}
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onStartEdit(entry)}
-                              >
-                                <Edit3 className="mr-1 h-3.5 w-3.5" />
-                                {t('common.edit', { defaultValue: 'Edit' })}
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => void onDeleteUser(entry.username)}>
-                                <Trash2 className="mr-1 h-3.5 w-3.5 text-red-400" />
-                                {t('common.delete', { defaultValue: 'Delete' })}
-                              </Button>
-                            </>
-                          )
-                        ) : null}
+                          className="h-4 w-4 rounded border-line/70 bg-card/70 text-brand-500 focus:ring-brand-500/40"
+                        />
+                        {t('users.startOnFirstUse', { defaultValue: 'Start expiry on first connect' })}
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 text-xs text-muted sm:grid-cols-2">
+                      <div className="rounded-xl border border-line/60 bg-card/45 px-2.5 py-2">
+                        <p className="text-[10px] uppercase tracking-wide text-muted">{t('mieru.source', { defaultValue: 'Source' })}</p>
+                        <p className="mt-1 font-medium uppercase text-foreground">{entry.source}</p>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {!users.length ? (
-            <div className="px-4 py-10 text-center text-sm text-muted">
-              {t('mieru.noUsers', { defaultValue: 'No Mieru users found yet.' })}
-            </div>
-          ) : null}
-        </div>
+                      <div className="rounded-xl border border-line/60 bg-card/45 px-2.5 py-2">
+                        <p className="text-[10px] uppercase tracking-wide text-muted">
+                          {isPanel
+                            ? t('users.policy', { defaultValue: 'Policy' })
+                            : t('mieru.quotas', { defaultValue: 'Quotas' })}
+                        </p>
+                        {isPanel ? (
+                          <div className="mt-1 space-y-0.5">
+                            <p>
+                              {t('users.dataLimitGb', { defaultValue: 'Data Limit' })}:{' '}
+                              <span className="text-foreground">{bytesToGbString(entry.dataLimitBytes) || '0'} GB</span>
+                            </p>
+                            <p>
+                              {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
+                              <span className="text-foreground">{formatUsageBytes(usedBytes)}</span>
+                            </p>
+                            <p>
+                              {t('users.expiryDays', { defaultValue: 'Expiry days' })}:{' '}
+                              <span className="text-foreground">{getExpiryDaysFromEntry(entry)}</span>
+                            </p>
+                            <p>
+                              {t('users.startOnFirstUse', { defaultValue: 'Start on first connect' })}:{' '}
+                              <span className="text-foreground">
+                                {entry.startOnFirstUse
+                                  ? t('common.enabled', { defaultValue: 'Enabled' })
+                                  : t('common.disabled', { defaultValue: 'Disabled' })}
+                              </span>
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-foreground">{getQuotaLabel(entry)}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => void onRegenerateAndCopyYaml(entry.username)}
+                      loading={syncMutation.isPending || userExportMutation.isPending}
+                      disabled={!entry.configured}
+                    >
+                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                      {t('mieru.regenerateCopy', { defaultValue: 'Regen + Copy' })}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => void onCopyYaml(entry.username)}
+                      loading={userExportMutation.isPending}
+                      disabled={!entry.configured}
+                    >
+                      <Copy className="mr-1 h-3.5 w-3.5" />
+                      YAML
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => void onDownloadYaml(entry.username)}
+                      loading={userExportMutation.isPending}
+                      disabled={!entry.configured}
+                    >
+                      <Download className="mr-1 h-3.5 w-3.5" />
+                      {t('common.download', { defaultValue: 'Download' })}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => void onCopySubscriptionUrl(entry.username)}
+                      loading={userSubscriptionUrlMutation.isPending}
+                      disabled={!supportsSubscriptionUrl}
+                      title={
+                        supportsSubscriptionUrl
+                          ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru import URL' })
+                          : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
+                      }
+                    >
+                      <Link className="mr-1 h-3.5 w-3.5" />
+                      {t('mieru.copyImportUrl', { defaultValue: 'Copy Import URL' })}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="col-span-2 w-full justify-center"
+                      onClick={() => void onOpenSubscriptionUrl(entry.username)}
+                      loading={userSubscriptionUrlMutation.isPending}
+                      disabled={!supportsSubscriptionUrl}
+                      title={
+                        supportsSubscriptionUrl
+                          ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru page' })
+                          : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
+                      }
+                    >
+                      <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                      {t('mieru.openPage', { defaultValue: 'Open Page' })}
+                    </Button>
+
+                    {isPanel ? (
+                      isPanelEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="w-full justify-center"
+                            onClick={() => void onSavePanelPolicy()}
+                            loading={updatePanelUserMutation.isPending || syncMutation.isPending}
+                          >
+                            <Save className="mr-1 h-3.5 w-3.5" />
+                            {t('common.save', { defaultValue: 'Save' })}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="w-full justify-center" onClick={onCancelPanelPolicyEdit}>
+                            {t('common.cancel', { defaultValue: 'Cancel' })}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full justify-center"
+                            onClick={() => onStartPanelPolicyEdit(entry)}
+                          >
+                            <Edit3 className="mr-1 h-3.5 w-3.5" />
+                            {t('users.editPolicy', { defaultValue: 'Edit Policy' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full justify-center"
+                            onClick={() => void onResetPanelTraffic(entry)}
+                            loading={resetPanelTrafficMutation.isPending}
+                          >
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                            {t('users.resetTraffic', { defaultValue: 'Reset Traffic' })}
+                          </Button>
+                        </>
+                      )
+                    ) : null}
+                    {isCustom ? (
+                      isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="w-full justify-center"
+                            onClick={() => void onUpdateUser()}
+                            loading={updateUserMutation.isPending}
+                          >
+                            <Save className="mr-1 h-3.5 w-3.5" />
+                            {t('common.save', { defaultValue: 'Save' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full justify-center"
+                            onClick={() => {
+                              setEditTarget(null);
+                              setEditForm(DEFAULT_USER_FORM);
+                            }}
+                          >
+                            {t('common.cancel', { defaultValue: 'Cancel' })}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full justify-center"
+                            onClick={() => onStartEdit(entry)}
+                          >
+                            <Edit3 className="mr-1 h-3.5 w-3.5" />
+                            {t('common.edit', { defaultValue: 'Edit' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full justify-center"
+                            onClick={() => void onDeleteUser(entry.username)}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5 text-red-400" />
+                            {t('common.delete', { defaultValue: 'Delete' })}
+                          </Button>
+                        </>
+                      )
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {users.length ? (
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full divide-y divide-line/70">
+              <thead className="bg-panel/40">
+                <tr className="text-left text-xs uppercase tracking-wide text-muted">
+                  <th className="px-4 py-3">{t('auth.username', { defaultValue: 'Username' })}</th>
+                  <th className="px-4 py-3">{t('auth.password', { defaultValue: 'Password' })}</th>
+                  <th className="px-4 py-3">{t('mieru.source', { defaultValue: 'Source' })}</th>
+                  <th className="px-4 py-3">{t('common.status', { defaultValue: 'Status' })}</th>
+                  <th className="px-4 py-3">{t('mieru.quotas', { defaultValue: 'Quotas' })}</th>
+                  <th className="px-4 py-3">{t('common.online', { defaultValue: 'Online' })}</th>
+                  <th className="px-4 py-3">{t('common.actions', { defaultValue: 'Actions' })}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/60">
+                {users.map((entry) => {
+                  const isEditing = editTarget === entry.username;
+                  const isCustom = entry.source === 'custom';
+                  const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
+                  const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
+                  const supportsSubscriptionUrl = entry.configured && entry.source !== 'config';
+                  const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
+
+                  return (
+                    <tr key={entry.username} className="text-sm">
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <input
+                            value={editForm.username}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, username: event.target.value }))}
+                            className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                        ) : (
+                          <span className="font-medium text-foreground">{entry.username}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <input
+                            value={editForm.password}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, password: event.target.value }))}
+                            className="w-full rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                          />
+                        ) : (
+                          <code className="rounded bg-panel/60 px-2 py-1 text-xs text-muted">{entry.password}</code>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted">{entry.source}</td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <select
+                            value={editForm.enabled ? 'enabled' : 'disabled'}
+                            onChange={(event) => setEditForm((previous) => ({ ...previous, enabled: event.target.value === 'enabled' }))}
+                            className="rounded-lg border border-line/60 bg-card/60 px-2 py-1 text-sm"
+                          >
+                            <option value="enabled">{t('common.enabled', { defaultValue: 'Enabled' })}</option>
+                            <option value="disabled">{t('common.disabled', { defaultValue: 'Disabled' })}</option>
+                          </select>
+                        ) : entry.enabled ? (
+                          <Badge variant="success">{t('common.enabled', { defaultValue: 'Enabled' })}</Badge>
+                        ) : (
+                          <Badge variant="warning">{t('common.disabled', { defaultValue: 'Disabled' })}</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <div className="flex min-w-[220px] items-center gap-2">
+                            <input
+                              value={editForm.quotaDays}
+                              onChange={(event) => setEditForm((previous) => ({ ...previous, quotaDays: event.target.value }))}
+                              type="number"
+                              min={0}
+                              placeholder={t('mieru.days', { defaultValue: 'Days' })}
+                              className="w-24 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                            <input
+                              value={editForm.quotaGigabytes}
+                              onChange={(event) => setEditForm((previous) => ({ ...previous, quotaGigabytes: event.target.value }))}
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              placeholder={t('mieru.gigabytes', { defaultValue: 'GB' })}
+                              className="w-28 rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                          </div>
+                        ) : isPanelEditing ? (
+                          <div className="grid min-w-[320px] grid-cols-2 gap-2">
+                            <input
+                              value={panelPolicyForm.dataLimitGb}
+                              onChange={(event) =>
+                                setPanelPolicyForm((previous) => ({ ...previous, dataLimitGb: event.target.value }))
+                              }
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              placeholder={t('users.dataLimitGb', { defaultValue: 'Data GB' })}
+                              className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                            <input
+                              value={panelPolicyForm.expiryDays}
+                              onChange={(event) =>
+                                setPanelPolicyForm((previous) => ({ ...previous, expiryDays: event.target.value }))
+                              }
+                              type="number"
+                              min={1}
+                              placeholder={t('users.expiryDays', { defaultValue: 'Expiry days' })}
+                              className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                            <input
+                              value={panelPolicyForm.ipLimit}
+                              onChange={(event) =>
+                                setPanelPolicyForm((previous) => ({ ...previous, ipLimit: event.target.value }))
+                              }
+                              type="number"
+                              min={0}
+                              placeholder={t('users.ipLimit', { defaultValue: 'IP limit' })}
+                              className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                            <input
+                              value={panelPolicyForm.deviceLimit}
+                              onChange={(event) =>
+                                setPanelPolicyForm((previous) => ({ ...previous, deviceLimit: event.target.value }))
+                              }
+                              type="number"
+                              min={0}
+                              placeholder={t('users.deviceLimit', { defaultValue: 'Device limit' })}
+                              className="rounded-lg border border-line/60 bg-card/60 px-2.5 py-1.5 text-sm"
+                            />
+                            <label className="col-span-2 inline-flex items-center gap-2 text-xs text-muted">
+                              <input
+                                type="checkbox"
+                                checked={panelPolicyForm.startOnFirstUse}
+                                onChange={(event) =>
+                                  setPanelPolicyForm((previous) => ({
+                                    ...previous,
+                                    startOnFirstUse: event.target.checked
+                                  }))
+                                }
+                                className="h-4 w-4 rounded border-line/70 bg-card/70 text-brand-500 focus:ring-brand-500/40"
+                              />
+                              {t('users.startOnFirstUse', { defaultValue: 'Start expiry on first connect' })}
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted">
+                            {isPanel ? (
+                              <div className="space-y-1">
+                                <div>
+                                  {t('users.dataLimitGb', { defaultValue: 'Data Limit' })}:{' '}
+                                  <span className="text-foreground">{bytesToGbString(entry.dataLimitBytes) || '0'} GB</span>
+                                </div>
+                                <div>
+                                  {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
+                                  <span className="text-foreground">{formatUsageBytes(usedBytes)}</span>
+                                </div>
+                                <div>
+                                  {t('users.expiryDays', { defaultValue: 'Expiry days' })}:{' '}
+                                  <span className="text-foreground">{getExpiryDaysFromEntry(entry)}</span>
+                                </div>
+                                <div>
+                                  {t('users.startOnFirstUse', { defaultValue: 'Start on first connect' })}:{' '}
+                                  <span className="text-foreground">
+                                    {entry.startOnFirstUse
+                                      ? t('common.enabled', { defaultValue: 'Enabled' })
+                                      : t('common.disabled', { defaultValue: 'Disabled' })}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              getQuotaLabel(entry)
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {entry.online ? (
+                          <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
+                        ) : (
+                          <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void onRegenerateAndCopyYaml(entry.username)}
+                            loading={syncMutation.isPending || userExportMutation.isPending}
+                            disabled={!entry.configured}
+                          >
+                            <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                            {t('mieru.regenerateCopy', { defaultValue: 'Regen + Copy' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void onCopyYaml(entry.username)}
+                            loading={userExportMutation.isPending}
+                            disabled={!entry.configured}
+                          >
+                            <Copy className="mr-1 h-3.5 w-3.5" />
+                            YAML
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void onDownloadYaml(entry.username)}
+                            loading={userExportMutation.isPending}
+                            disabled={!entry.configured}
+                          >
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                            {t('common.download', { defaultValue: 'Download' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void onCopySubscriptionUrl(entry.username)}
+                            loading={userSubscriptionUrlMutation.isPending}
+                            disabled={!supportsSubscriptionUrl}
+                            title={
+                              supportsSubscriptionUrl
+                                ? t('mieru.subscriptionUrlAction', { defaultValue: 'Copy Mieru import URL' })
+                                : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
+                            }
+                          >
+                            <Link className="mr-1 h-3.5 w-3.5" />
+                            {t('mieru.copyImportUrl', { defaultValue: 'Copy Import URL' })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void onOpenSubscriptionUrl(entry.username)}
+                            loading={userSubscriptionUrlMutation.isPending}
+                            disabled={!supportsSubscriptionUrl}
+                            title={
+                              supportsSubscriptionUrl
+                                ? t('mieru.subscriptionUrlOpenAction', { defaultValue: 'Open Mieru page' })
+                                : t('mieru.subscriptionUrlPanelOnly', { defaultValue: 'Available for panel or custom users only' })
+                            }
+                          >
+                            <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                            {t('mieru.openPage', { defaultValue: 'Open Page' })}
+                          </Button>
+                          {isPanel ? (
+                            isPanelEditing ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => void onSavePanelPolicy()}
+                                  loading={updatePanelUserMutation.isPending || syncMutation.isPending}
+                                >
+                                  <Save className="mr-1 h-3.5 w-3.5" />
+                                  {t('common.save', { defaultValue: 'Save' })}
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={onCancelPanelPolicyEdit}>
+                                  {t('common.cancel', { defaultValue: 'Cancel' })}
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => onStartPanelPolicyEdit(entry)}
+                                >
+                                  <Edit3 className="mr-1 h-3.5 w-3.5" />
+                                  {t('users.editPolicy', { defaultValue: 'Edit Policy' })}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => void onResetPanelTraffic(entry)}
+                                  loading={resetPanelTrafficMutation.isPending}
+                                >
+                                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                                  {t('users.resetTraffic', { defaultValue: 'Reset Traffic' })}
+                                </Button>
+                              </>
+                            )
+                          ) : null}
+                          {isCustom ? (
+                            isEditing ? (
+                              <>
+                                <Button size="sm" onClick={() => void onUpdateUser()} loading={updateUserMutation.isPending}>
+                                  <Save className="mr-1 h-3.5 w-3.5" />
+                                  {t('common.save', { defaultValue: 'Save' })}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditTarget(null);
+                                    setEditForm(DEFAULT_USER_FORM);
+                                  }}
+                                >
+                                  {t('common.cancel', { defaultValue: 'Cancel' })}
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => onStartEdit(entry)}
+                                >
+                                  <Edit3 className="mr-1 h-3.5 w-3.5" />
+                                  {t('common.edit', { defaultValue: 'Edit' })}
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => void onDeleteUser(entry.username)}>
+                                  <Trash2 className="mr-1 h-3.5 w-3.5 text-red-400" />
+                                  {t('common.delete', { defaultValue: 'Delete' })}
+                                </Button>
+                              </>
+                            )
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </Card>
 
       <Card className="space-y-3">

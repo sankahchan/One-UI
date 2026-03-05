@@ -678,6 +678,12 @@ export function Users() {
       seconds: Math.ceil(autoRefresh.nextRunInMs / 1000)
     });
   }, [autoRefresh.enabled, autoRefresh.nextRunInMs, autoRefresh.statusLabel, t]);
+  const effectiveViewMode: 'auto' | 'table' | 'cards' = isMobileViewport && viewMode === 'table'
+    ? 'cards'
+    : viewMode;
+  const viewModeOptions: ReadonlyArray<'auto' | 'table' | 'cards'> = isMobileViewport
+    ? ['auto', 'cards']
+    : ['auto', 'table', 'cards'];
 
   const handleSaveCurrentView = async () => {
     const name = await requestPrompt({
@@ -1886,12 +1892,12 @@ export function Users() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
-                    {(['auto', 'table', 'cards'] as const).map((mode) => (
+                    {viewModeOptions.map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setViewMode(mode)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${effectiveViewMode === mode
                           ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
                           : 'text-muted hover:text-foreground'
                           }`}
@@ -1939,12 +1945,12 @@ export function Users() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex rounded-xl border border-line/70 bg-card/70 p-1">
-                  {(['auto', 'table', 'cards'] as const).map((mode) => (
+                  {viewModeOptions.map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setViewMode(mode)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === mode
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${effectiveViewMode === mode
                         ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white'
                         : 'text-muted hover:text-foreground'
                         }`}
@@ -2204,7 +2210,7 @@ export function Users() {
         ) : (
           <UserTable
             users={users}
-            viewMode={viewMode}
+            viewMode={effectiveViewMode}
             onlineUuidSet={onlineUuidSet}
             sessionsByUserId={sessionsByUserId}
             onQuickQr={(user) => setQuickQrUser(user)}

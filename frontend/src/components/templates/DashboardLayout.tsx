@@ -143,7 +143,7 @@ export const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen text-foreground transition-colors">
+    <div className="flex min-h-[100dvh] flex-col text-foreground transition-colors">
       <header className="sticky top-0 z-40 border-b border-line/70 bg-card/80 backdrop-blur-xl lg:hidden">
         <div className="flex w-full items-center justify-between px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -173,7 +173,7 @@ export const DashboardLayout: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex min-h-0 flex-1 w-full overflow-hidden">
         <aside
           className={`glass-panel fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
@@ -257,7 +257,7 @@ export const DashboardLayout: React.FC = () => {
             </div>
           </div>
 
-          <div className="mobile-shell px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mobile-shell px-4 pt-5 sm:px-6 lg:px-8 lg:pt-8">
             <Outlet />
           </div>
         </main>
