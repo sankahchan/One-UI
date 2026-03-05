@@ -753,6 +753,7 @@ export const UserInfoPage = () => {
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
     return reducedMotion || isMobileViewport || memory <= 4;
   }, [isMobileViewport]);
+  const backgroundLayerMode = isMobileViewport ? 'absolute' : 'fixed';
   const latestUpdatedAt = useMemo(() => {
     const timestamp = Math.max(userInfoUpdatedAt || 0, publicLinksUpdatedAt || 0, devicesUpdatedAt || 0);
     return timestamp > 0 ? new Date(timestamp) : null;
@@ -894,11 +895,11 @@ export const UserInfoPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen px-4 pb-44 pt-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-8">
+    <div className="mobile-scroll-page relative min-h-screen px-4 pb-44 pt-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-8">
       {hasWallpaper ? (
         <>
           <div
-            className="pointer-events-none fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat"
+            className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-20 bg-cover bg-center bg-no-repeat`}
             style={{
               backgroundImage: `url(${wallpaperUrl})`,
               backgroundPosition: `${wallpaperPositionX}% ${wallpaperPositionY}%`,
@@ -907,13 +908,13 @@ export const UserInfoPage = () => {
             }}
           />
           <div
-            className="pointer-events-none fixed inset-0 -z-10"
+            className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-10`}
             style={{
               backgroundImage: `linear-gradient(135deg, ${hexToRgba(wallpaperGradientFrom, wallpaperGradientOpacity / 100)} 0%, ${hexToRgba(wallpaperGradientTo, wallpaperGradientOpacity / 100)} 100%)`
             }}
           />
           <div
-            className="pointer-events-none fixed inset-0 -z-10"
+            className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-10`}
             style={{
               backgroundColor: `rgba(2, 6, 23, ${(reduceVisualEffects ? Math.min(wallpaperOverlayOpacity, 50) : wallpaperOverlayOpacity) / 100})`
             }}
@@ -922,7 +923,7 @@ export const UserInfoPage = () => {
       ) : null}
       {!hasWallpaper ? (
         <div
-          className="pointer-events-none fixed inset-0 -z-10"
+          className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-10`}
           style={{
             backgroundImage: `linear-gradient(135deg, ${hexToRgba(
               wallpaperGradientFrom,
@@ -1921,8 +1922,8 @@ export const UserInfoPage = () => {
         </Card>
 
         {isMobileViewport && selectedUrl ? (
-          <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
-            <div className="mx-auto flex max-w-5xl gap-2 px-3 pb-2 pt-2">
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
+            <div className="pointer-events-auto mx-auto flex max-w-5xl gap-2 px-3 pb-2 pt-2">
               {primaryImportApp?.importUrl && primaryImportLaunchUrls ? (
                 <Button
                   className="flex-1"

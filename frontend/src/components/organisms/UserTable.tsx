@@ -163,7 +163,7 @@ export const UserTable: FC<UserTableProps> = ({
   sessionsByUserId = {}
 }) => {
   const { t } = useTranslation();
-  const renderBatchSize = isMobileViewport ? 24 : 80;
+  const renderBatchSize = isMobileViewport ? 16 : 80;
   const [expandedUserIds, setExpandedUserIds] = useState<number[]>([]);
   const [expandedMobileUserId, setExpandedMobileUserId] = useState<number | null>(null);
   const [renderedCount, setRenderedCount] = useState(() => Math.min(users.length, renderBatchSize));
@@ -453,8 +453,8 @@ export const UserTable: FC<UserTableProps> = ({
           return (
             <article
               key={`mobile-${user.id}`}
-              className="overflow-hidden rounded-xl border border-line/70 bg-card/80"
-              onMouseEnter={() => onPrefetch?.(user)}
+              className="scroll-perf-item overflow-hidden rounded-xl border border-line/70 bg-card/80"
+              onMouseEnter={!isMobileViewport ? () => onPrefetch?.(user) : undefined}
               onFocus={() => onPrefetch?.(user)}
             >
               <button

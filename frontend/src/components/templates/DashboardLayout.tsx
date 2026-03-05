@@ -242,7 +242,7 @@ export const DashboardLayout: React.FC = () => {
         ) : null}
 
         <main
-          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent"
+          className="mobile-scroll-container flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent"
           ref={setMainScrollEl}
         >
           <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-line/70 bg-card/75 px-6 py-4 backdrop-blur-xl lg:flex xl:px-8">
@@ -263,9 +263,9 @@ export const DashboardLayout: React.FC = () => {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-card/90 px-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur-xl lg:hidden">
+      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-card/90 px-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur-xl lg:hidden">
         <ul
-          className={`grid gap-1 ${
+          className={`pointer-events-auto grid gap-1 ${
             menuItems.length > 5 ? 'grid-cols-6' : menuItems.length > 4 ? 'grid-cols-5' : 'grid-cols-4'
           }`}
         >

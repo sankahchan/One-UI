@@ -342,6 +342,7 @@ export const MieruSharePage = () => {
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
     return reducedMotion || isMobileViewport || memory <= 4;
   }, [isMobileViewport]);
+  const backgroundLayerMode = isMobileViewport ? 'absolute' : 'fixed';
   const endpointStatus = infoQuery.isError
     ? 'degraded'
     : infoQuery.isFetching
@@ -441,10 +442,10 @@ export const MieruSharePage = () => {
   const usageLimitLabel = usage && usage.limitBytes > 0 ? formatBytes(usage.limitBytes) : '∞';
 
   return (
-    <div className="relative min-h-screen px-4 pb-44 pt-6 text-foreground sm:px-6 sm:pb-10 sm:pt-8">
-      <div className="pointer-events-none fixed inset-0 -z-20 bg-slate-950" />
+    <div className="mobile-scroll-page relative min-h-screen px-4 pb-44 pt-6 text-foreground sm:px-6 sm:pb-10 sm:pt-8">
+      <div className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-20 bg-slate-950`} />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 opacity-90"
+        className={`pointer-events-none ${backgroundLayerMode} inset-0 -z-10 opacity-90`}
         style={{
           backgroundImage: reduceVisualEffects
             ? 'linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
@@ -831,8 +832,8 @@ export const MieruSharePage = () => {
         </div>
 
         {isMobileViewport && subscriptionUrl ? (
-          <div className={`fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 lg:hidden ${reduceVisualEffects ? '' : 'backdrop-blur'}`}>
-            <div className="mx-auto flex max-w-6xl gap-2 px-3 pb-2 pt-2">
+          <div className={`pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-40 border-t border-line/80 bg-card/95 lg:hidden ${reduceVisualEffects ? '' : 'backdrop-blur'}`}>
+            <div className="pointer-events-auto mx-auto flex max-w-6xl gap-2 px-3 pb-2 pt-2">
               {recommendedApp?.importUrl && recommendedLaunchUrls ? (
                 <Button
                   className="flex-1"

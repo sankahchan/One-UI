@@ -27,8 +27,8 @@ export const MobileQuickActions: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-[4.75rem] right-3 z-40 lg:hidden">
-      <div className="flex items-center gap-2 rounded-2xl border border-line/80 bg-card/90 p-2 shadow-soft backdrop-blur-xl">
+    <div className="pointer-events-none fixed bottom-[4.75rem] right-3 z-40 lg:hidden">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-line/80 bg-card/90 p-2 shadow-soft backdrop-blur-xl">
         <button
           type="button"
           onClick={() => navigate('/inbounds?quick=create')}

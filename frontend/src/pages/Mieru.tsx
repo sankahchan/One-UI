@@ -254,6 +254,12 @@ export const MieruPage: React.FC = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
   const panelHostCandidate = useMemo(() => getPanelHostCandidate(), []);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
+  });
 
   const policyQuery = useMieruPolicy();
   const statusQuery = useMieruStatus();
@@ -292,6 +298,24 @@ export const MieruPage: React.FC = () => {
   const [editForm, setEditForm] = useState<UserForm>(DEFAULT_USER_FORM);
   const [panelEditTarget, setPanelEditTarget] = useState<number | null>(null);
   const [panelPolicyForm, setPanelPolicyForm] = useState<PanelPolicyForm>(DEFAULT_PANEL_POLICY_FORM);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const media = window.matchMedia('(max-width: 1023px), (pointer: coarse)');
+    const apply = () => setIsMobileViewport(media.matches);
+    apply();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', apply);
+      return () => media.removeEventListener('change', apply);
+    }
+
+    media.addListener(apply);
+    return () => media.removeListener(apply);
+  }, []);
 
   useEffect(() => {
     if (!profileQuery.data || profileDirty) {
@@ -807,6 +831,17 @@ export const MieruPage: React.FC = () => {
     ? formatRelativeAgo(onlineSnapshot?.checkedAt || null)
     : t('mieru.onlinePaused', { defaultValue: 'paused (runtime unstable)' });
   const restartWindowMinutes = Math.max(1, Math.round((statusQuery.data?.restartMonitor?.windowSeconds || 600) / 60));
+  const reduceVisualEffects = useMemo(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const reducedMotion = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false;
+    const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
+    return reducedMotion || isMobileViewport || memory <= 4;
+  }, [isMobileViewport]);
   const getQuotaLabel = (entry: MieruUserEntry): string => {
     const quota = entry.quotas?.find(
       (item) => Number.isInteger(item?.days) || Number.isInteger(item?.megabytes)
@@ -832,30 +867,35 @@ export const MieruPage: React.FC = () => {
         <div
           className="absolute inset-0"
           style={{
-            background:
-              'linear-gradient(152deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 44%, hsl(var(--color-app)) 100%)'
+            background: reduceVisualEffects
+              ? 'linear-gradient(156deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 100%)'
+              : 'linear-gradient(152deg, hsl(var(--color-app)) 0%, hsl(var(--color-surface)) 44%, hsl(var(--color-app)) 100%)'
           }}
         />
-        <div
-          className="absolute inset-x-0 -top-28 h-80 opacity-55 dark:opacity-95"
-          style={{
-            background:
-              'linear-gradient(90deg, rgba(14, 165, 233, 0.42) 0%, rgba(59, 130, 246, 0.32) 38%, rgba(147, 51, 234, 0.38) 100%)',
-            filter: 'blur(44px)'
-          }}
-        />
-        <div
-          className="absolute inset-x-8 -top-8 h-44 opacity-35 dark:opacity-70"
-          style={{
-            background:
-              'linear-gradient(112deg, transparent 4%, rgba(56, 189, 248, 0.36) 34%, rgba(168, 85, 247, 0.34) 68%, transparent 96%)',
-            filter: 'blur(28px)'
-          }}
-        />
-        <div className="absolute -left-32 -top-48 h-[30rem] w-[30rem] rounded-full bg-brand-500/22 dark:bg-brand-500/40 blur-3xl" />
-        <div className="absolute -right-28 -top-44 h-[28rem] w-[28rem] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-500/38 blur-3xl" />
-        <div className="absolute left-[34%] -top-36 h-[22rem] w-[22rem] rounded-full bg-sky-400/14 dark:bg-sky-400/24 blur-3xl" />
-        <div className="absolute -bottom-56 left-1/3 h-[24rem] w-[24rem] rounded-full bg-cyan-500/10 dark:bg-cyan-500/20 blur-3xl" />
+        {!reduceVisualEffects ? (
+          <>
+            <div
+              className="absolute inset-x-0 -top-28 h-80 opacity-55 dark:opacity-95"
+              style={{
+                background:
+                  'linear-gradient(90deg, rgba(14, 165, 233, 0.42) 0%, rgba(59, 130, 246, 0.32) 38%, rgba(147, 51, 234, 0.38) 100%)',
+                filter: 'blur(44px)'
+              }}
+            />
+            <div
+              className="absolute inset-x-8 -top-8 h-44 opacity-35 dark:opacity-70"
+              style={{
+                background:
+                  'linear-gradient(112deg, transparent 4%, rgba(56, 189, 248, 0.36) 34%, rgba(168, 85, 247, 0.34) 68%, transparent 96%)',
+                filter: 'blur(28px)'
+              }}
+            />
+            <div className="absolute -left-32 -top-48 h-[30rem] w-[30rem] rounded-full bg-brand-500/22 dark:bg-brand-500/40 blur-3xl" />
+            <div className="absolute -right-28 -top-44 h-[28rem] w-[28rem] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-500/38 blur-3xl" />
+            <div className="absolute left-[34%] -top-36 h-[22rem] w-[22rem] rounded-full bg-sky-400/14 dark:bg-sky-400/24 blur-3xl" />
+            <div className="absolute -bottom-56 left-1/3 h-[24rem] w-[24rem] rounded-full bg-cyan-500/10 dark:bg-cyan-500/20 blur-3xl" />
+          </>
+        ) : null}
         <div
           className="absolute inset-0 opacity-[0.07] dark:opacity-[0.10]"
           style={{
@@ -1192,7 +1232,7 @@ export const MieruPage: React.FC = () => {
               return (
                 <details
                   key={`mobile-${entry.username}`}
-                  className="group overflow-hidden rounded-2xl border border-line/70 bg-panel/55"
+                  className="scroll-perf-item group overflow-hidden rounded-2xl border border-line/70 bg-panel/55"
                 >
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-2 px-3 py-3 [&::-webkit-details-marker]:hidden">
                     <div className="min-w-0">
