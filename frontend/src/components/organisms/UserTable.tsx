@@ -114,6 +114,7 @@ const UserDevicesInlinePanel: FC<UserDevicesInlinePanelProps> = ({ userId }) => 
 interface UserTableProps {
   users: User[];
   viewMode?: 'auto' | 'table' | 'cards';
+  isMobileViewport?: boolean;
   onlineUuidSet?: Set<string>;
   onView: (user: User) => void;
   onPrefetch?: (user: User) => void;
@@ -139,6 +140,7 @@ interface UserTableProps {
 export const UserTable: FC<UserTableProps> = ({
   users,
   viewMode = 'auto',
+  isMobileViewport = false,
   onlineUuidSet = new Set<string>(),
   onView,
   onPrefetch,
@@ -161,15 +163,16 @@ export const UserTable: FC<UserTableProps> = ({
   sessionsByUserId = {}
 }) => {
   const { t } = useTranslation();
-  const RENDER_BATCH_SIZE = 80;
+  const renderBatchSize = isMobileViewport ? 24 : 80;
   const [expandedUserIds, setExpandedUserIds] = useState<number[]>([]);
-  const [renderedCount, setRenderedCount] = useState(() => Math.min(users.length, RENDER_BATCH_SIZE));
+  const [expandedMobileUserId, setExpandedMobileUserId] = useState<number | null>(null);
+  const [renderedCount, setRenderedCount] = useState(() => Math.min(users.length, renderBatchSize));
   const isAllSelected = users.length > 0 && selectedUserIds.length === users.length;
   const isSomeSelected = selectedUserIds.length > 0 && selectedUserIds.length < users.length;
 
   useEffect(() => {
-    setRenderedCount(Math.min(users.length, RENDER_BATCH_SIZE));
-  }, [users.length]);
+    setRenderedCount(Math.min(users.length, renderBatchSize));
+  }, [renderBatchSize, users.length]);
 
   useEffect(() => {
     if (renderedCount >= users.length) {
@@ -177,13 +180,24 @@ export const UserTable: FC<UserTableProps> = ({
     }
 
     const timer = window.setTimeout(() => {
-      setRenderedCount((current) => Math.min(users.length, current + RENDER_BATCH_SIZE));
+      setRenderedCount((current) => Math.min(users.length, current + renderBatchSize));
     }, 32);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [renderedCount, users.length]);
+  }, [renderBatchSize, renderedCount, users.length]);
+
+  useEffect(() => {
+    if (expandedMobileUserId === null) {
+      return;
+    }
+
+    const hasExpandedUser = users.some((user) => user.id === expandedMobileUserId);
+    if (!hasExpandedUser) {
+      setExpandedMobileUserId(null);
+    }
+  }, [expandedMobileUserId, users]);
 
   const visibleUsers = users.slice(0, renderedCount);
 
@@ -209,6 +223,9 @@ export const UserTable: FC<UserTableProps> = ({
     setExpandedUserIds((previous) => (
       previous.includes(userId) ? previous.filter((id) => id !== userId) : [...previous, userId]
     ));
+  };
+  const toggleMobileExpanded = (userId: number) => {
+    setExpandedMobileUserId((previous) => (previous === userId ? null : userId));
   };
   const cardsContainerClass = viewMode === 'auto' ? 'space-y-3 md:hidden' : viewMode === 'cards' ? 'space-y-3' : 'hidden';
   const tableContainerClass = viewMode === 'auto' ? 'hidden overflow-x-auto md:block' : viewMode === 'table' ? 'overflow-x-auto' : 'hidden';
@@ -243,7 +260,7 @@ export const UserTable: FC<UserTableProps> = ({
         }`}
     >
       <span className="relative inline-flex h-2.5 w-2.5">
-        {isOnline ? (
+        {isOnline && !isMobileViewport ? (
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
         ) : null}
         <span
@@ -430,122 +447,144 @@ export const UserTable: FC<UserTableProps> = ({
           const sessionMeta = getSessionMetaLabel(session);
           const lastSeenLabel = getLastSeenLabel(session);
           const lastPacketLabel = getLastPacketLabel(session);
+          const isExpanded = expandedMobileUserId === user.id;
+          const isDevicesExpanded = expandedUserIds.includes(user.id);
 
           return (
-            <div
+            <article
               key={`mobile-${user.id}`}
-              className="rounded-xl border border-line/70 bg-card/80 p-4"
+              className="overflow-hidden rounded-xl border border-line/70 bg-card/80"
               onMouseEnter={() => onPrefetch?.(user)}
               onFocus={() => onPrefetch?.(user)}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <button
-                    type="button"
-                    className="truncate text-left text-sm font-medium text-foreground transition hover:text-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                    onClick={() => onView(user)}
-                  >
-                    {user.email}
-                  </button>
-                  <p className="font-mono text-xs text-muted">{user.uuid.substring(0, 8)}...</p>
-                </div>
-
-                <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="flex w-full items-start justify-between gap-2 px-3 py-3 text-left"
+                onClick={() => toggleMobileExpanded(user.id)}
+              >
+                <div className="flex min-w-0 items-start gap-2">
                   {onSelectionChange ? (
                     <input
                       type="checkbox"
                       checked={selectedUserIds.includes(user.id)}
+                      onClick={(event) => event.stopPropagation()}
                       onChange={() => handleSelectUser(user.id)}
                       className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                     />
                   ) : null}
-                  {renderActionMenu(user, true)}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{user.email}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {user.uuid.substring(0, 8)}... • {formatBytes(totalUsed)} / {formatBytes(dataLimit)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {getStatusBadge(user.status)}
-                {renderOnlinePill(isOnline)}
-                <span className="text-xs text-muted">
-                  {t('users.keysActive', {
-                    defaultValue: 'Keys {{online}}/{{total}} active',
-                    online: onlineKeyCount,
-                    total: activeKeyCount || 0
-                  })}
-                </span>
-                <span className="text-xs text-muted">{t('users.limitIpShort', { defaultValue: 'IP {{count}}', count: Number(user.ipLimit || 0) })}</span>
-                <span className="text-xs text-muted">{t('users.limitDeviceShort', { defaultValue: 'DEV {{count}}', count: Number(user.deviceLimit || 0) })}</span>
-                {sessionMeta ? (
-                  <span className="text-xs text-muted">{sessionMeta}</span>
-                ) : null}
-                <span className="text-xs text-muted">
-                  {t('users.sessions.lastPacketPrefix', { defaultValue: 'Last packet {{label}}', label: lastPacketLabel })}
-                </span>
-                {!isOnline ? (
-                  <span className="text-xs text-muted">
-                    {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-3 space-y-2">
-                <p className="text-xs text-foreground">
-                  {formatBytes(totalUsed)} / {formatBytes(dataLimit)}
-                </p>
-                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
-                  <div
-                    className={`h-2 rounded-full ${Number.parseFloat(usagePercent) > 90
-                      ? 'bg-red-600'
-                      : Number.parseFloat(usagePercent) > 70
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
-                      }`}
-                    style={{
-                      width: `${Math.min(Number.parseFloat(usagePercent), 100)}%`
-                    }}
-                  />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {getStatusBadge(user.status)}
+                  <ChevronDown className={`h-4 w-4 text-brand-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted">
-                  <span>{t('users.usagePercent', { defaultValue: '{{percent}}% used', percent: usagePercent })}</span>
-                  {isDeferredExpiry ? (
-                    <span className="text-amber-600 dark:text-amber-400">
-                      {t('users.startOnFirstConnectBadge', {
-                        defaultValue: 'Starts on first connect (+{{days}}d)',
-                        days: deferredDays
-                      })}
-                    </span>
-                  ) : (
-                    <span className={daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : ''}>
-                      {daysRemaining > 0
-                        ? t('common.daysLeft', { defaultValue: '{{count}} days left', count: daysRemaining })
-                        : t('common.expired', { defaultValue: 'Expired' })}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleExpanded(user.id)}
-                className="mt-3 flex w-full items-center justify-between rounded-xl border border-line/60 bg-panel/35 px-4 py-3 text-left text-sm text-foreground transition hover:bg-panel/55"
-                aria-label={expandedUserIds.includes(user.id)
-                  ? t('users.devices.hide', { defaultValue: 'Hide devices' })
-                  : t('users.devices.show', { defaultValue: 'Show devices' })}
-              >
-                <span className="font-medium">{t('users.devices.title', { defaultValue: 'Devices' })}</span>
-                {expandedUserIds.includes(user.id) ? (
-                  <ChevronUp className="h-4 w-4 text-brand-500" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-brand-500" />
-                )}
               </button>
 
-              {expandedUserIds.includes(user.id) ? (
-                <div className="mt-3 rounded-lg border border-line/60 bg-panel/50 p-3">
-                  <UserDevicesInlinePanel userId={user.id} />
+              {isExpanded ? (
+                <div className="space-y-3 border-t border-line/60 px-3 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="truncate text-left text-sm font-medium text-foreground transition hover:text-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                      onClick={() => onView(user)}
+                    >
+                      {t('users.actions.openDetail', { defaultValue: 'Open user detail' })}
+                    </button>
+                    {renderActionMenu(user, true)}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renderOnlinePill(isOnline)}
+                    <span className="text-xs text-muted">
+                      {t('users.keysActive', {
+                        defaultValue: 'Keys {{online}}/{{total}} active',
+                        online: onlineKeyCount,
+                        total: activeKeyCount || 0
+                      })}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {t('users.limitIpShort', { defaultValue: 'IP {{count}}', count: Number(user.ipLimit || 0) })}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {t('users.limitDeviceShort', { defaultValue: 'DEV {{count}}', count: Number(user.deviceLimit || 0) })}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs text-foreground">
+                      {formatBytes(totalUsed)} / {formatBytes(dataLimit)}
+                    </p>
+                    <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div
+                        className={`h-2 rounded-full ${Number.parseFloat(usagePercent) > 90
+                          ? 'bg-red-600'
+                          : Number.parseFloat(usagePercent) > 70
+                            ? 'bg-yellow-500'
+                            : 'bg-green-500'
+                          }`}
+                        style={{
+                          width: `${Math.min(Number.parseFloat(usagePercent), 100)}%`
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted">
+                      <span>{t('users.usagePercent', { defaultValue: '{{percent}}% used', percent: usagePercent })}</span>
+                      {isDeferredExpiry ? (
+                        <span className="text-amber-600 dark:text-amber-400">
+                          {t('users.startOnFirstConnectBadge', {
+                            defaultValue: 'Starts on first connect (+{{days}}d)',
+                            days: deferredDays
+                          })}
+                        </span>
+                      ) : (
+                        <span className={daysRemaining < 7 ? 'text-red-600 dark:text-red-400' : ''}>
+                          {daysRemaining > 0
+                            ? t('common.daysLeft', { defaultValue: '{{count}} days left', count: daysRemaining })
+                            : t('common.expired', { defaultValue: 'Expired' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {sessionMeta ? <p className="text-xs text-muted">{sessionMeta}</p> : null}
+                  <p className="text-xs text-muted">
+                    {t('users.sessions.lastPacketPrefix', { defaultValue: 'Last packet {{label}}', label: lastPacketLabel })}
+                  </p>
+                  {!isOnline ? (
+                    <p className="text-xs text-muted">
+                      {t('users.sessions.lastSeenPrefix', { defaultValue: 'Last seen {{label}}', label: lastSeenLabel })}
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(user.id)}
+                    className="flex w-full items-center justify-between rounded-xl border border-line/60 bg-panel/35 px-4 py-3 text-left text-sm text-foreground transition hover:bg-panel/55"
+                    aria-label={isDevicesExpanded
+                      ? t('users.devices.hide', { defaultValue: 'Hide devices' })
+                      : t('users.devices.show', { defaultValue: 'Show devices' })}
+                  >
+                    <span className="font-medium">{t('users.devices.title', { defaultValue: 'Devices' })}</span>
+                    {isDevicesExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-brand-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-brand-500" />
+                    )}
+                  </button>
+
+                  {isDevicesExpanded ? (
+                    <div className="rounded-lg border border-line/60 bg-panel/50 p-3">
+                      <UserDevicesInlinePanel userId={user.id} />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-            </div>
+            </article>
           );
         })}
       </div>

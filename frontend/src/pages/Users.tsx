@@ -2211,6 +2211,7 @@ export function Users() {
           <UserTable
             users={users}
             viewMode={effectiveViewMode}
+            isMobileViewport={isMobileViewport}
             onlineUuidSet={onlineUuidSet}
             sessionsByUserId={sessionsByUserId}
             onQuickQr={(user) => setQuickQrUser(user)}
