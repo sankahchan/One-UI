@@ -322,6 +322,17 @@ export const MieruSharePage = () => {
     });
   }, [recommendedApp, recommendedManualUrl]);
   const latestUpdatedAt = infoQuery.dataUpdatedAt ? new Date(infoQuery.dataUpdatedAt) : null;
+  const reduceVisualEffects = useMemo(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const reducedMotion = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false;
+    const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
+    return reducedMotion || isMobileViewport || memory <= 4;
+  }, [isMobileViewport]);
   const endpointStatus = infoQuery.isError
     ? 'degraded'
     : infoQuery.isFetching
@@ -426,7 +437,9 @@ export const MieruSharePage = () => {
       <div
         className="pointer-events-none fixed inset-0 -z-10 opacity-90"
         style={{
-          backgroundImage: 'radial-gradient(circle at 20% 10%, rgba(59,130,246,.35), transparent 42%), radial-gradient(circle at 80% 16%, rgba(99,102,241,.28), transparent 40%), linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
+          backgroundImage: reduceVisualEffects
+            ? 'linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
+            : 'radial-gradient(circle at 20% 10%, rgba(59,130,246,.35), transparent 42%), radial-gradient(circle at 80% 16%, rgba(99,102,241,.28), transparent 40%), linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
         }}
       />
       <div className="mx-auto max-w-6xl space-y-6">
@@ -475,7 +488,7 @@ export const MieruSharePage = () => {
               {qrVisible ? (
                 <QRCodeDisplay text={subscriptionUrl} size={240} />
               ) : (
-                <div className="h-[240px] w-[240px] animate-pulse rounded-2xl bg-slate-200/75" />
+                <div className={`h-[240px] w-[240px] rounded-2xl bg-slate-200/75 ${reduceVisualEffects ? '' : 'animate-pulse'}`} />
               )}
             </div>
             <div className="flex w-full flex-col gap-2">
@@ -524,13 +537,13 @@ export const MieruSharePage = () => {
               </div>
               <div className="mt-3 h-3 overflow-hidden rounded-full bg-line/40">
                 <div
-                  className={`h-full rounded-full transition-all ${
+                  className={`h-full rounded-full ${
                     usagePercent >= 90
                       ? 'bg-gradient-to-r from-rose-500 to-red-400'
                       : usagePercent >= 70
                       ? 'bg-gradient-to-r from-amber-500 to-orange-400'
                       : 'bg-gradient-to-r from-brand-500 to-cyan-400'
-                  }`}
+                  } ${reduceVisualEffects ? '' : 'transition-all'}`}
                     style={{ width: `${usagePercent}%` }}
                 />
               </div>
@@ -687,6 +700,9 @@ export const MieruSharePage = () => {
           <Card className="space-y-4 bg-slate-900/55 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
+                    {t('portal.steps.chooseClient', { defaultValue: 'Step 1 · Choose client' })}
+                  </p>
                   <h2 className="text-xl font-semibold text-foreground">
                     {t('portal.addToApp.title', { defaultValue: 'Third Party Client Software' })}
                   </h2>
@@ -716,6 +732,38 @@ export const MieruSharePage = () => {
 
               {activeGroup ? (
                 <div className="space-y-4">
+                  {recommendedApp ? (
+                    <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-300">
+                        {t('portal.addToApp.recommended', { defaultValue: 'Recommended client' })}
+                      </p>
+                      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{recommendedApp.name}</p>
+                          <p className="text-xs text-muted">{activeGroup.subtitle}</p>
+                        </div>
+                        {recommendedApp.importUrl ? (
+                          <Button size="sm" onClick={() => onOneClickImport(recommendedApp, `recommended-${recommendedApp.id}`)}>
+                            <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                            {t('portal.subscription.openInApp', {
+                              defaultValue: 'Open in {{app}}',
+                              app: recommendedApp.name
+                            })}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void copyToClipboard(recommendedApp.manualUrl || subscriptionUrl, `recommended-${recommendedApp.id}`)}
+                          >
+                            <Copy className="mr-1.5 h-3.5 w-3.5" />
+                            {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center gap-3">
                     <Smartphone className="h-4 w-4 text-brand-400" />
                     <div>
@@ -728,16 +776,16 @@ export const MieruSharePage = () => {
                     {activeGroup.apps.map((app) => (
                       <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/45 p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{app.name}</p>
-                            <p className="mt-1 text-xs text-muted">{app.description}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{app.name}</p>
+                            <p className="mt-1 max-h-9 overflow-hidden text-xs text-muted">{app.description}</p>
                           </div>
                           <span className="text-lg" aria-hidden="true">{app.icon}</span>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className={`mt-4 grid gap-2 ${isMobileViewport ? 'grid-cols-1' : 'grid-cols-2'}`}>
                           {app.importUrl ? (
-                            <Button size="sm" onClick={() => onOneClickImport(app, `app-fallback-${app.id}`)}>
+                            <Button size="sm" className="w-full" onClick={() => onOneClickImport(app, `app-fallback-${app.id}`)}>
                               <QrCode className="mr-1 h-3.5 w-3.5" />
                               {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
                             </Button>
@@ -745,6 +793,7 @@ export const MieruSharePage = () => {
                           <Button
                             size="sm"
                             variant="secondary"
+                            className="w-full"
                             onClick={() => void copyToClipboard(app.manualUrl || subscriptionUrl, `app-${app.id}`)}
                           >
                             <Copy className="mr-1 h-3.5 w-3.5" />
@@ -756,11 +805,12 @@ export const MieruSharePage = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                            onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
-                          >
+                              className={`${isMobileViewport ? 'w-full' : app.importUrl ? 'col-span-2 w-full' : 'w-full'}`}
+                              onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
+                            >
                               <ExternalLink className="mr-1 h-3.5 w-3.5" />
                               {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
-                          </Button>
+                            </Button>
                           ) : null}
                         </div>
                       </div>
@@ -772,7 +822,7 @@ export const MieruSharePage = () => {
         </div>
 
         {isMobileViewport && subscriptionUrl ? (
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 backdrop-blur lg:hidden">
+          <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-card/95 lg:hidden ${reduceVisualEffects ? '' : 'backdrop-blur'}`}>
             <div className="mx-auto flex max-w-6xl gap-2 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
               {recommendedApp?.importUrl && recommendedLaunchUrls ? (
                 <Button

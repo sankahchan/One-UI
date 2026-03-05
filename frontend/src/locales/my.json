@@ -1160,6 +1160,7 @@
         },
         "steps": {
             "pickFormat": "အဆင့် ၁ · ဖော်မတ်ရွေးရန်",
+            "chooseClient": "အဆင့် ၁ · Client ရွေးရန်",
             "import": "အဆင့် ၂ · Import",
             "verify": "အဆင့် ၃ · စစ်ဆေးရန်"
         },
@@ -1217,6 +1218,7 @@
         "addToApp": {
             "title": "App ထဲသို့ ထည့်ရန်",
             "subtitle": "Support ရှိသည့် app တွင် one-click import ကို သုံးပါ၊ မရပါက URL ကို ကူး၍ app ထဲတွင် manual import လုပ်ပါ။",
+            "recommended": "အကြံပြု client",
             "description": "သင့်စက်အမျိုးအစားကို ရွေးပြီး တစ်ချက်နှိပ်၍ import လုပ်နိုင်ပါသည်။",
             "mieruTitle": "Third Party Client Software",
             "mieruDescription": "Compatible client ကို install လုပ်ပြီး Mieru URL ကို one-click သို့မဟုတ် manual copy ဖြင့် import လုပ်ပါ။",

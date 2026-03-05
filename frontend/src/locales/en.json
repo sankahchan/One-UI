@@ -1443,6 +1443,7 @@
         },
         "steps": {
             "pickFormat": "Step 1 · Pick format",
+            "chooseClient": "Step 1 · Choose client",
             "import": "Step 2 · Import",
             "verify": "Step 3 · Verify"
         },
@@ -1500,6 +1501,7 @@
         "addToApp": {
             "title": "Add To App",
             "subtitle": "Use one-click import where supported, or copy the URL into the app manually.",
+            "recommended": "Recommended client",
             "description": "Choose your device and import with one tap.",
             "mieruTitle": "Third Party Client Software",
             "mieruDescription": "Install a compatible client, then import your Mieru URL with one click or manual copy.",
