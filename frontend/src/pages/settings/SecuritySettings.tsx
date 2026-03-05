@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, Trash2 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +8,7 @@ import apiClient from '../../api/client';
 import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
+import { BrandedQRCode } from '../../components/molecules/BrandedQRCode';
 import { useToast } from '../../hooks/useToast';
 import { useAuthStore } from '../../store/authStore';
 
@@ -1044,7 +1044,7 @@ const SecuritySettings: React.FC = () => {
             <div className="space-y-4">
               <div className="flex flex-col items-start gap-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700 md:flex-row">
                 <div className="rounded-lg bg-white p-2">
-                  <QRCodeSVG value={setupData.otpAuthUrl} size={164} />
+                  <BrandedQRCode value={setupData.otpAuthUrl} size={164} />
                 </div>
                 <div className="space-y-2 text-sm">
                   <p className="text-gray-700 dark:text-gray-300">

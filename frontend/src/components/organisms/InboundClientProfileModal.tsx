@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Copy, Download, QrCode, RefreshCw, X } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { useQuery } from '@tanstack/react-query';
 import JSZip from 'jszip';
 
@@ -16,6 +15,7 @@ import {
 } from '../../utils/inboundClientTemplates';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
+import { BrandedQRCode } from '../molecules/BrandedQRCode';
 import { Spinner } from '../atoms/Spinner';
 
 interface InboundClientProfileModalProps {
@@ -382,7 +382,7 @@ export const InboundClientProfileModal: React.FC<InboundClientProfileModalProps>
                   <p className="text-sm font-semibold text-foreground">QR Preview</p>
                 </div>
                 <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
-                  <QRCodeSVG value={selectedTemplate.qrValue} size={154} />
+                  <BrandedQRCode value={selectedTemplate.qrValue} size={154} />
                 </div>
               </div>
             ) : null}

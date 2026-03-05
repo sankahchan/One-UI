@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Copy, ExternalLink, X } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 
 import { usersApi } from '../../api/users';
 import type { User } from '../../types';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
+import { BrandedQRCode } from '../molecules/BrandedQRCode';
 
 type SubscriptionFormat = 'v2ray' | 'clash' | 'singbox' | 'wireguard' | 'mieru';
 
@@ -38,11 +38,6 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
     () => subscriptionQuery.data?.data?.urls ?? {},
     [subscriptionQuery.data?.data?.urls]
   );
-  const qrCodes = useMemo(
-    () => subscriptionQuery.data?.data?.qrCodes ?? {},
-    [subscriptionQuery.data?.data?.qrCodes]
-  );
-
   const availableFormats = useMemo(
     () => ALL_FORMATS.filter((format) => Boolean(urls[format.key])),
     [urls]
@@ -53,7 +48,6 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
     : availableFormats[0]?.key ?? 'v2ray';
 
   const selectedUrl = urls[activeFormat] || '';
-  const selectedQrDataUrl = qrCodes[activeFormat];
 
   const copyUrl = async () => {
     if (!selectedUrl) {
@@ -119,15 +113,11 @@ export function UserQuickQrModal({ user, onClose }: UserQuickQrModalProps) {
 
               <div className="flex flex-col items-center gap-4 rounded-2xl border border-line/70 bg-panel/60 p-4">
                 <div className="rounded-xl border border-line/70 bg-white p-3">
-                  {selectedQrDataUrl ? (
-                    <img
-                      src={selectedQrDataUrl}
-                      alt={t('users.qrModal.alt', { defaultValue: 'Subscription QR' })}
-                      className="h-[220px] w-[220px]"
-                    />
-                  ) : (
-                    <QRCodeSVG value={selectedUrl} size={220} />
-                  )}
+                  <BrandedQRCode
+                    value={selectedUrl}
+                    size={220}
+                    aria-label={t('users.qrModal.alt', { defaultValue: 'Subscription QR' })}
+                  />
                 </div>
                 <p className="w-full break-all rounded-lg border border-line/70 bg-card/80 px-3 py-2 text-xs text-foreground">
                   {selectedUrl}

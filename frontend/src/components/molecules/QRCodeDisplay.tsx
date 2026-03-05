@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 
+import oneUiLogo from '../../assets/one-ui-logo.svg';
+
 interface QRCodeDisplayProps {
     text: string;
     size?: number;
@@ -17,14 +19,13 @@ export const QRCodeDisplay = ({
   className = ''
 }: QRCodeDisplayProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const resolvedLogoUrl = logoUrl || oneUiLogo;
 
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const drawLogo = async () => {
-        if (!logoUrl) return;
-
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
@@ -49,7 +50,7 @@ export const QRCodeDisplay = ({
             resolve();
           };
           logo.onerror = () => resolve();
-          logo.src = logoUrl;
+          logo.src = resolvedLogoUrl;
         });
       };
 
@@ -74,7 +75,7 @@ export const QRCodeDisplay = ({
           void drawLogo();
         }
       );
-    }, [text, size, logoUrl, logoSizePercent]);
+    }, [text, size, resolvedLogoUrl, logoSizePercent]);
 
     return <canvas ref={canvasRef} className={className} />;
 };

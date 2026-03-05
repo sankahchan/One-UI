@@ -2,10 +2,10 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { AlertTriangle, Info, Plus, Shuffle, Trash2, X } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';
+import { BrandedQRCode } from '../molecules/BrandedQRCode';
 import apiClient from '../../api/client';
 import { inboundTemplates } from '../../data/inboundTemplates';
 import { useToast } from '../../hooks/useToast';
@@ -1249,7 +1249,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                     </pre>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
-                        <QRCodeSVG value={realityLinkTemplate} size={132} />
+                        <BrandedQRCode value={realityLinkTemplate} size={132} />
                       </div>
                       <p className="text-xs text-muted">
                         Replace {'{UUID}'} with the user UUID for manual links, or use subscription URLs for automatic client import.
@@ -1346,7 +1346,7 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                     </pre>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="w-fit rounded-lg border border-line/70 bg-white p-2">
-                        <QRCodeSVG value={wireguardConfigPreview} size={132} />
+                        <BrandedQRCode value={wireguardConfigPreview} size={132} />
                       </div>
                       <p className="text-xs text-muted">
                         Scan this QR in WireGuard mobile app using &quot;Create from QR code&quot;.

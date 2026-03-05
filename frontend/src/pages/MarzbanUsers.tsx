@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Trash2, Edit, RefreshCw, Link2, QrCode } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 
 import { getUsers, deleteUser, resetTraffic, revokeSubscription } from '../lib/api/users';
 import type { User } from '../types/marzban';
 import { Card } from '../components/atoms/Card';
 import { Button } from '../components/atoms/Button';
 import { Input } from '../components/atoms/Input';
+import { BrandedQRCode } from '../components/molecules/BrandedQRCode';
 import { formatBytes } from '../utils/formatters';
 import { useToast } from '../hooks/useToast';
 import { Skeleton } from '../components/atoms/Skeleton';
@@ -236,7 +236,7 @@ export const Users: React.FC = () => {
             </div>
             <div className="p-6 text-center">
               <div className="inline-block rounded-xl bg-white p-4">
-                <QRCodeSVG value={qrUser.subscription_url} size={200} />
+                <BrandedQRCode value={qrUser.subscription_url} size={200} />
               </div>
               <p className="mt-4 text-sm font-medium text-foreground">{qrUser.username}</p>
               <input

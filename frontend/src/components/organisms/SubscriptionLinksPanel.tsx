@@ -11,7 +11,6 @@ import {
   Share2,
   Smartphone
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 
 import apiClient from '../../api/client';
 import { useToast } from '../../hooks/useToast';
@@ -27,6 +26,7 @@ import { copyTextToClipboard } from '../../utils/clipboard';
 import { openDeepLinksWithFallback } from '../../utils/deepLink';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
+import { BrandedQRCode } from '../molecules/BrandedQRCode';
 
 interface SubscriptionLinksPanelProps {
   userId: number;
@@ -207,7 +207,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
           <div className="flex flex-col items-center justify-center rounded-2xl border border-line/70 bg-panel/55 p-5">
             <div className="rounded-2xl border border-line/70 bg-white p-4">
               {selectedUrl ? (
-                <QRCodeSVG value={selectedUrl} size={200} level="M" includeMargin={false} />
+                <BrandedQRCode value={selectedUrl} size={200} level="M" includeMargin={false} />
               ) : (
                 <div className="flex h-[200px] w-[200px] items-center justify-center text-sm text-muted">No URL</div>
               )}
@@ -388,7 +388,7 @@ export const SubscriptionLinksPanel: React.FC<SubscriptionLinksPanelProps> = ({ 
       {showShareQr && data.shareUrl && (
         <div className="mt-4 flex flex-col items-center rounded-2xl border border-line/70 bg-panel/55 p-5">
           <div className="rounded-2xl border border-line/70 bg-white p-4">
-            <QRCodeSVG value={data.shareUrl} size={180} level="M" includeMargin={false} />
+            <BrandedQRCode value={data.shareUrl} size={180} level="M" includeMargin={false} />
           </div>
           <p className="mt-3 text-center text-sm text-muted">Scan to open share page</p>
           <p className="mt-1 break-all text-center font-mono text-xs text-muted">{data.shareUrl}</p>
@@ -444,7 +444,7 @@ const LinkCard: React.FC<LinkCardProps> = ({ link, expanded, copied, onToggleQr,
       {expanded && (
         <div className="mt-4 flex justify-center">
           <div className="rounded-xl border border-line/70 bg-white p-3">
-            <QRCodeSVG value={link.url} size={180} level="M" includeMargin={false} />
+            <BrandedQRCode value={link.url} size={180} level="M" includeMargin={false} />
           </div>
         </div>
       )}

@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, ChevronDown, ChevronUp, Copy, Download, QrCode, Share2 } from 'lucide-react';
-import { QRCodeSVG as QRCodeReact } from 'qrcode.react';
 
 import apiClient from '../../api/client';
 import type { SubscriptionLink } from '../../types';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { Button } from '../atoms/Button';
 import { Card } from '../atoms/Card';
+import { BrandedQRCode } from '../molecules/BrandedQRCode';
 
 interface SubscriptionPanelProps {
   userId: number;
@@ -164,7 +164,7 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
         <div className="flex flex-col items-center justify-center rounded-2xl border border-line/70 bg-panel/55 p-5">
           <div className="rounded-2xl border border-line/70 bg-white p-4">
             {selectedUrl ? (
-              <QRCodeReact value={selectedUrl} size={200} level="M" includeMargin={false} />
+              <BrandedQRCode value={selectedUrl} size={200} level="M" includeMargin={false} />
             ) : (
               <div className="flex h-[200px] w-[200px] items-center justify-center text-sm text-muted">No URL</div>
             )}
@@ -283,7 +283,7 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
                   {expandedLinks.has(link.inboundId) && (
                     <div className="mt-4 flex justify-center">
                       <div className="rounded-xl border border-line/70 bg-white p-3">
-                        <QRCodeReact value={link.url} size={180} level="M" includeMargin={false} />
+                        <BrandedQRCode value={link.url} size={180} level="M" includeMargin={false} />
                       </div>
                     </div>
                   )}
@@ -309,7 +309,7 @@ export const SubscriptionPanel: React.FC<SubscriptionPanelProps> = ({ userId }) 
           {showShareQr && (
             <div className="mt-4 flex flex-col items-center rounded-2xl border border-line/70 bg-panel/55 p-5">
               <div className="rounded-2xl border border-line/70 bg-white p-4">
-                <QRCodeReact value={subscriptionData.shareUrl!} size={180} level="M" includeMargin={false} />
+                <BrandedQRCode value={subscriptionData.shareUrl!} size={180} level="M" includeMargin={false} />
               </div>
               <p className="mt-3 text-center text-sm text-muted">Scan to open share page</p>
             </div>
