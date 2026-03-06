@@ -753,7 +753,7 @@ export const UserInfoPage = () => {
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
     return reducedMotion || isMobileViewport || memory <= 4;
   }, [isMobileViewport]);
-  const backgroundLayerMode = isMobileViewport ? 'absolute' : 'fixed';
+  const backgroundLayerMode = 'absolute';
   const latestUpdatedAt = useMemo(() => {
     const timestamp = Math.max(userInfoUpdatedAt || 0, publicLinksUpdatedAt || 0, devicesUpdatedAt || 0);
     return timestamp > 0 ? new Date(timestamp) : null;

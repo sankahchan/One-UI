@@ -342,7 +342,7 @@ export const MieruSharePage = () => {
     const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8);
     return reducedMotion || isMobileViewport || memory <= 4;
   }, [isMobileViewport]);
-  const backgroundLayerMode = isMobileViewport ? 'absolute' : 'fixed';
+  const backgroundLayerMode = 'absolute';
   const endpointStatus = infoQuery.isError
     ? 'degraded'
     : infoQuery.isFetching

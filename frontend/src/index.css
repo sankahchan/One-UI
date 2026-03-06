@@ -59,31 +59,17 @@ body {
     radial-gradient(circle at 8% -10%, hsl(var(--glow-a) / 0.2), transparent 45%),
     radial-gradient(circle at 92% 0%, hsl(var(--glow-b) / 0.18), transparent 42%),
     linear-gradient(145deg, hsl(var(--color-app)), hsl(var(--color-app)) 38%, hsl(var(--color-surface)) 100%);
-  background-attachment: fixed;
+  background-attachment: scroll;
   background-size: cover;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: radial-gradient(hsl(var(--color-foreground) / var(--bg-noise-opacity)) 0.6px, transparent 0.6px);
-  background-size: 3px 3px;
-  z-index: -1;
+  content: none;
 }
 
 @media (max-width: 1023px), (pointer: coarse) {
-  body {
-    background-attachment: scroll;
-  }
-
-  body::before {
-    display: none;
-  }
-
   [class*='backdrop-blur'] {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
