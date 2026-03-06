@@ -168,7 +168,7 @@ export function Users() {
   const quickAction = searchParams.get('quick');
   const confirmResolverRef = useRef<((accepted: boolean) => void) | null>(null);
   const promptResolverRef = useRef<((value: string | null) => void) | null>(null);
-  const liveRefreshIntervalMs = 5_000;
+  const liveRefreshIntervalMs = isMobileViewport ? 20_000 : 5_000;
 
   const usersQuery = useUsers({ page, limit: 50, search: debouncedSearch, status: status || undefined });
   const groupsQuery = useGroups({ page: 1, limit: 100, includeDisabled: false });
@@ -184,8 +184,8 @@ export function Users() {
   const bulkRotateKeysMutation = useBulkRotateUserKeys();
   const bulkRevokeKeysMutation = useBulkRevokeUserKeys();
   const telemetrySyncQuery = useTelemetrySyncStatus({
-    refetchInterval: liveRefreshIntervalMs,
-    staleTime: liveRefreshIntervalMs
+    refetchInterval: isMobileViewport ? 30_000 : liveRefreshIntervalMs,
+    staleTime: isMobileViewport ? 30_000 : liveRefreshIntervalMs
   });
   const runFallbackAutotuneMutation = useRunFallbackAutotune();
   const runUserDiagnosticsMutation = useRunUserDiagnostics();
@@ -305,8 +305,8 @@ export function Users() {
   const userSessionsQuery = useUserSessions(pageUserIds, {
     includeOffline: true,
     live: !isMobileViewport,
-    refetchInterval: liveRefreshIntervalMs,
-    staleTime: liveRefreshIntervalMs
+    refetchInterval: isMobileViewport ? false : liveRefreshIntervalMs,
+    staleTime: isMobileViewport ? 20_000 : liveRefreshIntervalMs
   });
   const sessionsByUserId = useMemo(
     () =>

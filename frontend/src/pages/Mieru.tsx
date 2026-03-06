@@ -261,8 +261,15 @@ export const MieruPage: React.FC = () => {
     return window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches;
   });
 
-  const policyQuery = useMieruPolicy();
-  const statusQuery = useMieruStatus();
+  const mobilePollIntervalMs = isMobileViewport ? 35_000 : 15_000;
+  const policyQuery = useMieruPolicy({
+    refetchInterval: isMobileViewport ? 45_000 : 30_000,
+    staleTime: isMobileViewport ? 20_000 : 10_000
+  });
+  const statusQuery = useMieruStatus({
+    refetchInterval: mobilePollIntervalMs,
+    staleTime: isMobileViewport ? 15_000 : 5_000
+  });
   const runtimeState = String(statusQuery.data?.state || '').toLowerCase();
   const runtimeStable = Boolean(
     policyQuery.data?.enabled
@@ -270,9 +277,15 @@ export const MieruPage: React.FC = () => {
     && !statusQuery.data?.restarting
     && runtimeState === 'running'
   );
-  const onlineQuery = useMieruOnlineSnapshot(runtimeStable);
+  const onlineQuery = useMieruOnlineSnapshot(runtimeStable, {
+    refetchInterval: runtimeStable ? mobilePollIntervalMs : false,
+    staleTime: isMobileViewport ? 15_000 : 5_000
+  });
   const profileQuery = useMieruProfile();
-  const usersQuery = useMieruUsers(runtimeStable);
+  const usersQuery = useMieruUsers(runtimeStable, {
+    refetchInterval: runtimeStable ? mobilePollIntervalMs : false,
+    staleTime: isMobileViewport ? 15_000 : 5_000
+  });
 
   const syncMutation = useSyncMieruUsers();
   const restartMutation = useRestartMieru();
@@ -298,6 +311,8 @@ export const MieruPage: React.FC = () => {
   const [editForm, setEditForm] = useState<UserForm>(DEFAULT_USER_FORM);
   const [panelEditTarget, setPanelEditTarget] = useState<number | null>(null);
   const [panelPolicyForm, setPanelPolicyForm] = useState<PanelPolicyForm>(DEFAULT_PANEL_POLICY_FORM);
+  const [expandedMobileUser, setExpandedMobileUser] = useState<string | null>(null);
+  const [renderedMobileCount, setRenderedMobileCount] = useState(12);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -375,7 +390,37 @@ export const MieruPage: React.FC = () => {
     };
   }, [panelHostCandidate, profileAutofillDone, profileDirty, profileForm.server, profileQuery.isLoading]);
 
-  const users = usersQuery.data?.users || [];
+  const users = useMemo(() => usersQuery.data?.users || [], [usersQuery.data?.users]);
+  const mobileRenderBatchSize = 12;
+
+  useEffect(() => {
+    setRenderedMobileCount(Math.min(users.length, mobileRenderBatchSize));
+  }, [users.length]);
+
+  useEffect(() => {
+    if (!isMobileViewport || renderedMobileCount >= users.length) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setRenderedMobileCount((previous) => Math.min(users.length, previous + mobileRenderBatchSize));
+    }, 48);
+
+    return () => window.clearTimeout(timer);
+  }, [isMobileViewport, renderedMobileCount, users.length]);
+
+  useEffect(() => {
+    if (!expandedMobileUser) {
+      return;
+    }
+
+    const exists = users.some((entry) => entry.username === expandedMobileUser);
+    if (!exists) {
+      setExpandedMobileUser(null);
+    }
+  }, [expandedMobileUser, users]);
+
+  const mobileUsers = isMobileViewport ? users.slice(0, renderedMobileCount) : users;
 
   const statusBadge = useMemo(() => {
     if (!policyQuery.data?.enabled) {
@@ -1221,20 +1266,27 @@ export const MieruPage: React.FC = () => {
 
         {users.length ? (
           <div className="space-y-2 p-3 md:hidden">
-            {users.map((entry) => {
+            {mobileUsers.map((entry) => {
               const isEditing = editTarget === entry.username;
               const isCustom = entry.source === 'custom';
               const isPanel = entry.source === 'panel' && Boolean(entry.panelUserId);
               const isPanelEditing = isPanel && panelEditTarget === entry.panelUserId;
               const supportsSubscriptionUrl = entry.configured && entry.source !== 'config';
               const usedBytes = (entry.uploadUsedBytes || 0) + (entry.downloadUsedBytes || 0);
+              const isMobileExpanded = expandedMobileUser === entry.username;
 
               return (
-                <details
+                <article
                   key={`mobile-${entry.username}`}
                   className="scroll-perf-item group overflow-hidden rounded-2xl border border-line/70 bg-panel/55"
                 >
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-2 px-3 py-3 [&::-webkit-details-marker]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedMobileUser((previous) => (previous === entry.username ? null : entry.username));
+                    }}
+                    className="flex w-full items-start justify-between gap-2 px-3 py-3 text-left"
+                  >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-foreground">
                         {isEditing ? editForm.username || entry.username : entry.username}
@@ -1254,11 +1306,12 @@ export const MieruPage: React.FC = () => {
                       ) : (
                         <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
                       )}
-                      <ChevronDown className="h-4 w-4 text-muted transition-transform group-open:rotate-180" />
+                      <ChevronDown className={`h-4 w-4 text-muted transition-transform ${isMobileExpanded ? 'rotate-180' : ''}`} />
                     </div>
-                  </summary>
+                  </button>
 
-                  <div className="space-y-3 border-t border-line/60 px-3 py-3">
+                  {isMobileExpanded ? (
+                    <div className="space-y-3 border-t border-line/60 px-3 py-3">
                     {isEditing ? (
                       <div className="grid gap-2">
                         <input
@@ -1560,8 +1613,9 @@ export const MieruPage: React.FC = () => {
                         )
                       ) : null}
                     </div>
-                  </div>
-                </details>
+                    </div>
+                  ) : null}
+                </article>
               );
             })}
           </div>

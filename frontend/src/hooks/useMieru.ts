@@ -34,21 +34,21 @@ import {
   type MieruUsersResult
 } from '../api/mieru';
 
-export const useMieruPolicy = () => {
+export const useMieruPolicy = (options: { refetchInterval?: number | false; staleTime?: number } = {}) => {
   return useQuery<MieruPolicy>({
     queryKey: ['mieru-policy'],
     queryFn: getMieruPolicy,
-    refetchInterval: 30_000,
-    staleTime: 10_000
+    refetchInterval: options.refetchInterval ?? 30_000,
+    staleTime: options.staleTime ?? 10_000
   });
 };
 
-export const useMieruStatus = () => {
+export const useMieruStatus = (options: { refetchInterval?: number | false; staleTime?: number } = {}) => {
   return useQuery<MieruStatus>({
     queryKey: ['mieru-status'],
     queryFn: getMieruStatus,
-    refetchInterval: 15_000,
-    staleTime: 5_000
+    refetchInterval: options.refetchInterval ?? 15_000,
+    staleTime: options.staleTime ?? 5_000
   });
 };
 
@@ -118,22 +118,28 @@ export const useMieruProfile = () => {
   });
 };
 
-export const useMieruUsers = (includeOnline = true) => {
+export const useMieruUsers = (
+  includeOnline = true,
+  options: { refetchInterval?: number | false; staleTime?: number } = {}
+) => {
   return useQuery<MieruUsersResult>({
     queryKey: ['mieru-users', includeOnline],
     queryFn: () => listMieruUsers(includeOnline),
-    refetchInterval: includeOnline ? 15_000 : false,
-    staleTime: 5_000
+    refetchInterval: includeOnline ? (options.refetchInterval ?? 15_000) : false,
+    staleTime: options.staleTime ?? 5_000
   });
 };
 
-export const useMieruOnlineSnapshot = (enabled = true) => {
+export const useMieruOnlineSnapshot = (
+  enabled = true,
+  options: { refetchInterval?: number | false; staleTime?: number } = {}
+) => {
   return useQuery<MieruOnlineSnapshot>({
     queryKey: ['mieru-online'],
     queryFn: getMieruOnlineSnapshot,
     enabled,
-    refetchInterval: enabled ? 15_000 : false,
-    staleTime: 5_000
+    refetchInterval: enabled ? (options.refetchInterval ?? 15_000) : false,
+    staleTime: options.staleTime ?? 5_000
   });
 };
 
