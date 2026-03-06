@@ -121,11 +121,11 @@ a:hover {
 
 @layer components {
   .glass {
-    @apply border border-line/70 bg-card/85 backdrop-blur-lg dark:border-line/50 dark:bg-card/60;
+    @apply border border-line/70 bg-card/[0.92] dark:border-line/50 dark:bg-card/[0.72];
   }
 
   .glass-card {
-    @apply relative border border-line/70 bg-card/[0.92] backdrop-blur-xl shadow-[0_18px_44px_-28px_rgba(15,23,42,0.32),0_10px_24px_-20px_rgba(15,23,42,0.2)] dark:border-line/60 dark:bg-card/[0.70] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.7)] transition-all duration-300;
+    @apply relative border border-line/70 bg-card/[0.95] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.26),0_6px_18px_-14px_rgba(15,23,42,0.16)] dark:border-line/60 dark:bg-card/[0.76] dark:shadow-[0_8px_24px_-6px_rgba(0,0,0,0.55)] transition-colors duration-200;
   }
   
   .glass-card::before {
@@ -143,7 +143,7 @@ a:hover {
   }
 
   .glass-panel {
-    @apply border-r border-line/70 bg-card/[0.94] backdrop-blur-xl shadow-[4px_0_24px_-8px_rgba(15,23,42,0.16)] dark:border-line/60 dark:bg-card/85 dark:shadow-[4px_0_24px_-4px_rgba(0,0,0,0.3)];
+    @apply border-r border-line/70 bg-card/[0.97] shadow-[2px_0_14px_-8px_rgba(15,23,42,0.12)] dark:border-line/60 dark:bg-card/[0.88] dark:shadow-[2px_0_16px_-6px_rgba(0,0,0,0.22)];
   }
 
   .mobile-shell {

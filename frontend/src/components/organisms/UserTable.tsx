@@ -260,9 +260,6 @@ export const UserTable: FC<UserTableProps> = ({
         }`}
     >
       <span className="relative inline-flex h-2.5 w-2.5">
-        {isOnline && !isMobileViewport ? (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-        ) : null}
         <span
           className={`relative inline-flex h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-500'
             }`}
@@ -454,7 +451,6 @@ export const UserTable: FC<UserTableProps> = ({
             <article
               key={`mobile-${user.id}`}
               className="scroll-perf-item overflow-hidden rounded-xl border border-line/70 bg-card/80"
-              onMouseEnter={!isMobileViewport ? () => onPrefetch?.(user) : undefined}
               onFocus={() => onPrefetch?.(user)}
             >
               <button
@@ -666,7 +662,6 @@ export const UserTable: FC<UserTableProps> = ({
                 <Fragment key={user.id}>
                   <tr
                     className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    onMouseEnter={() => onPrefetch?.(user)}
                   >
                     {onSelectionChange && (
                       <td className="px-6 py-4">

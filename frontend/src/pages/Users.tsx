@@ -1781,9 +1781,6 @@ export function Users() {
           <p className="text-sm text-muted">{t('common.online', { defaultValue: 'Online' })}</p>
           <div className="flex items-center gap-2">
             <span className="relative inline-flex h-3 w-3">
-              {onlineCount > 0 ? (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-              ) : null}
               <span className={`relative inline-flex h-3 w-3 rounded-full ${onlineCount > 0 ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-500'}`} />
             </span>
             <p className="text-2xl font-bold text-foreground">{onlineCount}</p>

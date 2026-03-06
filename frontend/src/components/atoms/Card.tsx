@@ -12,7 +12,7 @@ export const Card: React.FC<CardProps> = ({ children, className, padding = true 
   return (
     <section
       className={cn(
-        'glass-card rounded-3xl transition-all duration-300',
+        'glass-card rounded-3xl',
         padding ? 'p-6 sm:p-8' : '',
         className
       )}

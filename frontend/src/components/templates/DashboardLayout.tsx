@@ -245,7 +245,7 @@ export const DashboardLayout: React.FC = () => {
           className="mobile-scroll-container flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-transparent"
           ref={setMainScrollEl}
         >
-          <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-line/70 bg-card/75 px-6 py-4 backdrop-blur-xl lg:flex xl:px-8">
+          <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-line/70 bg-card/[0.92] px-6 py-4 lg:flex xl:px-8">
             <SearchBar />
             <div className="flex items-center gap-3">
               {updateHealthBadge}
