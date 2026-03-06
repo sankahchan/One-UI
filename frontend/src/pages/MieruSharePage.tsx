@@ -673,13 +673,14 @@ export const MieruSharePage = () => {
             </div>
           </Card>
 
-          <Card className="space-y-4 bg-slate-900/55 xl:col-span-2">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+          <Card padding={false} className="overflow-hidden bg-slate-900/55 xl:col-span-2">
+            <div className="border-b border-line/60 px-5 py-4 sm:px-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400 lg:hidden">
                     {t('portal.steps.chooseClient', { defaultValue: 'Step 1 · Choose client' })}
                   </p>
-                  <h2 className="text-xl font-semibold text-foreground">
+                  <h2 className="text-lg font-semibold text-foreground">
                     {t('portal.addToApp.title', { defaultValue: 'Third Party Client Software' })}
                   </h2>
                   <p className="mt-1 text-sm text-muted">
@@ -705,19 +706,33 @@ export const MieruSharePage = () => {
                   ))}
                 </div>
               </div>
+            </div>
 
-              {activeGroup ? (
-                <div className="space-y-4">
-                  {recommendedApp ? (
-                    <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-300">
-                        {t('portal.addToApp.recommended', { defaultValue: 'Recommended client' })}
-                      </p>
-                      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
+            {activeGroup ? (
+              <div className="space-y-3 px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-brand-500/25 bg-brand-500/10">
+                    <Smartphone className="h-4 w-4 text-brand-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{activeGroup.title}</p>
+                    <p className="text-xs text-muted">{activeGroup.subtitle}</p>
+                  </div>
+                </div>
+
+                {recommendedApp ? (
+                  <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-300">
+                          {t('portal.addToApp.recommended', { defaultValue: 'Recommended client' })}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                           <p className="truncate text-sm font-semibold text-foreground">{recommendedApp.name}</p>
                           <p className="text-xs text-muted">{activeGroup.subtitle}</p>
                         </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
                         {recommendedApp.importUrl ? (
                           <Button size="sm" onClick={() => onOneClickImport(recommendedApp, `recommended-${recommendedApp.id}`)}>
                             <Smartphone className="mr-1.5 h-3.5 w-3.5" />
@@ -726,74 +741,87 @@ export const MieruSharePage = () => {
                               app: recommendedApp.name
                             })}
                           </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => void copyToClipboard(recommendedApp.manualUrl || subscriptionUrl, `recommended-${recommendedApp.id}`)}
-                          >
-                            <Copy className="mr-1.5 h-3.5 w-3.5" />
-                            {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                          </Button>
-                        )}
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant={recommendedApp.importUrl ? 'secondary' : 'primary'}
+                          onClick={() => void copyToClipboard(recommendedApp.manualUrl || subscriptionUrl, `recommended-${recommendedApp.id}`)}
+                        >
+                          <Copy className="mr-1.5 h-3.5 w-3.5" />
+                          {t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
+                        </Button>
                       </div>
                     </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-4 w-4 text-brand-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{activeGroup.title}</p>
-                      <p className="text-xs text-muted">{activeGroup.subtitle}</p>
-                    </div>
                   </div>
+                ) : null}
 
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    {activeGroup.apps.map((app) => (
-                      <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/45 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">{app.name}</p>
-                            <p className="mt-1 max-h-9 overflow-hidden text-xs text-muted">{app.description}</p>
+                <div className="space-y-2">
+                  {activeGroup.apps.map((app) => {
+                    const actionGridClass = isMobileViewport
+                      ? 'grid-cols-1'
+                      : app.importUrl && app.storeLink
+                        ? 'lg:grid-cols-3'
+                        : app.importUrl || app.storeLink
+                          ? 'lg:grid-cols-2'
+                          : 'lg:grid-cols-1';
+
+                    return (
+                      <div key={app.id} className="rounded-2xl border border-line/70 bg-panel/45 p-3">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-line/60 bg-slate-950/40 text-lg">
+                              <span aria-hidden="true">{app.icon}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <p className="truncate text-sm font-semibold text-foreground">{app.name}</p>
+                                {recommendedApp?.id === app.id ? (
+                                  <span className="rounded-full border border-brand-500/25 bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-300">
+                                    {t('portal.addToApp.recommended', { defaultValue: 'Recommended client' })}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-xs text-muted">{app.description}</p>
+                            </div>
                           </div>
-                          <span className="text-lg" aria-hidden="true">{app.icon}</span>
-                        </div>
 
-                        <div className={`mt-4 grid gap-2 ${isMobileViewport ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                          {app.importUrl ? (
-                            <Button size="sm" className="w-full" onClick={() => onOneClickImport(app, `app-fallback-${app.id}`)}>
-                              <QrCode className="mr-1 h-3.5 w-3.5" />
-                              {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
-                            </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="w-full"
-                            onClick={() => void copyToClipboard(app.manualUrl || subscriptionUrl, `app-${app.id}`)}
-                          >
-                            <Copy className="mr-1 h-3.5 w-3.5" />
-                            {copiedKey === `app-${app.id}`
-                              ? t('common.copied', { defaultValue: 'Copied' })
-                              : t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
-                          </Button>
-                          {app.storeLink ? (
+                          <div className={`grid gap-2 ${actionGridClass} lg:min-w-[330px] lg:max-w-[420px]`}>
+                            {app.importUrl ? (
+                              <Button size="sm" className="w-full" onClick={() => onOneClickImport(app, `app-fallback-${app.id}`)}>
+                                <QrCode className="mr-1 h-3.5 w-3.5" />
+                                {t('portal.addToApp.oneClickImport', { defaultValue: 'One-Click Import' })}
+                              </Button>
+                            ) : null}
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className={`${isMobileViewport ? 'w-full' : app.importUrl ? 'col-span-2 w-full' : 'w-full'}`}
-                              onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => void copyToClipboard(app.manualUrl || subscriptionUrl, `app-${app.id}`)}
                             >
-                              <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                              {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                              <Copy className="mr-1 h-3.5 w-3.5" />
+                              {copiedKey === `app-${app.id}`
+                                ? t('common.copied', { defaultValue: 'Copied' })
+                                : t('portal.addToApp.copyUrl', { defaultValue: 'Copy URL' })}
                             </Button>
-                          ) : null}
+                            {app.storeLink ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="w-full"
+                                onClick={() => window.open(app.storeLink, '_blank', 'noopener,noreferrer')}
+                              >
+                                <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                                {t('portal.addToApp.getApp', { defaultValue: 'Get App' })}
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              ) : null}
+              </div>
+            ) : null}
           </Card>
         </div>
 

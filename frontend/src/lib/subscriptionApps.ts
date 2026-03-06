@@ -33,7 +33,7 @@ export interface CustomClientApp {
   platforms: Platform[];
   description?: string;
   usesFormat?: FormatTab;
-  urlScheme: string;
+  urlScheme?: string;
   storeUrl?: Partial<Record<Platform, string>>;
 }
 
@@ -321,7 +321,7 @@ export function resolveSubscriptionApps(options: {
           urlScheme: String((entry as any).urlScheme || (entry as any).importScheme || ''),
           storeUrl: (entry as any).storeUrl as Partial<Record<Platform, string>> | undefined
         }))
-        .filter((app) => app.id && app.name && app.urlScheme)
+        .filter((app) => app.id && app.name)
     : [];
 
   const allApps: ClientAppDefinition[] = [...filteredBuiltin, ...custom];

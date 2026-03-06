@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Download, Edit, Image, Palette, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,7 @@ import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
 import { useToast } from '../../hooks/useToast';
-import { BUILTIN_CLIENT_APPS } from '../../lib/subscriptionApps';
+import { BUILTIN_CLIENT_APPS, type FormatTab, type Platform } from '../../lib/subscriptionApps';
 
 interface SubscriptionBranding {
   id: number;
@@ -71,6 +71,95 @@ const BRANDING_PRESETS = [
   { id: 'sunset', name: 'Sunset', primary: '#f97316', accent: '#ef4444' },
   { id: 'rose', name: 'Rose', primary: '#ec4899', accent: '#a855f7' }
 ] as const;
+
+const VALID_CUSTOM_APP_PLATFORMS = ['android', 'ios', 'windows'] as const;
+const VALID_CUSTOM_APP_FORMATS = ['v2ray', 'clash', 'singbox', 'wireguard', 'mieru'] as const;
+
+type CustomAppDraft = {
+  id?: string;
+  name?: string;
+  icon?: string;
+  platforms?: Platform[];
+  description?: string;
+  usesFormat?: FormatTab;
+  urlScheme?: string;
+  storeUrl?: Partial<Record<Platform, string>>;
+};
+
+type CustomAppsValidation = {
+  parsed: CustomAppDraft[];
+  errors: string[];
+  warnings: string[];
+  stats: {
+    total: number;
+    deepLink: number;
+    manualOnly: number;
+  };
+};
+
+const CUSTOM_APPS_TEMPLATE: CustomAppDraft[] = [
+  {
+    id: 'desktop_manual_example',
+    name: 'Desktop Manual Client',
+    icon: '🖥️',
+    platforms: ['windows'],
+    description: 'Manual import only. Users copy the subscription URL into the app.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      windows: 'https://example.com/download'
+    }
+  },
+  {
+    id: 'android_deeplink_example',
+    name: 'Android Deep Link Client',
+    icon: '📱',
+    platforms: ['android'],
+    description: 'Supports one-tap subscription import.',
+    usesFormat: 'v2ray',
+    urlScheme: 'myapp://install-sub?url={url}',
+    storeUrl: {
+      android: 'https://play.google.com/store/apps/details?id=com.example.myapp'
+    }
+  }
+];
+
+const CUSTOM_APPS_STARTER_PACK: CustomAppDraft[] = [
+  {
+    id: 'custom_desktop_client',
+    name: 'Custom Desktop Client',
+    icon: '🖥️',
+    platforms: ['windows'],
+    description: 'Manual import desktop client.',
+    usesFormat: 'mieru',
+    storeUrl: {
+      windows: 'https://example.com/custom-desktop-client'
+    }
+  },
+  {
+    id: 'custom_android_client',
+    name: 'Custom Android Client',
+    icon: '🤖',
+    platforms: ['android'],
+    description: 'Android client with one-tap import.',
+    usesFormat: 'v2ray',
+    urlScheme: 'customclient://install-sub?url={url}',
+    storeUrl: {
+      android: 'https://play.google.com/store/apps/details?id=com.example.customclient'
+    }
+  },
+  {
+    id: 'custom_ios_client',
+    name: 'Custom iOS Client',
+    icon: '🍎',
+    platforms: ['ios'],
+    description: 'iOS client using a raw-path import scheme.',
+    usesFormat: 'singbox',
+    urlScheme: 'customios://import/{rawUrl}',
+    storeUrl: {
+      ios: 'https://apps.apple.com/app/id1234567890'
+    }
+  }
+];
 
 const MAX_WALLPAPER_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_WALLPAPER_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -150,6 +239,147 @@ function stringifyJson(value: unknown): string {
   } catch {
     return '[]';
   }
+}
+
+function validateCustomAppsJson(value: string): CustomAppsValidation {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      parsed: [],
+      errors: [],
+      warnings: [],
+      stats: { total: 0, deepLink: 0, manualOnly: 0 }
+    };
+  }
+
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(trimmed);
+  } catch (error: any) {
+    return {
+      parsed: [],
+      errors: [error?.message || 'Custom apps JSON is invalid.'],
+      warnings: [],
+      stats: { total: 0, deepLink: 0, manualOnly: 0 }
+    };
+  }
+
+  if (!Array.isArray(parsedUnknown)) {
+    return {
+      parsed: [],
+      errors: ['Custom apps JSON must be an array of app objects.'],
+      warnings: [],
+      stats: { total: 0, deepLink: 0, manualOnly: 0 }
+    };
+  }
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const parsed = parsedUnknown as CustomAppDraft[];
+  const idMap = new Map<string, number>();
+  let deepLink = 0;
+  let manualOnly = 0;
+
+  parsed.forEach((entry, index) => {
+    const prefix = `App ${index + 1}`;
+
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.push(`${prefix}: must be an object.`);
+      return;
+    }
+
+    const id = String(entry.id || '').trim();
+    const name = String(entry.name || '').trim();
+    const icon = String(entry.icon || '').trim();
+    const platforms = Array.isArray(entry.platforms)
+      ? entry.platforms.map((platform) => String(platform || '').trim().toLowerCase()).filter(Boolean)
+      : [];
+    const usesFormat = String(entry.usesFormat || '').trim().toLowerCase();
+    const urlScheme = String(entry.urlScheme || '').trim();
+
+    if (!id) {
+      errors.push(`${prefix}: "id" is required.`);
+    } else if (idMap.has(id)) {
+      errors.push(`${prefix}: duplicate id "${id}" (already used by app ${idMap.get(id)}).`);
+    } else {
+      idMap.set(id, index + 1);
+    }
+
+    if (!name) {
+      errors.push(`${prefix}: "name" is required.`);
+    }
+
+    if (!icon) {
+      warnings.push(`${prefix}: "icon" is empty. A fallback icon will be used.`);
+    }
+
+    if (platforms.length === 0) {
+      errors.push(`${prefix}: "platforms" must include at least one of android, ios, windows.`);
+    } else {
+      const invalidPlatforms = platforms.filter(
+        (platform) => !VALID_CUSTOM_APP_PLATFORMS.includes(platform as Platform)
+      );
+      if (invalidPlatforms.length > 0) {
+        errors.push(`${prefix}: invalid platforms ${invalidPlatforms.join(', ')}.`);
+      }
+    }
+
+    if (usesFormat && !VALID_CUSTOM_APP_FORMATS.includes(usesFormat as FormatTab)) {
+      errors.push(`${prefix}: invalid usesFormat "${usesFormat}".`);
+    }
+
+    if (urlScheme) {
+      deepLink += 1;
+      if (!urlScheme.includes('{url}') && !urlScheme.includes('{rawUrl}')) {
+        errors.push(`${prefix}: "urlScheme" must include {url} or {rawUrl}.`);
+      }
+    } else {
+      manualOnly += 1;
+    }
+
+    let hasStoreLink = false;
+    if (entry.storeUrl !== undefined) {
+      if (!entry.storeUrl || typeof entry.storeUrl !== 'object' || Array.isArray(entry.storeUrl)) {
+        errors.push(`${prefix}: "storeUrl" must be an object keyed by platform.`);
+      } else {
+        const storeEntries = Object.entries(entry.storeUrl);
+        hasStoreLink = storeEntries.some(([, link]) => String(link || '').trim().length > 0);
+        const invalidKeys = storeEntries
+          .map(([key]) => key)
+          .filter((key) => !VALID_CUSTOM_APP_PLATFORMS.includes(key as Platform));
+
+        if (invalidKeys.length > 0) {
+          errors.push(`${prefix}: invalid storeUrl keys ${invalidKeys.join(', ')}.`);
+        }
+
+        for (const [key, link] of storeEntries) {
+          const linkValue = String(link || '').trim();
+          if (!linkValue) {
+            errors.push(`${prefix}: storeUrl.${key} must be a non-empty string.`);
+            continue;
+          }
+          if (!/^https?:\/\//i.test(linkValue)) {
+            warnings.push(`${prefix}: storeUrl.${key} should usually be an https:// link.`);
+          }
+        }
+      }
+    }
+
+    if (!urlScheme && !hasStoreLink) {
+      warnings.push(`${prefix}: manual-only app has no storeUrl. Users will only see a Copy URL action.`);
+    }
+  });
+
+  return {
+    parsed,
+    errors,
+    warnings,
+    stats: {
+      total: parsed.length,
+      deepLink,
+      manualOnly
+    }
+  };
 }
 
 const BrandingSettings: React.FC = () => {
@@ -268,6 +498,10 @@ const BrandingSettings: React.FC = () => {
   const allBuiltInAppIds = useMemo(
     () => Array.from(new Set(BUILTIN_CLIENT_APPS.map((app) => app.id))),
     []
+  );
+  const customAppsValidation = useMemo(
+    () => validateCustomAppsJson(customAppsJson),
+    [customAppsJson]
   );
 
   const previewPrimary = useMemo(
@@ -439,6 +673,38 @@ const BrandingSettings: React.FC = () => {
     setWallpaperFilePreviewUrl('');
     setWallpaperFileError('');
     setCustomAppsJson('[]');
+  };
+
+  const loadCustomAppsPreset = (preset: CustomAppDraft[]) => {
+    setCustomAppsJson(stringifyJson(preset));
+  };
+
+  const formatCustomApps = () => {
+    const nextValidation = validateCustomAppsJson(customAppsJson);
+    if (nextValidation.errors.length > 0) {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        nextValidation.errors[0]
+      );
+      return;
+    }
+    setCustomAppsJson(stringifyJson(nextValidation.parsed));
+  };
+
+  const copyCustomAppsExample = async () => {
+    const payload = stringifyJson(CUSTOM_APPS_TEMPLATE);
+    try {
+      await navigator.clipboard.writeText(payload);
+      toast.success(
+        t('common.success', { defaultValue: 'Success' }),
+        'Custom app example copied.'
+      );
+    } catch {
+      toast.error(
+        t('common.error', { defaultValue: 'Error' }),
+        'Unable to copy the example JSON.'
+      );
+    }
   };
 
   const loadForEdit = (branding: SubscriptionBranding) => {
@@ -696,20 +962,15 @@ const BrandingSettings: React.FC = () => {
         metadataDraft.wallpaperGradientOpacity = Math.min(Math.max(gradientOpacity, 0), 100);
       }
 
-      try {
-        const customJson = customAppsJson.trim() ? customAppsJson : '[]';
-        const parsed = JSON.parse(customJson);
-        if (!Array.isArray(parsed)) {
-          throw new Error('Custom apps JSON must be an array.');
-        }
-        metadataDraft.customApps = parsed;
-      } catch (error: any) {
+      const parsedCustomApps = validateCustomAppsJson(customAppsJson);
+      if (parsedCustomApps.errors.length > 0) {
         toast.error(
           t('common.error', { defaultValue: 'Error' }),
-          error?.message || t('brandingSettings.toast.invalidJson', { defaultValue: 'Custom apps JSON is invalid.' })
+          parsedCustomApps.errors[0] || t('brandingSettings.toast.invalidJson', { defaultValue: 'Custom apps JSON is invalid.' })
         );
-        throw error;
+        throw new Error(parsedCustomApps.errors[0] || 'Invalid custom apps JSON');
       }
+      metadataDraft.customApps = parsedCustomApps.parsed;
 
       // Always persist metadata when editing so admins can clear previous values by saving an empty object.
       if (isEditing || Object.keys(metadataDraft).length > 0) {
@@ -879,6 +1140,7 @@ const BrandingSettings: React.FC = () => {
     !name.trim()
     || uploadWallpaper.isPending
     || Boolean(wallpaperFile)
+    || customAppsValidation.errors.length > 0
     || (scope === 'USER' && !userId.trim())
     || (scope === 'GROUP' && !groupId.trim());
   const saveButtonLabel = isEditing
@@ -1545,17 +1807,111 @@ const BrandingSettings: React.FC = () => {
         </div>
 
         <div className="rounded-2xl border border-line/70 bg-panel/55 p-4">
-          <h4 className="text-sm font-semibold text-foreground">Custom Apps (JSON)</h4>
-          <p className="mt-1 text-xs text-muted">
-            Advanced: define extra client tiles. Provide an array of objects with
-            fields: <code className="font-mono">id,name,icon,platforms,usesFormat,urlScheme,storeUrl</code>.
-          </p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Custom Apps (JSON)</h4>
+              <p className="mt-1 text-xs text-muted">
+                Advanced: define extra client tiles. Required fields are
+                <code className="mx-1 font-mono">id</code>,
+                <code className="mx-1 font-mono">name</code>,
+                <code className="mx-1 font-mono">platforms</code>.
+                <code className="ml-1 font-mono">urlScheme</code> is optional for manual-only apps.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => loadCustomAppsPreset(CUSTOM_APPS_TEMPLATE)}
+              >
+                Use Template
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => loadCustomAppsPreset(CUSTOM_APPS_STARTER_PACK)}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                Starter Pack
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={formatCustomApps}
+              >
+                Format JSON
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => void copyCustomAppsExample()}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copy Example
+              </Button>
+            </div>
+          </div>
           <textarea
             value={customAppsJson}
             onChange={(event) => setCustomAppsJson(event.target.value)}
             rows={8}
             className="mt-3 w-full rounded-2xl border border-line/80 bg-card/75 px-4 py-3 font-mono text-xs text-foreground outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app"
           />
+          <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)]">
+            <div className="rounded-2xl border border-line/70 bg-card/65 p-4">
+              <h5 className="text-sm font-semibold text-foreground">Schema Notes</h5>
+              <ul className="mt-2 space-y-1 text-xs text-muted">
+                <li><code className="font-mono">platforms</code> accepts <code className="font-mono">android</code>, <code className="font-mono">ios</code>, <code className="font-mono">windows</code>.</li>
+                <li><code className="font-mono">usesFormat</code> accepts <code className="font-mono">v2ray</code>, <code className="font-mono">clash</code>, <code className="font-mono">singbox</code>, <code className="font-mono">wireguard</code>, <code className="font-mono">mieru</code>.</li>
+                <li>Use <code className="font-mono">{'{url}'}</code> for encoded deep links or <code className="font-mono">{'{rawUrl}'}</code> for raw path-style links.</li>
+                <li>Leave <code className="font-mono">urlScheme</code> empty if the app only supports manual import.</li>
+                <li><code className="font-mono">storeUrl</code> should be an object like <code className="font-mono">{'{ "android": "https://..." }'}</code>.</li>
+              </ul>
+            </div>
+            <div className={`rounded-2xl border p-4 ${
+              customAppsValidation.errors.length > 0
+                ? 'border-rose-500/40 bg-rose-500/10'
+                : customAppsValidation.warnings.length > 0
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-emerald-500/30 bg-emerald-500/10'
+            }`}>
+              <div className="flex items-center gap-2">
+                {customAppsValidation.errors.length > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-rose-300" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                )}
+                <h5 className="text-sm font-semibold text-foreground">Validation</h5>
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {customAppsValidation.stats.total} app(s),
+                {' '}{customAppsValidation.stats.deepLink} deep-link,
+                {' '}{customAppsValidation.stats.manualOnly} manual-only.
+              </p>
+              {customAppsValidation.errors.length > 0 ? (
+                <ul className="mt-3 space-y-1 text-xs text-rose-100">
+                  {customAppsValidation.errors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-xs text-emerald-100">
+                  Custom apps JSON is valid.
+                </p>
+              )}
+              {customAppsValidation.warnings.length > 0 ? (
+                <ul className="mt-3 space-y-1 text-xs text-amber-100">
+                  {customAppsValidation.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div className="hidden flex-col gap-2 border-t border-line/70 pt-4 sm:flex sm:flex-row sm:items-center">
