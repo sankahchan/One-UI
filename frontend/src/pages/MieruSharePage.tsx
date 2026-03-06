@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock, Copy, ExternalLink, Link2, QrCode, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -201,8 +201,6 @@ export const MieruSharePage = () => {
     }
     return document.visibilityState !== 'hidden';
   });
-  const [qrVisible, setQrVisible] = useState(false);
-  const qrAnchorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -235,34 +233,6 @@ export const MieruSharePage = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
-
-  useEffect(() => {
-    if (qrVisible) {
-      return undefined;
-    }
-
-    if (isMobileViewport || typeof IntersectionObserver === 'undefined') {
-      setQrVisible(true);
-      return undefined;
-    }
-
-    if (!qrAnchorRef.current) {
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setQrVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '260px 0px' }
-    );
-
-    observer.observe(qrAnchorRef.current);
-    return () => observer.disconnect();
-  }, [isMobileViewport, qrVisible]);
 
   const infoUrl = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -494,12 +464,8 @@ export const MieruSharePage = () => {
 
         <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[300px_minmax(0,1fr)]">
           <Card className="flex flex-col items-center gap-4 bg-slate-900/55 xl:self-start">
-            <div ref={qrAnchorRef} className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
-              {qrVisible ? (
-                <QRCodeDisplay text={subscriptionUrl} size={240} />
-              ) : (
-                <div className={`h-[240px] w-[240px] rounded-2xl bg-slate-200/75 ${reduceVisualEffects ? '' : 'animate-pulse'}`} />
-              )}
+            <div className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
+              <QRCodeDisplay text={subscriptionUrl} size={240} />
             </div>
             <div className="flex w-full flex-col gap-2">
               <Button onClick={() => void copyToClipboard(subscriptionUrl, 'subscription')}>

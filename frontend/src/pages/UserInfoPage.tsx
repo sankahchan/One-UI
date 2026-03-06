@@ -1,8 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  ArrowDown,
-  ArrowUp,
-  Calendar,
   CheckCircle2,
   Clock,
   Copy,
@@ -14,7 +11,7 @@ import {
   ShieldCheck,
   Smartphone
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -268,8 +265,6 @@ export const UserInfoPage = () => {
     }
     return document.visibilityState !== 'hidden';
   });
-  const [qrVisible, setQrVisible] = useState(false);
-  const qrAnchorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -302,34 +297,6 @@ export const UserInfoPage = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
-
-  useEffect(() => {
-    if (qrVisible) {
-      return undefined;
-    }
-
-    if (isMobileViewport || typeof IntersectionObserver === 'undefined') {
-      setQrVisible(true);
-      return undefined;
-    }
-
-    if (!qrAnchorRef.current) {
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setQrVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '260px 0px' }
-    );
-
-    observer.observe(qrAnchorRef.current);
-    return () => observer.disconnect();
-  }, [isMobileViewport, qrVisible]);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -703,12 +670,6 @@ export const UserInfoPage = () => {
     return availableFormats.find((format) => format.key !== activeFormat) || null;
   }, [activeFormat, availableFormats]);
 
-  const heroStyle = useMemo(() => {
-    return {
-      backgroundImage: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`
-    } as const;
-  }, [accentColor, primaryColor]);
-
   const wallpaperUrl = useMemo(
     () => sanitizeHttpUrl(brandingMetadata?.wallpaperUrl as string | undefined),
     [brandingMetadata?.wallpaperUrl]
@@ -1006,86 +967,75 @@ export const UserInfoPage = () => {
           </div>
         </div>
 
-        {/* Hero */}
-        <section className="overflow-hidden rounded-3xl border border-line/70 shadow-soft">
-          <div className="p-6 text-white sm:p-8" style={heroStyle}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm/5 opacity-90">{t('portal.hero.account', { defaultValue: 'Account' })}</p>
-                <h2 className="mt-1 truncate text-xl font-semibold sm:text-2xl">{userInfo.email}</h2>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
-                      userInfo.status === 'ACTIVE'
-                        ? 'border-emerald-200/40 bg-emerald-100/20 text-emerald-50'
-                        : userInfo.status === 'EXPIRED'
-                          ? 'border-rose-200/35 bg-rose-100/20 text-rose-50'
-                        : 'border-amber-200/35 bg-amber-100/20 text-amber-50'
-                    }`}
-                  >
-                    {getUserStatusLabel(userInfo.status)}
+        {/* Summary */}
+        <Card className="space-y-4 bg-slate-900/55">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                {t('portal.hero.account', { defaultValue: 'Account' })}
+              </p>
+              <h2 className="mt-1 truncate text-xl font-semibold text-foreground sm:text-2xl">{userInfo.email}</h2>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-line/70 bg-card/60 px-3 py-1 text-xs font-semibold text-foreground">
+                  {getUserStatusLabel(userInfo.status)}
+                </span>
+                {userInfo.trafficResetPeriod !== 'NEVER' ? (
+                  <span className="inline-flex items-center rounded-full border border-line/70 bg-card/55 px-3 py-1 text-xs font-medium text-muted">
+                    <Clock className="mr-1 h-3 w-3" />
+                    {t('portal.hero.resets', {
+                      defaultValue: 'Resets {{period}}',
+                      period: getResetPeriodLabel(userInfo.trafficResetPeriod)
+                    })}
                   </span>
-                  {userInfo.trafficResetPeriod !== 'NEVER' ? (
-                    <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
-                      <Clock className="mr-1 h-3 w-3" />
-                      {t('portal.hero.resets', {
-                        defaultValue: 'Resets {{period}}',
-                        period: getResetPeriodLabel(userInfo.trafficResetPeriod)
-                      })}
-                    </span>
-                  ) : null}
-                  {usageAlert ? (
-                    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${usageAlert.tone}`}>
-                      <ShieldCheck className="mr-1 h-3 w-3" />
-                      {usageAlert.label}
-                    </span>
-                  ) : null}
-                </div>
+                ) : null}
+                {usageAlert ? (
+                  <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${usageAlert.tone}`}>
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    {usageAlert.label}
+                  </span>
+                ) : null}
               </div>
+            </div>
 
-              <div className="rounded-2xl border border-white/25 bg-white/10 px-4 py-3">
-                <p className="text-xs uppercase tracking-wider text-white/80">
-                  {t('portal.hero.validUntil', { defaultValue: 'Valid Until' })}
-                </p>
-                <p className="mt-1 flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4" />
-                  {new Date(userInfo.expiry.date).toLocaleDateString()}
-                </p>
-                <p className="mt-1 text-xs text-white/75">
-                  {t('portal.hero.daysRemaining', {
-                    defaultValue: '{{days}} days remaining',
-                    days: userInfo.expiry.daysRemaining
-                  })}
-                </p>
-              </div>
+            <div className="rounded-2xl border border-line/70 bg-panel/55 px-4 py-3 text-right">
+              <p className="text-xs uppercase tracking-wider text-muted">
+                {t('portal.hero.validUntil', { defaultValue: 'Valid Until' })}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">
+                {new Date(userInfo.expiry.date).toLocaleDateString()}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {t('portal.hero.daysRemaining', {
+                  defaultValue: '{{days}} days remaining',
+                  days: userInfo.expiry.daysRemaining
+                })}
+              </p>
             </div>
           </div>
 
-          <div className="bg-white/10 px-6 py-5 text-white sm:px-8">
-            <div className="mb-2 flex justify-between text-sm">
-              <span className="opacity-90">{t('portal.hero.dataUsage', { defaultValue: 'Data Usage' })}</span>
-              <span className="font-semibold">
+          <div className="rounded-2xl border border-line/70 bg-panel/50 p-4 sm:p-5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-muted">{t('portal.hero.dataUsage', { defaultValue: 'Data Usage' })}</span>
+              <span className="font-semibold text-foreground">
                 {formatBytes(userInfo.usage.total)} / {userInfo.usage.limit > 0 ? formatBytes(userInfo.usage.limit) : '∞'}
               </span>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/20">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-line/40">
               <div
-                className={`h-full rounded-full bg-white/70 ${reduceVisualEffects ? '' : 'transition-all duration-500'}`}
+                className={`h-full rounded-full bg-gradient-to-r from-brand-500 to-cyan-400 ${reduceVisualEffects ? '' : 'transition-all duration-500'}`}
                 style={{ width: `${Math.min(userInfo.usage.percent, 100)}%` }}
               />
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div className="flex items-center gap-2 text-white/90">
-                <ArrowUp className="h-4 w-4" />
-                {t('portal.hero.upload', { defaultValue: 'Upload' })}: {formatBytes(userInfo.usage.upload)}
+            <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-xl border border-line/60 bg-card/55 px-3 py-2 text-muted">
+                {t('portal.hero.upload', { defaultValue: 'Upload' })}: <span className="font-semibold text-foreground">{formatBytes(userInfo.usage.upload)}</span>
               </div>
-              <div className="flex items-center gap-2 text-white/90 sm:justify-end">
-                <ArrowDown className="h-4 w-4" />
-                {t('portal.hero.download', { defaultValue: 'Download' })}: {formatBytes(userInfo.usage.download)}
+              <div className="rounded-xl border border-line/60 bg-card/55 px-3 py-2 text-muted">
+                {t('portal.hero.download', { defaultValue: 'Download' })}: <span className="font-semibold text-foreground">{formatBytes(userInfo.usage.download)}</span>
               </div>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Subscription hub */}
         <Card className="space-y-5">
@@ -1134,17 +1084,13 @@ export const UserInfoPage = () => {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="flex flex-col items-center justify-center rounded-2xl border border-line/70 bg-panel/55 p-5">
-              <div ref={qrAnchorRef} className="rounded-2xl border border-line/70 bg-white p-4">
-                {qrVisible ? (
-                  <QRCodeDisplay
-                    text={selectedUrl || userInfo.subscription.url}
-                    size={210}
-                    logoUrl={branding?.logoUrl || null}
-                    logoSizePercent={qrLogoSizePercent}
-                  />
-                ) : (
-                  <div className="h-[210px] w-[210px] animate-pulse rounded-xl bg-slate-200/70" />
-                )}
+              <div className="rounded-2xl border border-line/70 bg-white p-4">
+                <QRCodeDisplay
+                  text={selectedUrl || userInfo.subscription.url}
+                  size={210}
+                  logoUrl={branding?.logoUrl || null}
+                  logoSizePercent={qrLogoSizePercent}
+                />
               </div>
               <div className="mt-4 text-center text-sm text-muted">
                 {getFormatBadgeLabel(activeFormat)}
