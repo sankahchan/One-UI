@@ -126,6 +126,14 @@ export interface MieruQuota {
   megabytes?: number;
 }
 
+export interface MieruRuntimeQuotaUsage {
+  days: number;
+  limitBytes: number;
+  usedBytes: number;
+  remainingBytes: number;
+  percent: number;
+}
+
 export interface MieruUserEntry {
   username: string;
   password: string;
@@ -143,6 +151,8 @@ export interface MieruUserEntry {
   deviceLimit?: number | null;
   startOnFirstUse?: boolean | null;
   firstUsedAt?: string | null;
+  lastActiveAt?: string | null;
+  runtimeQuotaUsage?: MieruRuntimeQuotaUsage | null;
   updatedAt: string | null;
   createdAt: string | null;
 }
@@ -165,6 +175,10 @@ export interface MieruOnlineSnapshot {
       error: string | null;
     };
     connections: {
+      ok: boolean;
+      error: string | null;
+    };
+    quotas?: {
       ok: boolean;
       error: string | null;
     };

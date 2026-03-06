@@ -905,6 +905,32 @@ export const MieruPage: React.FC = () => {
         : '∞';
     return `${daysText} / ${gbText}`;
   };
+  const getRuntimeQuotaUsageLabel = (entry: MieruUserEntry): string | null => {
+    if (!entry.runtimeQuotaUsage) {
+      return null;
+    }
+
+    const limitLabel = entry.runtimeQuotaUsage.limitBytes > 0
+      ? formatUsageBytes(entry.runtimeQuotaUsage.limitBytes)
+      : '∞';
+    return `${formatUsageBytes(entry.runtimeQuotaUsage.usedBytes)} / ${limitLabel}`;
+  };
+  const getRuntimeQuotaRemainingLabel = (entry: MieruUserEntry): string | null => {
+    if (!entry.runtimeQuotaUsage) {
+      return null;
+    }
+
+    if (entry.runtimeQuotaUsage.limitBytes <= 0) {
+      return t('portal.subscription.stats.unlimited', { defaultValue: 'Unlimited' });
+    }
+
+    return formatUsageBytes(entry.runtimeQuotaUsage.remainingBytes);
+  };
+  const getLastActiveLabel = (entry: MieruUserEntry): string => (
+    entry.lastActiveAt
+      ? formatRelativeAgo(entry.lastActiveAt)
+      : t('mieru.noRecentActivity', { defaultValue: 'No recent activity' })
+  );
 
   return (
     <div className="relative isolate space-y-6">
@@ -1062,6 +1088,11 @@ export const MieruPage: React.FC = () => {
                   {onlineSnapshot?.commands?.connections?.ok
                     ? t('mieru.connectionsCmdOk', { defaultValue: 'Connections command: OK' })
                     : t('mieru.connectionsCmdFail', { defaultValue: 'Connections command: Error' })}
+                </Badge>
+                <Badge variant={onlineSnapshot?.commands?.quotas?.ok ? 'success' : 'warning'}>
+                  {onlineSnapshot?.commands?.quotas?.ok
+                    ? t('mieru.quotasCmdOk', { defaultValue: 'Quotas command: OK' })
+                    : t('mieru.quotasCmdFail', { defaultValue: 'Quotas command: Error' })}
                 </Badge>
               </>
             ) : (
@@ -1294,6 +1325,11 @@ export const MieruPage: React.FC = () => {
                       <p className="mt-0.5 truncate text-[11px] text-muted">
                         {String(entry.source).toUpperCase()} • {isPanel ? `${bytesToGbString(entry.dataLimitBytes) || '0'} GB` : getQuotaLabel(entry)}
                       </p>
+                      {!isPanel && entry.runtimeQuotaUsage ? (
+                        <p className="mt-0.5 truncate text-[11px] text-muted">
+                          {t('users.dataUsed', { defaultValue: 'Used' })}: {getRuntimeQuotaUsageLabel(entry)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {entry.enabled ? (
@@ -1449,10 +1485,28 @@ export const MieruPage: React.FC = () => {
                               </p>
                             </div>
                           ) : (
-                            <p>
-                              {t('mieru.quotas', { defaultValue: 'Quotas' })}:{' '}
-                              <span className="text-foreground">{getQuotaLabel(entry)}</span>
-                            </p>
+                            <div className="space-y-0.5">
+                              <p>
+                                {t('mieru.quotas', { defaultValue: 'Quotas' })}:{' '}
+                                <span className="text-foreground">{getQuotaLabel(entry)}</span>
+                              </p>
+                              {entry.runtimeQuotaUsage ? (
+                                <>
+                                  <p>
+                                    {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
+                                    <span className="text-foreground">{getRuntimeQuotaUsageLabel(entry)}</span>
+                                  </p>
+                                  <p>
+                                    {t('portal.subscription.stats.dataRemaining', { defaultValue: 'Data Remaining' })}:{' '}
+                                    <span className="text-foreground">{getRuntimeQuotaRemainingLabel(entry)}</span>
+                                  </p>
+                                </>
+                              ) : null}
+                              <p>
+                                {t('users.lastSeen', { defaultValue: 'Last seen' })}:{' '}
+                                <span className="text-foreground">{getLastActiveLabel(entry)}</span>
+                              </p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1790,17 +1844,38 @@ export const MieruPage: React.FC = () => {
                                 </div>
                               </div>
                             ) : (
-                              getQuotaLabel(entry)
+                              <div className="space-y-1">
+                                <div>{getQuotaLabel(entry)}</div>
+                                {entry.runtimeQuotaUsage ? (
+                                  <>
+                                    <div>
+                                      {t('users.dataUsed', { defaultValue: 'Used' })}:{' '}
+                                      <span className="text-foreground">{getRuntimeQuotaUsageLabel(entry)}</span>
+                                    </div>
+                                    <div>
+                                      {t('portal.subscription.stats.dataRemaining', { defaultValue: 'Data Remaining' })}:{' '}
+                                      <span className="text-foreground">{getRuntimeQuotaRemainingLabel(entry)}</span>
+                                    </div>
+                                  </>
+                                ) : null}
+                              </div>
                             )}
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {entry.online ? (
-                          <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
-                        ) : (
-                          <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
-                        )}
+                        <div className="space-y-1">
+                          {entry.online ? (
+                            <Badge variant="success">{t('common.online', { defaultValue: 'Online' })}</Badge>
+                          ) : (
+                            <Badge variant="warning">{t('common.offline', { defaultValue: 'Offline' })}</Badge>
+                          )}
+                          {!isPanel ? (
+                            <p className="text-xs text-muted">
+                              {t('users.lastSeen', { defaultValue: 'Last seen' })}: {getLastActiveLabel(entry)}
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">

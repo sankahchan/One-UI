@@ -323,6 +323,201 @@ function parseTimestampMs(rawLine, username) {
   return null;
 }
 
+function splitCommandTableRow(rawLine) {
+  const line = stripAnsi(rawLine).trim();
+  if (!line) {
+    return [];
+  }
+  return line.split(/\s{2,}/).map((entry) => entry.trim()).filter(Boolean);
+}
+
+function parseByteCount(text) {
+  const value = stripAnsi(text).trim();
+  if (!value || value === '-' || /^n\/a$/i.test(value)) {
+    return null;
+  }
+
+  const normalized = value.replace(/,/g, '');
+  const match = normalized.match(/^(\d+(?:\.\d+)?)\s*([kmgtpe]?i?b)$/i);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number.parseFloat(match[1]);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return null;
+  }
+
+  const unit = match[2].toUpperCase();
+  const unitPower = {
+    B: 0,
+    KB: 1,
+    KIB: 1,
+    MB: 2,
+    MIB: 2,
+    GB: 3,
+    GIB: 3,
+    TB: 4,
+    TIB: 4,
+    PB: 5,
+    PIB: 5,
+    EB: 6,
+    EIB: 6
+  };
+
+  const power = unitPower[unit];
+  if (!Number.isInteger(power)) {
+    return null;
+  }
+
+  return Math.max(0, Math.round(amount * (1024 ** power)));
+}
+
+function parseMitaUsersTable(output) {
+  const runtimeByUsername = new Map();
+  if (!output) {
+    return runtimeByUsername;
+  }
+
+  const rows = String(output)
+    .split('\n')
+    .map(splitCommandTableRow)
+    .filter((row) => row.length >= 6);
+
+  for (const row of rows) {
+    let username;
+    let lastActiveRaw;
+    let down1d;
+    let up1d;
+    let down7d = null;
+    let up7d = null;
+    let down30d;
+    let up30d;
+
+    if (row.length >= 8) {
+      [username, lastActiveRaw, down1d, up1d, down7d, up7d, down30d, up30d] = row;
+    } else {
+      [username, lastActiveRaw, down1d, up1d, down30d, up30d] = row;
+    }
+
+    if (!username || String(username).toLowerCase() === 'user') {
+      continue;
+    }
+
+    const parsedLastActive = parseTimestampMs(lastActiveRaw, username);
+
+    runtimeByUsername.set(String(username), {
+      lastActiveAt: parsedLastActive === null ? null : new Date(parsedLastActive).toISOString(),
+      trafficWindows: {
+        1: {
+          downloadBytes: parseByteCount(down1d),
+          uploadBytes: parseByteCount(up1d)
+        },
+        7: {
+          downloadBytes: parseByteCount(down7d),
+          uploadBytes: parseByteCount(up7d)
+        },
+        30: {
+          downloadBytes: parseByteCount(down30d),
+          uploadBytes: parseByteCount(up30d)
+        }
+      }
+    });
+  }
+
+  return runtimeByUsername;
+}
+
+function parseMitaQuotaTable(output) {
+  const quotaByUsername = new Map();
+  if (!output) {
+    return quotaByUsername;
+  }
+
+  const rows = String(output)
+    .split('\n')
+    .map(splitCommandTableRow)
+    .filter((row) => row.length >= 4);
+
+  for (const row of rows) {
+    const [username, daysRaw, limitRaw, usageRaw] = row;
+    if (!username || String(username).toLowerCase() === 'user') {
+      continue;
+    }
+
+    const days = Number.parseInt(String(daysRaw || '').trim(), 10);
+    const limitBytes = parseByteCount(limitRaw);
+    const usedBytes = parseByteCount(usageRaw);
+    if (!Number.isInteger(days) || days < 0 || limitBytes === null || usedBytes === null) {
+      continue;
+    }
+
+    const remainingBytes = Math.max(0, limitBytes - usedBytes);
+    const percent = limitBytes > 0
+      ? Math.min(100, Math.round((usedBytes / Math.max(limitBytes, 1)) * 10000) / 100)
+      : 0;
+
+    const entries = quotaByUsername.get(String(username)) || [];
+    entries.push({
+      days,
+      limitBytes,
+      usedBytes,
+      remainingBytes,
+      percent
+    });
+    quotaByUsername.set(String(username), entries);
+  }
+
+  for (const entries of quotaByUsername.values()) {
+    entries.sort((left, right) => left.days - right.days);
+  }
+
+  return quotaByUsername;
+}
+
+function selectPrimaryQuotaUsage(configuredQuotas, runtimeQuotaUsages) {
+  const normalizedConfigured = normalizeQuotaEntries(configuredQuotas);
+  const candidates = Array.isArray(runtimeQuotaUsages) ? runtimeQuotaUsages : [];
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const primaryConfigured = normalizedConfigured.find(
+    (entry) => Number.isInteger(entry?.days) || Number.isInteger(entry?.megabytes)
+  );
+
+  if (primaryConfigured) {
+    const configuredDays = Number.isInteger(primaryConfigured.days) ? Number(primaryConfigured.days) : null;
+    const configuredLimitBytes = Number.isInteger(primaryConfigured.megabytes)
+      ? megabytesToBytes(Number(primaryConfigured.megabytes))
+      : null;
+
+    const matched = candidates.find((entry) => {
+      const sameDays = configuredDays === null ? true : entry.days === configuredDays;
+      const sameLimit = configuredLimitBytes === null ? true : Math.abs(entry.limitBytes - configuredLimitBytes) <= (1024 * 1024);
+      return sameDays && sameLimit;
+    });
+
+    if (matched) {
+      return matched;
+    }
+  }
+
+  return candidates[0];
+}
+
+function getTrafficWindowForQuota(trafficWindows, days) {
+  if (!trafficWindows || !Number.isInteger(days)) {
+    return null;
+  }
+  return trafficWindows[days] || null;
+}
+
+function getQuotaSummaryEntry(quotas) {
+  const normalized = normalizeQuotaEntries(quotas);
+  return normalized.find((entry) => Number.isInteger(entry?.days) || Number.isInteger(entry?.megabytes)) || null;
+}
+
 function normalizeTransport(value, fallback = 'TCP') {
   const normalized = String(value || fallback).trim().toUpperCase();
   if (normalized === 'UDP') {
@@ -943,7 +1138,7 @@ class MieruManagerService {
     return normalizedCustomUsers;
   }
 
-  mergeUsers({ customUsers, configuredUsers, onlineByUsername = new Map() }) {
+  mergeUsers({ customUsers, configuredUsers, runtimeByUsername = new Map() }) {
     const customByUsername = new Map(customUsers.map((user) => [user.name, user]));
     const configuredByUsername = new Map(configuredUsers.map((user) => [user.name, user]));
 
@@ -964,6 +1159,14 @@ class MieruManagerService {
           configuredUser?.quotas
           || customUser?.quotas
         );
+        const runtimeEntry = runtimeByUsername.get(String(username).toLowerCase()) || null;
+        const primaryRuntimeQuota = selectPrimaryQuotaUsage(quotas, runtimeEntry?.quotaUsages);
+        const configuredQuota = getQuotaSummaryEntry(quotas);
+        const trafficWindow = getTrafficWindowForQuota(
+          runtimeEntry?.trafficWindows,
+          primaryRuntimeQuota?.days
+            ?? (Number.isInteger(configuredQuota?.days) ? configuredQuota.days : null)
+        );
 
         return {
           username,
@@ -972,16 +1175,18 @@ class MieruManagerService {
           source,
           enabled,
           configured: Boolean(configuredUser),
-          online: Boolean(onlineByUsername.get(username)),
+          online: Boolean(runtimeEntry?.online),
           panelUserId: null,
           dataLimitBytes: null,
-          uploadUsedBytes: null,
-          downloadUsedBytes: null,
+          uploadUsedBytes: trafficWindow?.uploadBytes ?? null,
+          downloadUsedBytes: trafficWindow?.downloadBytes ?? null,
           expireDate: null,
           ipLimit: null,
           deviceLimit: null,
           startOnFirstUse: null,
           firstUsedAt: null,
+          runtimeQuotaUsage: primaryRuntimeQuota,
+          lastActiveAt: runtimeEntry?.lastActiveAt || null,
           updatedAt: customUser?.updatedAt || null,
           createdAt: customUser?.createdAt || null
         };
@@ -999,18 +1204,20 @@ class MieruManagerService {
     const customUsers = normalizeCustomUsers(metadata.customUsers);
     const configuredUsers = this.getConfiguredUsers(configState.parsed);
 
-    let onlineByUsername = new Map();
+    let runtimeByUsername = new Map();
     let onlineSnapshot = null;
 
     if (includeOnline) {
       onlineSnapshot = await this.getOnlineSnapshotInternal(configuredUsers.map((entry) => entry.name));
-      onlineByUsername = new Map(onlineSnapshot.users.map((entry) => [entry.username, entry.online]));
+      runtimeByUsername = new Map(
+        onlineSnapshot.users.map((entry) => [String(entry.username).toLowerCase(), entry])
+      );
     }
 
     const users = this.mergeUsers({
       customUsers,
       configuredUsers,
-      onlineByUsername
+      runtimeByUsername
     });
 
     const onlineCount = users.filter((entry) => entry.online).length;
@@ -1356,18 +1563,26 @@ class MieruManagerService {
         },
         commands: {
           users: { ok: false, error: 'No configured users' },
-          connections: { ok: false, error: 'No configured users' }
+          connections: { ok: false, error: 'No configured users' },
+          quotas: { ok: false, error: 'No configured users' }
         }
       };
     }
 
-    const [usersCommand, connectionsCommand] = await Promise.all([
+    const [usersCommand, connectionsCommand, quotasCommand] = await Promise.all([
       this.runMitaCommand(['get', 'users']),
-      this.runMitaCommand(['get', 'connections'])
+      this.runMitaCommand(['get', 'connections']),
+      this.runMitaCommand(['get', 'quotas'])
     ]);
 
     const onlineByUsername = new Map(uniqueUsernames.map((username) => [username, false]));
     const lastActiveByUsername = new Map(uniqueUsernames.map((username) => [username, null]));
+    const normalizedUsersTable = new Map(
+      Array.from(parseMitaUsersTable(usersCommand.raw).entries()).map(([username, value]) => [String(username).toLowerCase(), value])
+    );
+    const normalizedQuotaTable = new Map(
+      Array.from(parseMitaQuotaTable(quotasCommand.raw).entries()).map(([username, value]) => [String(username).toLowerCase(), value])
+    );
 
     const usersStatus = this.inferOnlineFromUsersOutput(uniqueUsernames, usersCommand.raw);
     const connectionStatus = this.inferOnlineFromOutput(uniqueUsernames, connectionsCommand.raw, 'connections');
@@ -1390,7 +1605,12 @@ class MieruManagerService {
     const users = uniqueUsernames.map((username) => ({
       username,
       online: Boolean(onlineByUsername.get(username)),
-      lastActiveAt: lastActiveByUsername.get(username) || null
+      lastActiveAt:
+        lastActiveByUsername.get(username)
+        || normalizedUsersTable.get(String(username).toLowerCase())?.lastActiveAt
+        || null,
+      trafficWindows: normalizedUsersTable.get(String(username).toLowerCase())?.trafficWindows || null,
+      quotaUsages: normalizedQuotaTable.get(String(username).toLowerCase()) || []
     }));
 
     const onlineCount = users.filter((entry) => entry.online).length;
@@ -1411,6 +1631,10 @@ class MieruManagerService {
         connections: {
           ok: connectionsCommand.ok || (connectionsCommand.error && connectionsCommand.error.includes('server multiplexier is unavailable')),
           error: (connectionsCommand.error && connectionsCommand.error.includes('server multiplexier is unavailable')) ? null : connectionsCommand.error
+        },
+        quotas: {
+          ok: quotasCommand.ok,
+          error: quotasCommand.error
         }
       }
     };
@@ -1584,22 +1808,34 @@ class MieruManagerService {
     const { customUser, configuredUser } = await this.getCustomUserPublicRecordByToken(token);
     const exportPayload = await this.getUserExport(customUser.name);
     const quotas = normalizeQuotaEntries(configuredUser.quotas || customUser.quotas);
+    const runtimeSnapshot = await this.getOnlineSnapshotInternal([customUser.name]);
+    const runtimeUser = runtimeSnapshot.users[0] || null;
+    const runtimeQuotaUsage = selectPrimaryQuotaUsage(quotas, runtimeUser?.quotaUsages);
+    const runtimeTrafficWindow = getTrafficWindowForQuota(
+      runtimeUser?.trafficWindows,
+      runtimeQuotaUsage?.days || getQuotaMetric(quotas, 'days')
+    );
     const configuredQuotaMegabytes = getQuotaMetric(configuredUser.quotas, 'megabytes');
     const originalQuotaMegabytes = getQuotaMetric(customUser.quotas, 'megabytes');
     const effectiveQuotaMegabytes = Math.max(
       configuredQuotaMegabytes || 0,
       originalQuotaMegabytes || 0
     );
-    const limitBytes = megabytesToBytes(effectiveQuotaMegabytes);
-    const remainingBytes = configuredQuotaMegabytes === null
-      ? limitBytes
+    const fallbackLimitBytes = megabytesToBytes(effectiveQuotaMegabytes);
+    const fallbackRemainingBytes = configuredQuotaMegabytes === null
+      ? fallbackLimitBytes
       : megabytesToBytes(configuredQuotaMegabytes);
-    const usedBytes = limitBytes > 0
-      ? Math.max(0, limitBytes - Math.min(remainingBytes, limitBytes))
+    const fallbackUsedBytes = fallbackLimitBytes > 0
+      ? Math.max(0, fallbackLimitBytes - Math.min(fallbackRemainingBytes, fallbackLimitBytes))
       : 0;
-    const usagePercent = limitBytes > 0
-      ? Math.round((usedBytes / limitBytes) * 10000) / 100
+    const fallbackUsagePercent = fallbackLimitBytes > 0
+      ? Math.round((fallbackUsedBytes / fallbackLimitBytes) * 10000) / 100
       : 0;
+
+    const limitBytes = runtimeQuotaUsage?.limitBytes ?? fallbackLimitBytes;
+    const usedBytes = runtimeQuotaUsage?.usedBytes ?? fallbackUsedBytes;
+    const remainingBytes = runtimeQuotaUsage?.remainingBytes ?? fallbackRemainingBytes;
+    const usagePercent = runtimeQuotaUsage?.percent ?? fallbackUsagePercent;
 
     return {
       username: customUser.name,
@@ -1607,14 +1843,16 @@ class MieruManagerService {
       ...(quotas.length > 0 ? { quotas } : {}),
       createdAt: customUser.createdAt || null,
       updatedAt: customUser.updatedAt || null,
+      lastActiveAt: runtimeUser?.lastActiveAt || null,
+      online: Boolean(runtimeUser?.online),
       usage: {
         limitBytes,
         totalUsedBytes: usedBytes,
         remainingBytes: limitBytes > 0 ? Math.max(0, Math.min(remainingBytes, limitBytes)) : 0,
-        uploadBytes: 0,
-        downloadBytes: 0,
+        uploadBytes: runtimeTrafficWindow?.uploadBytes ?? 0,
+        downloadBytes: runtimeTrafficWindow?.downloadBytes ?? 0,
         percent: usagePercent,
-        derivedFromQuota: true
+        derivedFromQuota: !runtimeQuotaUsage
       },
       profile: exportPayload.profile,
       subscriptionToken: customUser.subscriptionToken

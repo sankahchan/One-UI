@@ -422,7 +422,7 @@ export const MieruSharePage = () => {
             : 'radial-gradient(circle at 20% 10%, rgba(59,130,246,.35), transparent 42%), radial-gradient(circle at 80% 16%, rgba(99,102,241,.28), transparent 40%), linear-gradient(160deg, rgba(15,23,42,.95), rgba(2,6,23,.98))'
         }}
       />
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1.5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-300">ONE-UI</p>
@@ -462,8 +462,8 @@ export const MieruSharePage = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[300px_minmax(0,1fr)]">
-          <Card className="flex flex-col items-center gap-4 bg-slate-900/55 xl:self-start">
+        <div className="flex flex-col gap-6">
+          <Card className="mx-auto flex w-full max-w-sm flex-col items-center gap-4 bg-slate-900/55">
             <div className="rounded-3xl border border-line/70 bg-white p-4 shadow-soft">
               <QRCodeDisplay text={subscriptionUrl} size={240} />
             </div>
@@ -673,7 +673,7 @@ export const MieruSharePage = () => {
             </div>
           </Card>
 
-          <Card padding={false} className="overflow-hidden bg-slate-900/55 xl:col-span-2">
+          <Card padding={false} className="overflow-hidden bg-slate-900/55">
             <div className="border-b border-line/60 px-5 py-4 sm:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
