@@ -1675,9 +1675,22 @@ class MieruManagerService {
     };
 
     const clashProfile = {
+      profile: {
+        name: `Mieru - ${normalizedUsername}`,
+        'update-interval': 24
+      },
+      mode: 'rule',
+      'log-level': 'info',
+      ipv6: true,
       proxies: [proxy],
-      'proxy-groups': [],
-      rules: [`MATCH,${proxyName}`]
+      'proxy-groups': [
+        {
+          name: 'Proxy',
+          type: 'select',
+          proxies: [proxyName, 'DIRECT']
+        }
+      ],
+      rules: ['MATCH,Proxy']
     };
 
     const clashYaml = yaml.dump(clashProfile, {
