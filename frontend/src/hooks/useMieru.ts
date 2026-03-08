@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createMieruUser,
   deleteMieruUser,
+  getMieruDiagnostics,
   getMieruOnlineSnapshot,
   getMieruLogs,
   getMieruProfile,
@@ -22,6 +23,7 @@ import {
   type MieruQuota,
   type MieruLogs,
   type MieruOnlineSnapshot,
+  type MieruPortDiagnostics,
   type MieruProfile,
   type MieruPolicy,
   type MieruReleaseIntel,
@@ -79,6 +81,7 @@ export const useRestartMieru = () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-logs'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-diagnostics'] });
     }
   });
 };
@@ -118,6 +121,16 @@ export const useMieruProfile = () => {
   });
 };
 
+export const useMieruDiagnostics = (options: { refetchInterval?: number | false; staleTime?: number; enabled?: boolean } = {}) => {
+  return useQuery<MieruPortDiagnostics>({
+    queryKey: ['mieru-diagnostics'],
+    queryFn: getMieruDiagnostics,
+    enabled: options.enabled ?? true,
+    refetchInterval: options.refetchInterval ?? 30_000,
+    staleTime: options.staleTime ?? 10_000
+  });
+};
+
 export const useMieruUsers = (
   includeOnline = true,
   options: { refetchInterval?: number | false; staleTime?: number } = {}
@@ -150,6 +163,7 @@ export const useUpdateMieruProfile = () => {
     mutationFn: updateMieruProfile,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mieru-profile'] });
+      void queryClient.invalidateQueries({ queryKey: ['mieru-diagnostics'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
       void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
     }

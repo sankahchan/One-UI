@@ -121,6 +121,28 @@ export interface MieruProfile {
   configPath?: string;
 }
 
+export interface MieruPortDiagnostics {
+  checkedAt: string;
+  source: 'xray-core' | 'host' | 'unavailable';
+  ready: boolean;
+  transport: 'TCP' | 'UDP';
+  portRange: string;
+  portSpec: string;
+  listener: {
+    ok: boolean;
+    expectedPorts: number;
+    matchedPorts: number;
+    missingPorts: number[];
+    detail: string;
+  };
+  firewall: {
+    ok: boolean;
+    source: 'iptables' | 'ufw' | 'none' | string;
+    detail: string;
+  };
+  detail: string | null;
+}
+
 export interface MieruQuota {
   days?: number;
   megabytes?: number;
@@ -252,6 +274,7 @@ export const mieruApi = {
   getLogs: async (params: { lines?: number } = {}): Promise<ApiResponse<MieruLogs>> =>
     apiClient.get('/mieru/logs', { params }),
   getProfile: async (): Promise<ApiResponse<MieruProfile>> => apiClient.get('/mieru/profile'),
+  getDiagnostics: async (): Promise<ApiResponse<MieruPortDiagnostics>> => apiClient.get('/mieru/diagnostics'),
   updateProfile: async (payload: Partial<MieruProfile>): Promise<ApiResponse<MieruProfile>> =>
     apiClient.put('/mieru/profile', payload),
   listUsers: async (params: { includeOnline?: boolean } = {}): Promise<ApiResponse<MieruUsersResult>> =>
@@ -348,6 +371,14 @@ export const getMieruProfile = async (): Promise<MieruProfile> => {
   const response = await mieruApi.getProfile();
   if (!response.data) {
     throw new Error(response.message || 'Unable to fetch Mieru profile');
+  }
+  return response.data;
+};
+
+export const getMieruDiagnostics = async (): Promise<MieruPortDiagnostics> => {
+  const response = await mieruApi.getDiagnostics();
+  if (!response.data) {
+    throw new Error(response.message || 'Unable to fetch Mieru diagnostics');
   }
   return response.data;
 };

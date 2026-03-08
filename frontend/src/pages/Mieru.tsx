@@ -28,6 +28,7 @@ import {
   useMieruLogs,
   useMieruOnlineSnapshot,
   useMieruPolicy,
+  useMieruDiagnostics,
   useMieruProfile,
   useMieruStatus,
   useMieruUserExport,
@@ -282,6 +283,11 @@ export const MieruPage: React.FC = () => {
     staleTime: isMobileViewport ? 15_000 : 5_000
   });
   const profileQuery = useMieruProfile();
+  const diagnosticsQuery = useMieruDiagnostics({
+    enabled: Boolean(policyQuery.data?.enabled),
+    refetchInterval: isMobileViewport ? 45_000 : 30_000,
+    staleTime: isMobileViewport ? 20_000 : 10_000
+  });
   const usersQuery = useMieruUsers(runtimeStable, {
     refetchInterval: runtimeStable ? mobilePollIntervalMs : false,
     staleTime: isMobileViewport ? 15_000 : 5_000
@@ -461,9 +467,39 @@ export const MieruPage: React.FC = () => {
     return Array.from(new Set(lines));
   }, [statusQuery.data]);
 
+  const portDiagnostics = diagnosticsQuery.data;
+  const portDiagnosticsBadge = useMemo(() => {
+    if (!policyQuery.data?.enabled) {
+      return {
+        label: t('common.disabled', { defaultValue: 'Disabled' }),
+        variant: 'warning' as const
+      };
+    }
+
+    if (!portDiagnostics) {
+      return {
+        label: t('mieru.portDiagnosticsUnknown', { defaultValue: 'Unknown' }),
+        variant: 'warning' as const
+      };
+    }
+
+    if (portDiagnostics.ready) {
+      return {
+        label: t('mieru.portDiagnosticsReady', { defaultValue: 'Host ready' }),
+        variant: 'success' as const
+      };
+    }
+
+    return {
+      label: t('mieru.portDiagnosticsBlocked', { defaultValue: 'Action required' }),
+      variant: 'warning' as const
+    };
+  }, [policyQuery.data?.enabled, portDiagnostics, t]);
+
   const onRefreshAll = () => {
     void queryClient.invalidateQueries({ queryKey: ['mieru-policy'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-status'] });
+    void queryClient.invalidateQueries({ queryKey: ['mieru-diagnostics'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-profile'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-users'] });
     void queryClient.invalidateQueries({ queryKey: ['mieru-online'] });
@@ -1105,6 +1141,99 @@ export const MieruPage: React.FC = () => {
             ) : null}
           </div>
         </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-xl font-semibold text-foreground">
+              {t('mieru.portDiagnostics', { defaultValue: 'Port Diagnostics' })}
+            </h2>
+            <Badge variant={portDiagnosticsBadge.variant}>{portDiagnosticsBadge.label}</Badge>
+            {portDiagnostics ? (
+              <span className="text-sm text-muted">
+                {t('mieru.lastChecked', {
+                  defaultValue: 'Last checked: {{ago}}',
+                  ago: formatRelativeAgo(portDiagnostics.checkedAt)
+                })}
+              </span>
+            ) : null}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void diagnosticsQuery.refetch()}
+            loading={diagnosticsQuery.isFetching}
+            disabled={!policyQuery.data?.enabled}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {t('mieru.recheck', { defaultValue: 'Recheck' })}
+          </Button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('mieru.configuredPort', { defaultValue: 'Configured Port' })}
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {portDiagnostics ? `${portDiagnostics.transport} ${portDiagnostics.portRange}` : `${profileForm.transport} ${profileForm.portRange}`}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('mieru.listenerState', { defaultValue: 'Listener' })}
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {portDiagnostics?.listener.ok
+                ? t('mieru.listenerDetected', { defaultValue: 'Detected' })
+                : t('mieru.listenerMissing', { defaultValue: 'Missing' })}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {portDiagnostics?.listener.detail || t('mieru.listenerPending', { defaultValue: 'Waiting for diagnostics.' })}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              {t('mieru.firewallState', { defaultValue: 'Firewall Rule' })}
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {portDiagnostics?.firewall.ok
+                ? t('mieru.firewallAllowed', { defaultValue: 'Allowed' })
+                : t('mieru.firewallMissing', { defaultValue: 'Missing' })}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {portDiagnostics?.firewall.detail || t('mieru.firewallPending', { defaultValue: 'Waiting for diagnostics.' })}
+            </p>
+          </div>
+        </div>
+        {!portDiagnostics?.ready ? (
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+            <p className="text-sm text-amber-100/90">
+              {portDiagnostics?.detail
+                || t('mieru.portDiagnosticsWarning', {
+                  defaultValue:
+                    'Remote clients may time out until the configured Mieru port is both listening and opened by the host firewall.'
+                })}
+            </p>
+            {portDiagnostics?.listener.missingPorts?.length ? (
+              <p className="mt-2 text-xs text-amber-100/80">
+                {t('mieru.portDiagnosticsMissingPorts', {
+                  defaultValue: 'Missing listener ports: {{ports}}',
+                  ports: portDiagnostics.listener.missingPorts.join(', ')
+                })}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+            <p className="text-sm text-emerald-100/90">
+              {t('mieru.portDiagnosticsHealthy', {
+                defaultValue:
+                  'Host listener and One-UI-managed firewall rule are both present for the configured Mieru port.'
+              })}
+            </p>
+          </div>
+        )}
       </Card>
 
       <Card className="space-y-4">

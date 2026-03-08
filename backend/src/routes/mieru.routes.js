@@ -24,6 +24,7 @@ router.get(
   mieruController.getReleases
 );
 router.get('/profile', mieruController.getProfile);
+router.get('/diagnostics', mieruController.getDiagnostics);
 router.post('/restart', mieruController.restart);
 router.post(
   '/update',

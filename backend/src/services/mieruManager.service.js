@@ -679,6 +679,42 @@ function escapeShellArg(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function parseBooleanResult(value, fallback = false) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
+function parseIntegerResult(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function parseKeyValueOutput(raw = '') {
+  return String(raw)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce((accumulator, line) => {
+      const separatorIndex = line.indexOf('=');
+      if (separatorIndex <= 0) {
+        return accumulator;
+      }
+
+      const key = line.slice(0, separatorIndex).trim();
+      const value = line.slice(separatorIndex + 1).trim();
+      if (key) {
+        accumulator[key] = value;
+      }
+      return accumulator;
+    }, {});
+}
+
 function isPermissionError(error) {
   return ['EACCES', 'EPERM', 'EROFS'].includes(error?.code);
 }
@@ -876,6 +912,83 @@ class MieruManagerService {
       message: sanitizeMultiline(lastError?.stderr || lastError?.message || 'unknown error', 320)
     });
     return false;
+  }
+
+  async getPortDiagnostics() {
+    const profile = await this.getProfile();
+    const transport = normalizeTransport(profile?.transport, 'TCP');
+    const portRange = normalizePortRange(profile?.portRange || this.getDefaultProfile().portRange);
+    const escapedTransport = escapeShellArg(transport);
+    const escapedPortRange = escapeShellArg(portRange);
+
+    const attempts = [
+      {
+        source: 'xray-core',
+        command: `docker exec xray-core sh /usr/local/bin/check-mieru-port.sh ${escapedTransport} ${escapedPortRange}`
+      },
+      {
+        source: 'host',
+        command: `sh ../scripts/check-mieru-port.sh ${escapedTransport} ${escapedPortRange}`
+      }
+    ];
+
+    let lastError = null;
+    for (const attempt of attempts) {
+      try {
+        const { stdout } = await execPromise(attempt.command);
+        const result = parseKeyValueOutput(stdout);
+        const missingPorts = String(result.listener_missing || '')
+          .split(',')
+          .map((entry) => Number.parseInt(entry.trim(), 10))
+          .filter((entry) => Number.isInteger(entry));
+
+        return {
+          checkedAt: new Date().toISOString(),
+          source: attempt.source,
+          ready: parseBooleanResult(result.ready, false),
+          transport,
+          portRange,
+          portSpec: result.port_spec || portRange,
+          listener: {
+            ok: parseBooleanResult(result.listener_ok, false),
+            expectedPorts: parseIntegerResult(result.listener_expected, 0),
+            matchedPorts: parseIntegerResult(result.listener_matched, 0),
+            missingPorts,
+            detail: result.listener_detail || 'Unable to determine whether the Mieru port is listening.'
+          },
+          firewall: {
+            ok: parseBooleanResult(result.firewall_ok, false),
+            source: result.firewall_source || 'none',
+            detail: result.firewall_detail || 'Unable to determine firewall state for the Mieru port.'
+          },
+          detail: null
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    return {
+      checkedAt: new Date().toISOString(),
+      source: 'unavailable',
+      ready: false,
+      transport,
+      portRange,
+      portSpec: portRange,
+      listener: {
+        ok: false,
+        expectedPorts: 0,
+        matchedPorts: 0,
+        missingPorts: [],
+        detail: 'Unable to inspect Mieru listener state from this runtime.'
+      },
+      firewall: {
+        ok: false,
+        source: 'none',
+        detail: 'Unable to inspect Mieru firewall state from this runtime.'
+      },
+      detail: sanitizeMultiline(lastError?.stderr || lastError?.message || 'Diagnostics unavailable.', 320)
+    };
   }
 
   getSyncMetadata(stateDocument, configDocument) {

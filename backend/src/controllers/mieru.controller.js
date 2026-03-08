@@ -128,6 +128,15 @@ async function getProfile(_req, res, next) {
   }
 }
 
+async function getDiagnostics(_req, res, next) {
+  try {
+    const diagnostics = await mieruManagerService.getPortDiagnostics();
+    res.json(ApiResponse.success(diagnostics, 'Mieru diagnostics fetched successfully'));
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateProfile(req, res, next) {
   try {
     const profile = await mieruManagerService.updateProfile(req.body || {});
@@ -265,6 +274,7 @@ module.exports = {
   getLogs,
   sync,
   getProfile,
+  getDiagnostics,
   updateProfile,
   listUsers,
   createUser,
