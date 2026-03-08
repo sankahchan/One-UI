@@ -21,6 +21,7 @@ RUN mkdir -p /usr/share/xray && \
 # Copy default config and our scripts
 COPY xray/config.json /etc/xray/config.json
 COPY scripts/sync-firewall.sh /usr/local/bin/sync-firewall.sh
+COPY scripts/sync-mieru-firewall.sh /usr/local/bin/sync-mieru-firewall.sh
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 EXPOSE 443 80 10085

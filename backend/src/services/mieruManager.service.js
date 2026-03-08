@@ -1,5 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
 const yaml = require('js-yaml');
 
 const prisma = require('../config/database');
@@ -8,6 +10,8 @@ const mieruRuntimeService = require('./mieruRuntime.service');
 const mieruSyncService = require('./mieruSync.service');
 const cryptoService = require('./crypto.service');
 const { ConflictError, NotFoundError, ValidationError } = require('../utils/errors');
+
+const execPromise = util.promisify(exec);
 
 function parsePathSegments(value, fallback = 'users') {
   const source = String(value || fallback)
@@ -838,6 +842,42 @@ class MieruManagerService {
     };
   }
 
+  async syncMieruFirewall(profile) {
+    const transport = normalizeTransport(profile?.transport, 'TCP');
+    const portRange = normalizePortRange(profile?.portRange || this.getDefaultProfile().portRange);
+    const escapedTransport = escapeShellArg(transport);
+    const escapedPortRange = escapeShellArg(portRange);
+
+    const attempts = [
+      `docker exec xray-core sh /usr/local/bin/sync-mieru-firewall.sh ${escapedTransport} ${escapedPortRange}`,
+      `sh /opt/one-ui/scripts/sync-mieru-firewall.sh ${escapedTransport} ${escapedPortRange}`,
+      `sh ../scripts/sync-mieru-firewall.sh ${escapedTransport} ${escapedPortRange}`
+    ];
+
+    let lastError = null;
+    for (const command of attempts) {
+      try {
+        await execPromise(command);
+        logger.info('Mieru firewall synchronized successfully.', {
+          action: 'mieru_firewall_sync',
+          transport,
+          portRange
+        });
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    logger.warn('Failed to synchronize Mieru firewall rules.', {
+      action: 'mieru_firewall_sync',
+      transport,
+      portRange,
+      message: sanitizeMultiline(lastError?.stderr || lastError?.message || 'unknown error', 320)
+    });
+    return false;
+  }
+
   getSyncMetadata(stateDocument, configDocument) {
     if (isPlainObject(stateDocument) && stateDocument.managedBy) {
       return deepCloneObject(stateDocument);
@@ -1072,6 +1112,8 @@ class MieruManagerService {
         });
       }
     }
+
+    await this.syncMieruFirewall(updatedProfile);
 
     return {
       ...updatedProfile,

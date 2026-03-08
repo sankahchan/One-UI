@@ -32,6 +32,8 @@ CF_ZONE_ID="${ONEUI_CF_ZONE_ID:-${XRAY_PANEL_CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID:-}
 INSTALL_DIR="${ONEUI_INSTALL_DIR:-${XRAY_PANEL_INSTALL_DIR:-/opt/one-ui}}"
 DATA_DIR="${ONEUI_DATA_DIR:-${XRAY_PANEL_DATA_DIR:-/var/lib/one-ui}}"
 BACKUP_DIR="${ONEUI_BACKUP_DIR:-${XRAY_PANEL_BACKUP_DIR:-/var/backups/one-ui}}"
+MIERU_PORT_RANGE="${ONEUI_MIERU_PORT_RANGE:-${XRAY_PANEL_MIERU_PORT_RANGE:-8444-8444}}"
+MIERU_TRANSPORT="${ONEUI_MIERU_TRANSPORT:-${XRAY_PANEL_MIERU_TRANSPORT:-TCP}}"
 
 print_banner() {
   echo -e "${GREEN}"
@@ -551,9 +553,9 @@ ensure_ports_available() {
 
 prepare_directories() {
   mkdir -p "${INSTALL_DIR}"
+  mkdir -p "${INSTALL_DIR}/mieru"
   mkdir -p "${DATA_DIR}/certs"
   mkdir -p "${BACKUP_DIR}"
-  mkdir -p "${INSTALL_DIR}/mieru"
   mkdir -p /var/log/xray
   touch /var/log/xray/access.log /var/log/xray/error.log /var/log/xray/output.log 2>/dev/null || true
   chown -R 65532:65532 /var/log/xray 2>/dev/null || true
@@ -810,8 +812,8 @@ MIERU_COMPOSE_FILE=/opt/one-ui/docker-compose.yml
 MIERU_HEALTH_URL=
 MIERU_COMMAND_TIMEOUT_MS=7000
 MIERU_PUBLIC_HOST=
-MIERU_PORT_RANGE=8444-8444
-MIERU_TRANSPORT=TCP
+MIERU_PORT_RANGE=${MIERU_PORT_RANGE}
+MIERU_TRANSPORT=${MIERU_TRANSPORT}
 MIERU_UDP=false
 MIERU_MULTIPLEXING=MULTIPLEXING_HIGH
 MIERU_AUTO_SYNC=false
@@ -930,6 +932,7 @@ services:
       - ${INSTALL_DIR}/xray:/etc/xray
       - /var/log/xray:/var/log/xray
       - ${DATA_DIR}/certs:/certs
+      - ${INSTALL_DIR}/mieru:/opt/one-ui/mieru:ro
     network_mode: host
     cap_add:
       - NET_ADMIN
@@ -1223,6 +1226,10 @@ configure_firewall() {
   ufw allow 80/tcp
   ufw allow 443/tcp
   ufw allow "${PANEL_PORT}/tcp"
+  if [ -f "${INSTALL_DIR}/scripts/sync-mieru-firewall.sh" ]; then
+    sh "${INSTALL_DIR}/scripts/sync-mieru-firewall.sh" "${MIERU_TRANSPORT}" "${MIERU_PORT_RANGE}" || \
+      warn "Failed to pre-open Mieru firewall port (${MIERU_TRANSPORT} ${MIERU_PORT_RANGE})."
+  fi
   ufw --force enable
   ok "Firewall configured."
 }
