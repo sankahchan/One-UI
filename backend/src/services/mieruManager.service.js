@@ -1662,17 +1662,23 @@ class MieruManagerService {
     }
 
     const proxyName = `mieru-${normalizedUsername}`;
+    const portBounds = parsePortRangeBounds(profile.portRange);
     const proxy = {
       name: proxyName,
       type: 'mieru',
       server: profile.server,
-      'port-range': profile.portRange,
       transport: profile.transport,
       udp: profile.udp,
       username: normalizedUsername,
       password: targetUser.password,
       multiplexing: profile.multiplexing
     };
+
+    if (portBounds.start === portBounds.end) {
+      proxy.port = portBounds.start;
+    } else {
+      proxy['port-range'] = profile.portRange;
+    }
 
     const clashProfile = {
       profile: {
@@ -1705,6 +1711,7 @@ class MieruManagerService {
       json: {
         type: 'mieru',
         server: profile.server,
+        port: portBounds.start === portBounds.end ? portBounds.start : undefined,
         portRange: profile.portRange,
         transport: profile.transport,
         udp: profile.udp,
