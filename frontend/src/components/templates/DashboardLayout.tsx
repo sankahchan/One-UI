@@ -268,7 +268,7 @@ export const DashboardLayout: React.FC = () => {
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-card/90 px-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-2 backdrop-blur-xl lg:hidden">
         <ul
           className={`pointer-events-auto grid gap-1 ${
-            menuItems.length > 5 ? 'grid-cols-6' : menuItems.length > 4 ? 'grid-cols-5' : 'grid-cols-4'
+            menuItems.length > 6 ? 'grid-cols-7' : menuItems.length > 5 ? 'grid-cols-6' : menuItems.length > 4 ? 'grid-cols-5' : 'grid-cols-4'
           }`}
         >
           {menuItems.map(({ path, icon: Icon, label }) => {

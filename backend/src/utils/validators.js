@@ -156,8 +156,8 @@ const inboundValidators = {
     body('muxEnabled').optional().isBoolean().withMessage('muxEnabled must be boolean').toBoolean(),
     body('muxConcurrency').optional().isInt({ min: 1, max: 1024 }).withMessage('muxConcurrency must be between 1 and 1024').toInt(),
     body('fragmentEnabled').optional().isBoolean().withMessage('fragmentEnabled must be boolean').toBoolean(),
-    body('fragmentLength').optional().isString().matches(/^\d+-\d+$/).withMessage('fragmentLength must be like "100-200"'),
-    body('fragmentInterval').optional().isString().matches(/^\d+-\d+$/).withMessage('fragmentInterval must be like "10-20"')
+    body('fragmentLength').optional({ values: 'falsy' }).isString().matches(/^\d+-\d+$/).withMessage('fragmentLength must be like "100-200"'),
+    body('fragmentInterval').optional({ values: 'falsy' }).isString().matches(/^\d+-\d+$/).withMessage('fragmentInterval must be like "10-20"')
   ],
   update: [
     body('port').optional().isInt({ min: 1, max: 65535 }).withMessage('port must be between 1 and 65535').toInt(),
@@ -211,8 +211,8 @@ const inboundValidators = {
     body('muxEnabled').optional().isBoolean().withMessage('muxEnabled must be boolean').toBoolean(),
     body('muxConcurrency').optional().isInt({ min: 1, max: 1024 }).withMessage('muxConcurrency must be between 1 and 1024').toInt(),
     body('fragmentEnabled').optional().isBoolean().withMessage('fragmentEnabled must be boolean').toBoolean(),
-    body('fragmentLength').optional().isString().matches(/^\d+-\d+$/).withMessage('fragmentLength must be like "100-200"'),
-    body('fragmentInterval').optional().isString().matches(/^\d+-\d+$/).withMessage('fragmentInterval must be like "10-20"')
+    body('fragmentLength').optional({ values: 'falsy' }).isString().matches(/^\d+-\d+$/).withMessage('fragmentLength must be like "100-200"'),
+    body('fragmentInterval').optional({ values: 'falsy' }).isString().matches(/^\d+-\d+$/).withMessage('fragmentInterval must be like "10-20"')
   ]
 };
 
