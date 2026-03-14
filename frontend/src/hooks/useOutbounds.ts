@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getOutbounds, createOutbound, updateOutbound, deleteOutbound, toggleOutbound, type Outbound, type OutboundPayload } from '../api/outbound';
+import { getOutbounds, createOutbound, updateOutbound, deleteOutbound, toggleOutbound, type OutboundPayload } from '../api/outbound';
 
 export const useOutbounds = (page = 1, limit = 50) => {
   return useQuery({
