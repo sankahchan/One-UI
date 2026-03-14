@@ -136,6 +136,12 @@ model Inbound {
   fallbacks          Json?            @default("[]")
   // Additional domains for this inbound (multi-domain support)
   domains            String[]         @default([])
+  // Fragment / MUX client-side settings
+  muxEnabled         Boolean  @default(false)
+  muxConcurrency     Int      @default(8)
+  fragmentEnabled    Boolean  @default(false)
+  fragmentLength     String?
+  fragmentInterval   String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   userInbounds       UserInbound[]
@@ -550,4 +556,34 @@ model UsageSnapshot {
   @@index([userId, createdAt])
   @@index([isAnomaly, createdAt])
   @@map("usage_snapshots")
+}
+
+model Outbound {
+  id             Int              @id @default(autoincrement())
+  tag            String           @unique
+  protocol       OutboundProtocol
+  address        String
+  port           Int
+  enabled        Boolean          @default(true)
+  remark         String?
+  settings       Json             @default("{}")
+  streamSettings Json?
+  mux            Json?
+  priority       Int              @default(100)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([enabled, priority])
+  @@map("outbounds")
+}
+
+enum OutboundProtocol {
+  FREEDOM
+  BLACKHOLE
+  SOCKS
+  HTTP
+  TROJAN
+  VMESS
+  VLESS
+  SHADOWSOCKS
 }

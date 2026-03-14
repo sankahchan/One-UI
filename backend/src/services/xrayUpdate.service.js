@@ -1530,6 +1530,13 @@ class XrayUpdateService {
   async runUpdate(input = {}, actor = null) {
     this.ensureScriptedUpdatesEnabled();
 
+    // Version pinning: convert targetVersion to a specific image
+    if (input.targetVersion && !input.image) {
+      const ver = String(input.targetVersion).trim().replace(/^v/, '');
+      input.image = `teddysun/xray:${ver}`;
+      logger.info('Version pinning: targeting specific image', { targetVersion: input.targetVersion, image: input.image });
+    }
+
     const stage = this.normalizeStage(input.stage);
     const channel = stage === 'rollback' ? null : this.normalizeChannel(input.channel);
     const image = stage === 'rollback' ? null : this.normalizeImage(input.image);

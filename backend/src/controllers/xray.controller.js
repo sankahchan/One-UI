@@ -160,7 +160,8 @@ class XrayController {
         stage: 'canary',
         channel: req.body?.channel,
         image: req.body?.image,
-        noRollback: req.body?.noRollback
+        noRollback: req.body?.noRollback,
+        targetVersion: req.body?.targetVersion
       }, buildActorContext(req));
 
       res.json(ApiResponse.success(result, 'Xray canary update completed'));
@@ -176,7 +177,8 @@ class XrayController {
         channel: req.body?.channel,
         image: req.body?.image,
         noRollback: req.body?.noRollback,
-        force: req.body?.force
+        force: req.body?.force,
+        targetVersion: req.body?.targetVersion
       }, buildActorContext(req));
 
       res.json(ApiResponse.success(result, 'Xray full update completed'));
@@ -341,6 +343,44 @@ class XrayController {
           : Boolean(req.query?.includeHash);
       const status = await xrayGeodataService.getStatus({ includeHash });
       res.json(ApiResponse.success(status, 'Geodata status retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getObservatoryStatus(_req, res, next) {
+    try {
+      const observatoryService = require('../services/observatory.service');
+      const status = await observatoryService.getStatus();
+      res.json(ApiResponse.success(status, 'Observatory status retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getDnsConfig(_req, res, next) {
+    try {
+      const dnsConfigService = require('../services/dnsConfig.service');
+      const config = await dnsConfigService.getConfig();
+      res.json(ApiResponse.success(config, 'DNS config retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateDnsConfig(req, res, next) {
+    try {
+      const dnsConfigService = require('../services/dnsConfig.service');
+      const config = await dnsConfigService.setConfig(req.body || {});
+      // Optionally reload xray config
+      if (req.body?.apply !== false) {
+        try {
+          await xrayManager.reloadConfig();
+        } catch (reloadError) {
+          logger.warn('Failed to reload xray config after DNS update', { error: reloadError?.message });
+        }
+      }
+      res.json(ApiResponse.success(config, 'DNS config updated'));
     } catch (error) {
       next(error);
     }

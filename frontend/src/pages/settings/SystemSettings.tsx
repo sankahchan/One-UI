@@ -38,6 +38,7 @@ import { Card } from '../../components/atoms/Card';
 import { Button } from '../../components/atoms/Button';
 import { Input } from '../../components/atoms/Input';
 import { ConfirmDialog } from '../../components/organisms/ConfirmDialog';
+import { ObservatoryCard } from '../../components/organisms/ObservatoryCard';
 import { useToast } from '../../hooks/useToast';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getPreflightFixCommands, getPreflightMetadataString } from '../../utils/xrayUpdatePreflight';
@@ -82,6 +83,7 @@ const SystemSettings: React.FC = () => {
   const [showConfigPreview, setShowConfigPreview] = useState(false);
   const [copiedConfig, setCopiedConfig] = useState(false);
   const [updateChannel, setUpdateChannel] = useState<'stable' | 'latest'>('stable');
+  const [targetVersion, setTargetVersion] = useState('');
   const [historyPage, setHistoryPage] = useState(1);
   const [selectedRollbackTag, setSelectedRollbackTag] = useState('');
   const [selectedSnapshotId, setSelectedSnapshotId] = useState('');
@@ -458,7 +460,8 @@ const SystemSettings: React.FC = () => {
     }
     try {
       const result = await runCanaryUpdateMutation.mutateAsync({
-        channel: updateChannel
+        channel: updateChannel,
+        ...(targetVersion ? { targetVersion } : {})
       });
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
@@ -498,7 +501,8 @@ const SystemSettings: React.FC = () => {
     try {
       const result = await runFullUpdateMutation.mutateAsync({
         channel: updateChannel,
-        force
+        force,
+        ...(targetVersion ? { targetVersion } : {})
       });
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
@@ -544,7 +548,8 @@ const SystemSettings: React.FC = () => {
       }
 
       const canaryResult = await runCanaryUpdateMutation.mutateAsync({
-        channel: updateChannel
+        channel: updateChannel,
+        ...(targetVersion ? { targetVersion } : {})
       });
 
       const continueToFull = await requestConfirm({
@@ -562,7 +567,8 @@ const SystemSettings: React.FC = () => {
       }
 
       const fullResult = await runFullUpdateMutation.mutateAsync({
-        channel: updateChannel
+        channel: updateChannel,
+        ...(targetVersion ? { targetVersion } : {})
       });
       toast.success(
         t('common.success', { defaultValue: 'Success' }),
@@ -975,6 +981,8 @@ const SystemSettings: React.FC = () => {
         </p>
       </Card>
 
+      <ObservatoryCard />
+
       <div id="mieru-sidecar">
         <Card>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -1252,6 +1260,25 @@ const SystemSettings: React.FC = () => {
                 Latest
               </Button>
             </div>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Target Version</p>
+            <select
+              className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+              value={targetVersion}
+              onChange={(e) => setTargetVersion(e.target.value)}
+              disabled={runCanaryUpdateMutation.isPending || runFullUpdateMutation.isPending}
+            >
+              <option value="">Use channel ({updateChannel})</option>
+              {xrayReleaseIntel?.recent?.map((release) => (
+                <option key={release.tagName} value={release.tagName}>
+                  {release.tagName}{release.prerelease ? ' (pre-release)' : ''}{release.needsUpdate === false ? ' (current)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Pin a specific version or leave blank to use the channel default.
+            </p>
           </div>
         </div>
 

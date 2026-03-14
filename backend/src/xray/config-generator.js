@@ -197,6 +197,10 @@ class XrayConfigGenerator {
       entries.push(['one-ui-50-observatory.json', { observatory: config.observatory }]);
     }
 
+    if (config.dns) {
+      entries.push(['one-ui-45-dns.json', { dns: config.dns }]);
+    }
+
     return entries;
   }
 
@@ -503,6 +507,34 @@ class XrayConfigGenerator {
         const dedupedRules = rules.filter((rule) => rule.balancerTag !== balancerConfig.balancer.tag);
         config.routing.rules = [balancerConfig.rule, ...dedupedRules];
       }
+    }
+
+    // Add DNS config if enabled
+    try {
+      const dnsConfigService = require('../services/dnsConfig.service');
+      const dnsConfig = await dnsConfigService.getConfig();
+      const dnsBlock = dnsConfigService.toXrayDnsBlock(dnsConfig);
+      if (dnsBlock) {
+        config.dns = dnsBlock;
+      }
+    } catch (dnsError) {
+      logger.debug('DNS config not available', { error: dnsError?.message });
+    }
+
+    // Add custom outbounds from database
+    try {
+      const outboundService = require('../services/outbound.service');
+      const { items: customOutbounds } = await outboundService.list({ page: 1, limit: 500 });
+      const enabledOutbounds = customOutbounds.filter((ob) => ob.enabled);
+      for (const ob of enabledOutbounds) {
+        const xrayOutbound = outboundService.toXrayOutbound(ob);
+        // Don't override built-in outbounds
+        if (!config.outbounds.some((existing) => existing.tag === xrayOutbound.tag)) {
+          config.outbounds.push(xrayOutbound);
+        }
+      }
+    } catch (outboundError) {
+      logger.debug('Custom outbounds not available', { error: outboundError?.message });
     }
 
     // Add WARP outbound if enabled

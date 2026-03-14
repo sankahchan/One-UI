@@ -104,6 +104,9 @@ router.post(
   validate,
   xrayController.updateGeodata
 );
+router.get('/observatory/status', xrayController.getObservatoryStatus);
+router.get('/dns/config', xrayController.getDnsConfig);
+router.put('/dns/config', authorize('SUPER_ADMIN', 'ADMIN'), xrayController.updateDnsConfig);
 router.get('/online', xrayController.getOnlineUsers);
 
 router.get('/update/policy', authorize('SUPER_ADMIN', 'ADMIN'), xrayController.getUpdatePolicy);
@@ -140,7 +143,8 @@ router.post(
   [
     body('channel').optional().isIn(['stable', 'latest']).withMessage('channel must be stable or latest'),
     body('image').optional().isString().withMessage('image must be a string'),
-    body('noRollback').optional().isBoolean().withMessage('noRollback must be boolean').toBoolean()
+    body('noRollback').optional().isBoolean().withMessage('noRollback must be boolean').toBoolean(),
+    body('targetVersion').optional().isString().matches(/^v?\d+\.\d+\.\d+/).withMessage('targetVersion must be a valid version like v1.8.24')
   ],
   validate,
   xrayController.runCanaryUpdate
@@ -154,7 +158,8 @@ router.post(
     body('channel').optional().isIn(['stable', 'latest']).withMessage('channel must be stable or latest'),
     body('image').optional().isString().withMessage('image must be a string'),
     body('noRollback').optional().isBoolean().withMessage('noRollback must be boolean').toBoolean(),
-    body('force').optional().isBoolean().withMessage('force must be boolean').toBoolean()
+    body('force').optional().isBoolean().withMessage('force must be boolean').toBoolean(),
+    body('targetVersion').optional().isString().matches(/^v?\d+\.\d+\.\d+/).withMessage('targetVersion must be a valid version like v1.8.24')
   ],
   validate,
   xrayController.runFullUpdate

@@ -28,6 +28,7 @@ const Users = lazy(() =>
 const Groups = lazy(() => import('./pages/Groups').then((module) => ({ default: module.Groups })));
 const UserDetail = lazy(() => import('./pages/UserDetail').then((module) => ({ default: module.UserDetail })));
 const Inbounds = lazy(() => import('./pages/Inbounds').then((module) => ({ default: module.Inbounds })));
+const Outbounds = lazy(() => import('./pages/Outbounds').then((module) => ({ default: module.Outbounds })));
 const Mieru = lazy(() => import('./pages/Mieru').then((module) => ({ default: module.MieruPage })));
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
 const UserInfoPage = lazy(() =>
@@ -71,6 +72,7 @@ const detectRuntimePanelBasePath = () => {
     'users',
     'groups',
     'inbounds',
+    'outbounds',
     'mieru',
     'settings',
     'mieru-share',
@@ -120,6 +122,7 @@ const AppRoutes: React.FC = () => {
             <Route path="groups/:id" element={<Groups />} />
             <Route path="users/:id" element={<UserDetail />} />
             <Route path="inbounds" element={<Inbounds />} />
+            <Route path="outbounds" element={<Outbounds />} />
             <Route path="mieru" element={<Mieru />} />
             <Route path="settings" element={<Settings />} />
           </Route>

@@ -58,6 +58,12 @@ interface FormData {
   // Multiple domains
   domains?: string[] | string;
   fallbacks?: string;
+  // Fragment / MUX client-side settings
+  muxEnabled?: boolean;
+  muxConcurrency?: number;
+  fragmentEnabled?: boolean;
+  fragmentLength?: string;
+  fragmentInterval?: string;
 }
 
 interface FallbackRow {
@@ -180,6 +186,11 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
       network: 'TCP',
       security: 'NONE',
       alpn: '["h2","http/1.1"]',
+      muxEnabled: false,
+      muxConcurrency: 8,
+      fragmentEnabled: false,
+      fragmentLength: '',
+      fragmentInterval: '',
       ...initialValues
     }
   });
@@ -204,6 +215,9 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
   const isDokodemo = protocol === 'DOKODEMO_DOOR';
   const supportsTransport = ['VLESS', 'VMESS', 'TROJAN', 'SHADOWSOCKS'].includes(protocol);
   const supportsTls = ['VLESS', 'VMESS', 'TROJAN', 'SHADOWSOCKS'].includes(protocol);
+  const supportsMuxFragment = ['VLESS', 'VMESS', 'TROJAN', 'SHADOWSOCKS'].includes(protocol);
+  const muxEnabled = watch('muxEnabled');
+  const fragmentEnabled = watch('fragmentEnabled');
   const supportsReality = protocol === 'VLESS';
   const supportsFallbacks = ['VLESS', 'TROJAN'].includes(protocol);
 
@@ -1421,6 +1435,87 @@ export const InboundFormModal: React.FC<InboundFormModalProps> = ({
                   </select>
                 </div>
               </div>
+            )}
+
+            {supportsMuxFragment && (
+              <details className="group rounded-xl border border-line/70 bg-panel/50">
+                <summary className="cursor-pointer select-none px-4 py-3 text-lg font-semibold text-foreground transition-colors hover:bg-card/40">
+                  Advanced (MUX / Fragment)
+                </summary>
+                <div className="space-y-5 px-4 pb-4 pt-2">
+                  {/* MUX */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <input
+                        type="checkbox"
+                        {...register('muxEnabled')}
+                        className="h-4 w-4 rounded border-line bg-card"
+                      />
+                      Enable MUX (Multiplexing)
+                    </label>
+                    {muxEnabled && (
+                      <div className="ml-6">
+                        <Input
+                          label="Concurrency"
+                          type="number"
+                          {...register('muxConcurrency', {
+                            valueAsNumber: true,
+                            min: { value: 1, message: 'Min 1' },
+                            max: { value: 1024, message: 'Max 1024' }
+                          })}
+                          error={errors.muxConcurrency?.message}
+                          placeholder="8"
+                        />
+                        <p className="mt-1 text-xs text-muted">
+                          Number of concurrent connections multiplexed over a single TCP stream (1-1024).
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fragment */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <input
+                        type="checkbox"
+                        {...register('fragmentEnabled')}
+                        className="h-4 w-4 rounded border-line bg-card"
+                      />
+                      Enable Fragment (TCP Fragmentation)
+                    </label>
+                    {fragmentEnabled && (
+                      <div className="ml-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <Input
+                            label="Fragment Length"
+                            {...register('fragmentLength', {
+                              pattern: { value: /^\d+-\d+$/, message: 'Must be like "100-200"' }
+                            })}
+                            error={errors.fragmentLength?.message}
+                            placeholder="100-200"
+                          />
+                          <p className="mt-1 text-xs text-muted">
+                            Range of bytes per fragment, e.g. "100-200".
+                          </p>
+                        </div>
+                        <div>
+                          <Input
+                            label="Fragment Interval"
+                            {...register('fragmentInterval', {
+                              pattern: { value: /^\d+-\d+$/, message: 'Must be like "10-20"' }
+                            })}
+                            error={errors.fragmentInterval?.message}
+                            placeholder="10-20"
+                          />
+                          <p className="mt-1 text-xs text-muted">
+                            Delay in ms between fragments, e.g. "10-20".
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </details>
             )}
 
             <div className="sticky bottom-0 z-10 -mx-5 flex flex-col gap-2 border-t border-line/70 bg-card/95 px-5 pb-2 pt-4 sm:-mx-6 sm:flex-row sm:px-6">

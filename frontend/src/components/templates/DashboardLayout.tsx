@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Radio,
+  Route,
   Server,
   Settings,
   Users,
@@ -101,6 +102,7 @@ export const DashboardLayout: React.FC = () => {
       { path: '/users', icon: Users, label: t('nav.users') },
       { path: '/groups', icon: Layers3, label: t('nav.groups') },
       { path: '/inbounds', icon: Radio, label: t('nav.inbounds') },
+      { path: '/outbounds', icon: Route, label: t('nav.outbounds', { defaultValue: 'Outbounds' }) },
       { path: '/mieru', icon: Server, label: t('nav.mieru', { defaultValue: 'Mieru' }) },
       { path: '/settings', icon: Settings, label: t('nav.settings') }
     ],

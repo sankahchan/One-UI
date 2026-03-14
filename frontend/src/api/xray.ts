@@ -134,6 +134,24 @@ export interface XrayRuntimeDoctorResult {
   preflight: XrayUpdatePreflight;
 }
 
+export interface DnsServer {
+  address: string;
+  port: number;
+  domains: string[];
+  expectIPs: string[];
+}
+
+export interface DnsConfig {
+  enabled: boolean;
+  servers: DnsServer[];
+  hosts: Record<string, string>;
+  clientIp: string;
+  queryStrategy: 'UseIP' | 'UseIPv4' | 'UseIPv6';
+  disableCache: boolean;
+  disableFallback: boolean;
+  tag: string;
+}
+
 export type XrayConfig = Record<string, unknown>;
 
 export interface XrayReleaseChannel {
@@ -195,6 +213,20 @@ export interface XrayGeodataStatus {
   files: XrayGeodataFileStatus[];
 }
 
+export interface ObservatoryOutbound {
+  tag: string;
+  alive: boolean;
+  delay: number;
+  lastSeenTime: string | null;
+  lastTryTime: string | null;
+  lastErrorReason: string | null;
+}
+
+export interface ObservatoryStatus {
+  enabled: boolean;
+  outbounds: ObservatoryOutbound[];
+}
+
 export const xrayApi = {
   getOnlineUsers: async (): Promise<ApiResponse<OnlineUsersResponse>> => {
     return apiClient.get('/xray/online');
@@ -228,11 +260,11 @@ export const xrayApi = {
     return apiClient.get('/xray/update/history', { params });
   },
 
-  runCanaryUpdate: async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean } = {}): Promise<ApiResponse<XrayUpdateRunResult>> => {
+  runCanaryUpdate: async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; targetVersion?: string } = {}): Promise<ApiResponse<XrayUpdateRunResult>> => {
     return apiClient.post('/xray/update/canary', data);
   },
 
-  runFullUpdate: async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean } = {}): Promise<ApiResponse<XrayUpdateRunResult>> => {
+  runFullUpdate: async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean; targetVersion?: string } = {}): Promise<ApiResponse<XrayUpdateRunResult>> => {
     return apiClient.post('/xray/update/full', data);
   },
 
@@ -290,6 +322,18 @@ export const xrayApi = {
 
   getConfDirStatus: async (): Promise<ApiResponse<{ directory: string; files: Array<{ name: string; path: string; size: number; modifiedAt: string }> }>> => {
     return apiClient.get('/xray/confdir/status');
+  },
+
+  getObservatoryStatus: async (): Promise<ApiResponse<ObservatoryStatus>> => {
+    return apiClient.get('/xray/observatory/status');
+  },
+
+  getDnsConfig: async (): Promise<ApiResponse<DnsConfig>> => {
+    return apiClient.get('/xray/dns/config');
+  },
+
+  updateDnsConfig: async (payload: Partial<DnsConfig> & { apply?: boolean }): Promise<ApiResponse<DnsConfig>> => {
+    return apiClient.put('/xray/dns/config', payload);
   }
 };
 
@@ -366,7 +410,7 @@ export const getXrayUpdateHistory = async (params: { page?: number; limit?: numb
   };
 };
 
-export const runXrayCanaryUpdate = async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean } = {}): Promise<XrayUpdateRunResult> => {
+export const runXrayCanaryUpdate = async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; targetVersion?: string } = {}): Promise<XrayUpdateRunResult> => {
   const response = await xrayApi.runCanaryUpdate(data);
   if (!response.data) {
     throw new Error(response.message || 'Unable to run Xray canary update');
@@ -374,7 +418,7 @@ export const runXrayCanaryUpdate = async (data: { channel?: 'stable' | 'latest';
   return response.data;
 };
 
-export const runXrayFullUpdate = async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean } = {}): Promise<XrayUpdateRunResult> => {
+export const runXrayFullUpdate = async (data: { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean; targetVersion?: string } = {}): Promise<XrayUpdateRunResult> => {
   const response = await xrayApi.runFullUpdate(data);
   if (!response.data) {
     throw new Error(response.message || 'Unable to run Xray full update');
@@ -483,10 +527,26 @@ export const syncXrayConfDir = async (): Promise<{ directory: string; files: Arr
   return response.data;
 };
 
+export const getObservatoryStatus = async (): Promise<ObservatoryStatus> => {
+  const response = await xrayApi.getObservatoryStatus();
+  return response.data ?? { enabled: false, outbounds: [] };
+};
+
 export const getXrayConfDirStatus = async (): Promise<{ directory: string; files: Array<{ name: string; path: string; size: number; modifiedAt: string }> }> => {
   const response = await xrayApi.getConfDirStatus();
   if (!response.data) {
     throw new Error(response.message || 'Unable to fetch confdir status');
   }
+  return response.data;
+};
+
+export const getDnsConfig = async (): Promise<DnsConfig> => {
+  const response = await xrayApi.getDnsConfig();
+  return response.data ?? { enabled: false, servers: [], hosts: {}, clientIp: '', queryStrategy: 'UseIP', disableCache: false, disableFallback: false, tag: 'dns-inbound' };
+};
+
+export const updateDnsConfig = async (payload: Partial<DnsConfig> & { apply?: boolean }): Promise<DnsConfig> => {
+  const response = await xrayApi.updateDnsConfig(payload);
+  if (!response.data) throw new Error(response.message || 'Unable to update DNS config');
   return response.data;
 };

@@ -62,7 +62,12 @@ const ALLOWED_FIELDS = new Set([
   'wgMtu',
   'dokodemoTargetPort',
   'dokodemoNetwork',
-  'dokodemoFollowRedirect'
+  'dokodemoFollowRedirect',
+  'muxEnabled',
+  'muxConcurrency',
+  'fragmentEnabled',
+  'fragmentLength',
+  'fragmentInterval'
 ]);
 
 const TEMPLATE_PRESET_ALIASES = Object.freeze({

@@ -59,6 +59,12 @@ export interface Inbound {
   dokodemoTargetPort?: number;
   dokodemoNetwork?: string;
   dokodemoFollowRedirect?: boolean;
+  // Fragment / MUX client-side settings
+  muxEnabled?: boolean;
+  muxConcurrency?: number;
+  fragmentEnabled?: boolean;
+  fragmentLength?: string;
+  fragmentInterval?: string;
   domains?: string[];
   fallbacks?: Array<{
     dest: string;
@@ -479,6 +485,37 @@ export interface ApiResponse<T> {
   };
 }
 
+export type OutboundProtocol = 'FREEDOM' | 'BLACKHOLE' | 'SOCKS' | 'HTTP' | 'TROJAN' | 'VMESS' | 'VLESS' | 'SHADOWSOCKS';
+
+export interface Outbound {
+  id: number;
+  tag: string;
+  protocol: OutboundProtocol;
+  address: string;
+  port: number;
+  enabled: boolean;
+  remark?: string;
+  settings: Record<string, unknown>;
+  streamSettings?: Record<string, unknown> | null;
+  mux?: Record<string, unknown> | null;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OutboundPayload {
+  tag: string;
+  protocol: OutboundProtocol;
+  address: string;
+  port: number;
+  enabled?: boolean;
+  remark?: string;
+  settings?: Record<string, unknown>;
+  streamSettings?: Record<string, unknown> | null;
+  mux?: Record<string, unknown> | null;
+  priority?: number;
+}
+
 // Compatibility exports used across current frontend modules.
 export type UserStatus = User['status'];
 export type Protocol = Inbound['protocol'];
@@ -616,6 +653,11 @@ export interface InboundPayload {
   dokodemoTargetPort?: number;
   dokodemoNetwork?: string;
   dokodemoFollowRedirect?: boolean;
+  muxEnabled?: boolean;
+  muxConcurrency?: number;
+  fragmentEnabled?: boolean;
+  fragmentLength?: string;
+  fragmentInterval?: string;
 }
 
 export type UserActivityAlertSeverity = 'low' | 'medium' | 'high' | 'critical';

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Shield, Database, Bell, Server, Key, Activity, RefreshCw, Lock, Palette, Webhook, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Shield, Database, Bell, Server, Key, Activity, RefreshCw, Lock, Palette, Webhook, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
@@ -16,8 +16,9 @@ const SystemSettings = lazy(() => import('./settings/SystemSettings'));
 const ApiKeysSettings = lazy(() => import('./settings/ApiKeysSettings'));
 const ConnectionLogsSettings = lazy(() => import('./settings/ConnectionLogsSettings'));
 const ToolsSettings = lazy(() => import('./settings/ToolsSettings'));
+const DnsSettings = lazy(() => import('./settings/DnsSettings'));
 
-type SettingsTab = 'ssl' | 'security' | 'branding' | 'telegram' | 'notifications' | 'backup' | 'system' | 'apikeys' | 'logs' | 'tools';
+type SettingsTab = 'ssl' | 'security' | 'branding' | 'telegram' | 'notifications' | 'backup' | 'system' | 'apikeys' | 'logs' | 'tools' | 'dns';
 
 const SETTINGS_TAB_KEYS: SettingsTab[] = [
   'ssl',
@@ -29,7 +30,8 @@ const SETTINGS_TAB_KEYS: SettingsTab[] = [
   'system',
   'apikeys',
   'logs',
-  'tools'
+  'tools',
+  'dns'
 ];
 
 function isSettingsTab(value: string | null): value is SettingsTab {
@@ -65,7 +67,8 @@ export const Settings: React.FC = () => {
       { key: 'system', label: t('settings.system'), icon: Server, superOnly: false },
       { key: 'apikeys', label: t('settings.apiKeys'), icon: Key, superOnly: false },
       { key: 'logs', label: t('logs.title'), icon: Activity, superOnly: false },
-      { key: 'tools', label: t('settings.tools', { defaultValue: 'Tools' }), icon: RefreshCw, superOnly: true }
+      { key: 'tools', label: t('settings.tools', { defaultValue: 'Tools' }), icon: RefreshCw, superOnly: true },
+      { key: 'dns', label: t('settings.dns', { defaultValue: 'DNS' }), icon: Globe, superOnly: false }
     ] as const),
     [t]
   );
@@ -251,6 +254,7 @@ export const Settings: React.FC = () => {
           {activeTab === 'apikeys' ? <ApiKeysSettings /> : null}
           {activeTab === 'logs' ? <ConnectionLogsSettings /> : null}
           {activeTab === 'tools' ? <ToolsSettings /> : null}
+          {activeTab === 'dns' ? <DnsSettings /> : null}
         </Suspense>
       </div>
     </div>

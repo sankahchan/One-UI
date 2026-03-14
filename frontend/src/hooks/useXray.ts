@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createXrayConfigSnapshot,
+  getDnsConfig,
+  updateDnsConfig,
   getXrayConfigSnapshots,
   getXrayConfDirStatus,
   getXrayGeodataStatus,
@@ -10,6 +12,7 @@ import {
   getXrayUpdateHistory,
   getXrayUpdatePreflight,
   getXrayUpdatePolicy,
+  getObservatoryStatus,
   getOnlineUsers,
   rollbackXrayConfigSnapshot,
   getXrayConfig,
@@ -24,6 +27,7 @@ import {
   syncXrayConfDir,
   updateXrayGeodata,
   updateXrayRoutingProfile,
+  type ObservatoryStatus,
   type OnlineUsersResponse,
   type XrayActionResult,
   type XrayConfig,
@@ -39,7 +43,8 @@ import {
   type XrayUpdateUnlockRequest,
   type XrayUpdateUnlockResult,
   type XrayRollbackRequest,
-  type XrayRuntimeDoctorResult
+  type XrayRuntimeDoctorResult,
+  type DnsConfig
 } from '../api/xray';
 
 interface UseOnlineUsersOptions {
@@ -134,7 +139,7 @@ export const useXrayUpdateHistory = (page = 1, limit = 20) => {
 export const useRunXrayCanaryUpdate = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<XrayUpdateRunResult, Error, { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean }>({
+  return useMutation<XrayUpdateRunResult, Error, { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; targetVersion?: string }>({
     mutationFn: runXrayCanaryUpdate,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['xray-update-policy'] });
@@ -148,7 +153,7 @@ export const useRunXrayCanaryUpdate = () => {
 export const useRunXrayFullUpdate = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<XrayUpdateRunResult, Error, { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean }>({
+  return useMutation<XrayUpdateRunResult, Error, { channel?: 'stable' | 'latest'; image?: string; noRollback?: boolean; force?: boolean; targetVersion?: string }>({
     mutationFn: runXrayFullUpdate,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['xray-update-policy'] });
@@ -321,12 +326,42 @@ export const useXrayConfDirStatus = (enabled = true) => {
   });
 };
 
+export const useObservatoryStatus = (enabled = true) => {
+  return useQuery<ObservatoryStatus>({
+    queryKey: ['observatory-status'],
+    queryFn: getObservatoryStatus,
+    enabled,
+    refetchInterval: 15_000,
+    staleTime: 5_000
+  });
+};
+
 export const useSyncXrayConfDir = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: syncXrayConfDir,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['xray-confdir-status'] });
+    }
+  });
+};
+
+export const useDnsConfig = (enabled = true) => {
+  return useQuery<DnsConfig>({
+    queryKey: ['dns-config'],
+    queryFn: getDnsConfig,
+    enabled,
+    staleTime: 10_000
+  });
+};
+
+export const useUpdateDnsConfig = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateDnsConfig,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['dns-config'] });
+      void queryClient.invalidateQueries({ queryKey: ['xray-config'] });
     }
   });
 };
